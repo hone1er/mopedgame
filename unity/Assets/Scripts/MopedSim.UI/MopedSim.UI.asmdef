@@ -1,0 +1,17 @@
+{
+  "name": "MopedSim.UI",
+  "rootNamespace": "MopedSim.UI",
+  "references": [
+    "MopedSim.Core",
+    "MopedSim.Data"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

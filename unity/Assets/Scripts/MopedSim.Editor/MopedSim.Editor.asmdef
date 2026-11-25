@@ -1,0 +1,26 @@
+{
+  "name": "MopedSim.Editor",
+  "rootNamespace": "MopedSim.Editor",
+  "references": [
+    "MopedSim.Core",
+    "MopedSim.Data",
+    "MopedSim.Ride",
+    "MopedSim.Garage",
+    "MopedSim.World",
+    "MopedSim.UI",
+    "MopedSim.Audio",
+    "MopedSim.App",
+    "glTFast"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

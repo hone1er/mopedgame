@@ -1,0 +1,32 @@
+{
+  "name": "MopedSim.Tests.EditMode",
+  "rootNamespace": "MopedSim.Tests.EditMode",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "MopedSim.Core",
+    "MopedSim.Data",
+    "MopedSim.Ride",
+    "MopedSim.Garage",
+    "MopedSim.World",
+    "MopedSim.UI",
+    "MopedSim.Audio",
+    "MopedSim.App",
+    "MopedSim.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

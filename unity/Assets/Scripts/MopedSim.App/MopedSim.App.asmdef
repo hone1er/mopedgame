@@ -1,0 +1,23 @@
+{
+  "name": "MopedSim.App",
+  "rootNamespace": "MopedSim.App",
+  "references": [
+    "MopedSim.Core",
+    "MopedSim.Data",
+    "MopedSim.Ride",
+    "MopedSim.Garage",
+    "MopedSim.World",
+    "MopedSim.UI",
+    "MopedSim.Audio",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

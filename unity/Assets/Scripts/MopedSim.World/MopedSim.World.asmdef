@@ -1,0 +1,17 @@
+{
+  "name": "MopedSim.World",
+  "rootNamespace": "MopedSim.World",
+  "references": [
+    "MopedSim.Core",
+    "MopedSim.Data"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

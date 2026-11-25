@@ -4,7 +4,8 @@
   "references": [
     "MopedSim.Core",
     "MopedSim.Data",
-    "glTFast"
+    "glTFast",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

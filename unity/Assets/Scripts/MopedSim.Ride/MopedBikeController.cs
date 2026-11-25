@@ -9,16 +9,16 @@ namespace MopedSim.Ride
     /// (RearWheelTorqueNm, EngineBrakeTorqueNm). This class performs rigid-body kinematics only:
     /// NO combustion, AFR, CHT, wrenching, fault, or economy math lives here.
     /// FixedUpdate performs zero managed allocations (cached refs, structs, non-alloc raycasts).
+    /// Chassis mass, wheel radius, rolling resistance and base drag area are read from the bound
+    /// BikeSimulation (archetype + mounted parts) in Bind(), never duplicated as hand-tuned copies.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public sealed class MopedBikeController : MonoBehaviour
     {
-        [Header("Chassis")]
-        [SerializeField] private float _bikeMassKg = 55f;
+        [Header("Chassis (overwritten from BikeSimulation.Archetype in Bind)")]
         [SerializeField] private float _riderMassKg = 75f;
-        [SerializeField] private float _wheelRadiusM = 0.268f;
         [SerializeField] private Vector3 _centerOfMassLocal = new Vector3(0f, 0.45f, 0f);
-        [SerializeField] private float _rollingResistanceCoeff = 0.012f;
+        [SerializeField] private bool _autoStepInFixedUpdate = true;
 
         [Header("Raycast Suspension")]
         [SerializeField] private Transform _frontWheelMount;
@@ -39,7 +39,6 @@ namespace MopedSim.Ride
 
         [Header("Aero / Drag (applied as rigid-body force only)")]
         [SerializeField] private AeroTuckController _aero;
-        [SerializeField] private float _defaultAirDensity = 1.0f;
         [SerializeField] private float _referenceAirDensityKgM3 = 1.225f;
 
         [Header("Optional Subsystems")]
@@ -65,6 +64,11 @@ namespace MopedSim.Ride
         private BikeSimulation _sim;
         private ISimRandom _rng;
         private EngineTelemetrySnapshot _latestTelemetry;
+
+        private float _bikeMassKg = 52f;
+        private float _wheelRadiusM = 0.27f;
+        private float _rollingResistanceCoeff = 0.015f;
+        private float _baseCdA = 0.56f;
 
         private float _throttle;
         private float _frontBrakeInput;
@@ -93,6 +97,18 @@ namespace MopedSim.Ride
         public BrakeFadeController Brakes { get { return _brakes; } }
         public BikeSimulation Simulation { get { return _sim; } }
         public Rigidbody Body { get { return _rb; } }
+        public float WheelRadiusM { get { return _wheelRadiusM; } }
+        public float BaseDragAreaCdA { get { return _baseCdA; } }
+        public float TotalMassKg { get { return _bikeMassKg + _riderMassKg; } }
+
+        /// <summary>
+        /// When true (default) FixedUpdate advances the ride. Tests and replay harnesses disable this and call SimulateStep(dt) explicitly.
+        /// </summary>
+        public bool AutoStepInFixedUpdate
+        {
+            get { return _autoStepInFixedUpdate; }
+            set { _autoStepInFixedUpdate = value; }
+        }
 
         public bool SimulationEnabled
         {
@@ -102,23 +118,81 @@ namespace MopedSim.Ride
 
         private void Awake()
         {
+            EnsureInitialized();
+        }
+
+        private void EnsureInitialized()
+        {
+            if (_rb != null)
+            {
+                return;
+            }
+
             _rb = GetComponent<Rigidbody>();
             _tf = transform;
             _rb.mass = _bikeMassKg + _riderMassKg;
             _rb.centerOfMass = _centerOfMassLocal;
+            _rb.linearDamping = 0f;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
             _rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             _surfaceDetector.ClearCache();
-            _ambientAirDensity = _defaultAirDensity;
+            _ambientAirDensity = RideInputState.StandardAirDensity;
         }
 
         /// <summary>
         /// Binds the headless MopedSim.Core simulation + deterministic RNG. Called by MopedSim.App.
+        /// Reads chassis mass, wheel radius, rolling resistance, and handlebar drag/tuck multipliers from Core
+        /// so the rigid body matches the archetype and currently mounted parts.
         /// </summary>
         public void Bind(BikeSimulation simulation, ISimRandom rng)
         {
+            EnsureInitialized();
             _sim = simulation;
             _rng = rng;
+            RefreshChassisFromSimulation();
+        }
+
+        /// <summary>
+        /// Re-reads chassis parameters after garage part swaps (bars, rack, wheels). Event-driven, not per-frame.
+        /// </summary>
+        public void RefreshChassisFromSimulation()
+        {
+            if (_sim == null)
+            {
+                return;
+            }
+
+            EnsureInitialized();
+            BikeArchetypeSpec archetype = _sim.Archetype;
+            _bikeMassKg = Mathf.Max(20f, archetype.BaseDryMassKg + _sim.Assembly.GetMountedPartsMassKg());
+            _wheelRadiusM = Mathf.Max(0.15f, archetype.WheelRadiusM);
+            _rollingResistanceCoeff = Mathf.Max(0f, archetype.RollingResistanceCoeff);
+
+            float barDrag = 1f;
+            float barTuck = 1f;
+            PartInstance bars = _sim.Assembly.GetInstalledPart(SlotIds.Handlebars);
+            if (bars != null)
+            {
+                barDrag = bars.Definition.Stats.AeroDragMultiplier;
+                barTuck = bars.Definition.Stats.TuckDragBonusMultiplier;
+            }
+
+            _baseCdA = Mathf.Max(0.05f, archetype.DragAreaCdA * barDrag);
+            if (_aero != null)
+            {
+                _aero.SetBaseCdA(_baseCdA);
+                _aero.HandlebarTuckEfficiency = barTuck;
+            }
+
+            _rb.mass = _bikeMassKg + _riderMassKg;
+        }
+
+        /// <summary>
+        /// Injects a world-side surface resolver (e.g. MopedSim.App bridging MopedSim.World RoadHazardZone) without Ride referencing World.
+        /// </summary>
+        public void SetSurfaceResolver(SurfaceHazardDetector.ExternalSurfaceResolver resolver)
+        {
+            _surfaceDetector.SetExternalResolver(resolver);
         }
 
         public void SetMounts(Transform frontWheel, Transform rearWheel)
@@ -130,6 +204,10 @@ namespace MopedSim.Ride
         public void SetAero(AeroTuckController aero)
         {
             _aero = aero;
+            if (_aero != null)
+            {
+                _aero.SetBaseCdA(_baseCdA);
+            }
         }
 
         public void SetBrakes(BrakeFadeController brakes)
@@ -170,7 +248,24 @@ namespace MopedSim.Ride
 
         private void FixedUpdate()
         {
-            float dt = Time.fixedDeltaTime;
+            if (_autoStepInFixedUpdate)
+            {
+                SimulateStep(Time.fixedDeltaTime);
+            }
+        }
+
+        /// <summary>
+        /// Advances one ride tick: wheel raycasts, Core BikeSimulation.Step, then rigid-body forces. Zero GC allocations.
+        /// Physics integration itself is performed by Unity (FixedUpdate) or Physics.Simulate (tests).
+        /// </summary>
+        public void SimulateStep(float dt)
+        {
+            EnsureInitialized();
+            if (dt <= 0f)
+            {
+                return;
+            }
+
             Vector3 velocity = _rb.linearVelocity;
             Vector3 forward = _tf.forward;
             Vector3 flatForward = new Vector3(forward.x, 0f, forward.z);
@@ -187,13 +282,11 @@ namespace MopedSim.Ride
                 _pedal.Poll(dt);
             }
 
-            float tuckBlend = 0f;
-            float cda = 0f;
-            if (_aero != null)
-            {
-                cda = _aero.Step(_tuckInput, dt);
-                tuckBlend = _aero.TuckBlend;
-            }
+            bool pedalAssist = _pedalAssistInput || (_pedal != null && _pedal.PedalAssistHeld);
+            bool decompressor = _decompressorInput || (_pedal != null && _pedal.DecompressorHeld);
+            bool choke = _chokeInput || (_pedal != null && _pedal.ChokeHeld);
+
+            float cda = _aero != null ? _aero.Step(_tuckInput, dt) : _baseCdA;
 
             float slopeRad = 0f;
             float roughness = 0f;
@@ -213,8 +306,8 @@ namespace MopedSim.Ride
                 }
             }
 
-            EngineTelemetrySnapshot telemetry = _latestTelemetry;
-            if (_sim != null && _simulationEnabled)
+            bool stepped = false;
+            if (_sim != null && _rng != null && _simulationEnabled)
             {
                 RideInputState input = new RideInputState(
                     _throttle,
@@ -222,19 +315,22 @@ namespace MopedSim.Ride
                     _rearBrakeInput,
                     _steerInput,
                     _tuckInput,
-                    _pedalAssistInput,
-                    _chokeInput,
-                    _decompressorInput,
+                    pedalAssist,
+                    choke,
+                    decompressor,
                     slopeRad,
                     gripMultiplier,
                     roughness,
                     _ambientAirDensity);
 
-                telemetry = _sim.Step(dt, in input, SpeedMps, _rng);
-                _latestTelemetry = telemetry;
+                _latestTelemetry = _sim.Step(dt, in input, SpeedMps, _rng);
+                stepped = true;
             }
 
-            ApplyDrive(telemetry, dt);
+            if (stepped)
+            {
+                ApplyDrive(in _latestTelemetry, forwardSpeed);
+            }
             ApplyBrakes(forwardSpeed, flatForward, dt);
             ApplyAero(velocity, cda);
             ApplyHazards(flatForward, forwardSpeed, dt);
@@ -279,14 +375,22 @@ namespace MopedSim.Ride
             _rb.AddForceAtPosition(hit.normal * springForce, hit.point, ForceMode.Force);
         }
 
-        private void ApplyDrive(in EngineTelemetrySnapshot telemetry, float dt)
+        private void ApplyDrive(in EngineTelemetrySnapshot telemetry, float forwardSpeed)
         {
             if (!_rear.Grounded)
             {
                 return;
             }
 
-            float netTorque = telemetry.RearWheelTorqueNm - telemetry.EngineBrakeTorqueNm;
+            // Engine braking is a wheel-side drag reported by Core's drivetrain; it only resists forward motion
+            // and never pushes a stationary bike backwards.
+            float engineBrakeWheelTorque = 0f;
+            if (_sim != null && forwardSpeed > 0.5f)
+            {
+                engineBrakeWheelTorque = Mathf.Max(0f, _sim.Drivetrain.EngineBrakeWheelTorqueNm);
+            }
+
+            float netTorque = telemetry.RearWheelTorqueNm - engineBrakeWheelTorque;
             float driveForce = netTorque / _wheelRadiusM;
             float grip = Mathf.Max(0.05f, _rear.Surface.GripMultiplier * _weatherGripMultiplier);
             float maxTraction = grip * _rb.mass * 9.81f * 0.9f;
@@ -303,7 +407,7 @@ namespace MopedSim.Ride
             float rollingDrag = _rear.Surface.RollingDragMultiplier * _rollingResistanceCoeff * _rb.mass * 9.81f;
             Vector3 velocity = _rb.linearVelocity;
             Vector3 flatVel = new Vector3(velocity.x, 0f, velocity.z);
-            if (flatVel.sqrMagnitude > 0.01f)
+            if (flatVel.sqrMagnitude > 0.0025f)
             {
                 _rb.AddForce(-flatVel.normalized * rollingDrag, ForceMode.Force);
             }

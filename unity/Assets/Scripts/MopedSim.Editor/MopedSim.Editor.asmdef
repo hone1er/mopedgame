@@ -10,7 +10,9 @@
     "MopedSim.UI",
     "MopedSim.Audio",
     "MopedSim.App",
-    "glTFast"
+    "glTFast",
+    "Unity.InputSystem",
+    "UnityEngine.UI"
   ],
   "includePlatforms": [
     "Editor"

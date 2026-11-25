@@ -3,7 +3,8 @@
   "rootNamespace": "MopedSim.UI",
   "references": [
     "MopedSim.Core",
-    "MopedSim.Data"
+    "MopedSim.Data",
+    "UnityEngine.UI"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

@@ -151,12 +151,12 @@ Frame Chassis (Root)
 ```
 
 **Enforced Wrenching Rules**:
-1. **Precondition Validation**: Attempting to remove `SLOT_CYLINDER` while `BOLT_HEAD_NUT_1` is installed or `SLOT_EXHAUST` is mounted returns `WrenchActionResult.Blocked(blockingNodes)`.
+1. **Precondition Validation**: Attempting to remove `SLOT_CYLINDER` while `BOLT_HEAD_NUT_1` is installed or `SLOT_EXHAUST` is mounted returns `WrenchActionResult.Blocked(blockingNodes)`. `TrySwapPart` fits a replacement part directly across the target slot's own healthy fasteners (preserving existing fastener torque while still blocking on stripped/seized slot fasteners or external blocking slots; failed replacement restores the original part; `TryRemovePart` remains strict).
 2. **Torque Windows**: Each fastener defines `TargetTorqueNm` (e.g., `12 Nm` for M7 cylinder head nuts), `ToleranceNm`, and `StripThresholdNm`.
-   - Under-torqued (`< Target - Tolerance`): Increases vibration loosening rate and gasket leak risk (`AirLeakSeverity` / `ExhaustLeak`).
+   - Under-torqued (`< Target - Tolerance`): Increases vibration loosening rate (`2.5x` multiplier) and gasket leak risk (`AirLeakSeverity` / `ExhaustLeak`).
    - Over-torqued (`> StripThreshold`): Marks bolt `IsStripped = true` (requires Helicoil/tap repair in garage).
 3. **Seized & Rusty Fasteners**: Exhaust flange nuts can spawn or age into `IsSeized = true`; forcing them with a plain wrench snaps/strips the stud unless **Penetrating Oil** is applied first.
-4. **Vibration Loosening**: Every pothole impact and high-RPM 2-stroke buzz slightly loosens un-torqued or non-locktited fasteners proportional to `ChassisVibration`.
+4. **Vibration Loosening**: Every pothole impact and high-RPM 2-stroke buzz gradually loosens fasteners proportional to `ChassisVibration` (properly torqued in-spec fasteners loosen at a minimal `5%` baseline rate, while under-torqued fasteners unwind at `2.5x`).
 
 ---
 
@@ -186,7 +186,7 @@ Frame Chassis (Root)
 
 `MopedSim.Ride` simulates lightweight 2-wheel dynamics fed directly by `BikeSimulation`'s rear-wheel torque and front/rear brake torques:
 - **Lightweight Countersteer & Lean**: Mass ~`48–62 kg` dry + `75 kg` rider; responsive lean transitions (`MaxLeanDeg ~ 38°`), authentic low-speed wobble if overloaded or low tire pressure.
-- **Rider Aero Tuck**: Holding Tuck lowers drag area `CdA` by ~25% (`+3 to +4 mph` on flat straights and downhills), reduced if running tall ape/BMX bars; obscures immediate peripheral road clutter slightly for visceral speed sensation.
+- **Rider Aero Tuck**: Holding Tuck lowers drag area `CdA` by ~30% (`BikeSimulation.AeroTuckCdAMultiplier = 0.70f`, yielding `+3 to +4 mph` on flat straights and downhills), reduced if running tall ape/BMX bars; obscures immediate peripheral road clutter slightly for visceral speed sensation.
 - **Pedal-Assist**: Tapping/holding Pedal adds human torque (`~120–180 W` burst scaled by `RiderStamina`) to climb steep SF hills (`15%–22%` grades) or launch sluggish high-geared bikes off stoplights.
 - **Independent Front & Rear Brakes + Drum Fade**: Cable drum brakes overheat on long descents (e.g., Grizzly Peak / Twin Peaks), temporarily reducing braking coefficient until cooled (upgradable to EBC shoes or hydraulic front disc conversion).
 - **Surface & Hazard Matrix**:

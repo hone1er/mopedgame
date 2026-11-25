@@ -39,7 +39,6 @@ namespace MopedSim.Tests.PlayMode
             rb.constraints = RigidbodyConstraints.FreezeRotation;
             rb.inertiaTensor = new Vector3(18f, 16f, 5f);
             rb.inertiaTensorRotation = Quaternion.identity;
-            rb.interpolation = RigidbodyInterpolation.None;
 
             MopedBikeController ride = go.AddComponent<MopedBikeController>();
             ride.AutoStepInFixedUpdate = false;
@@ -55,6 +54,8 @@ namespace MopedSim.Tests.PlayMode
             ride.SetMounts(front.transform, rear.transform);
             ride.SetAero(aero);
             ride.Bind(sim, new SeededSimRandom(seed));
+            // Controller init enables interpolation for rendering; scripted Physics.Simulate loops need transforms in sync.
+            rb.interpolation = RigidbodyInterpolation.None;
             rb.linearDamping = 0f;
             rb.angularDamping = 0f;
             return ride;

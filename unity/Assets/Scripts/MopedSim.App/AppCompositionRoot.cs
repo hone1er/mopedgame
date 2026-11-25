@@ -811,9 +811,23 @@ namespace MopedSim.App
                 _dyno.StopRun();
             }
 
-            if (state == GameSessionState.Garage && _workstand != null)
+            bool garage = state == GameSessionState.Garage;
+            if (_workstand != null)
             {
-                _workstand.RefreshInteractables();
+                _workstand.SetInspectionActive(garage);
+                if (garage)
+                {
+                    _workstand.RefreshInteractables();
+                }
+            }
+
+            if (_wrench != null)
+            {
+                _wrench.ReadMouseInput = garage;
+                if (!garage)
+                {
+                    _wrench.CancelTorque();
+                }
             }
         }
 

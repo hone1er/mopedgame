@@ -40,6 +40,9 @@ namespace MopedSim.Garage
         private readonly List<string> _mountOrder = new List<string>(48);
         private readonly Stack<Transform> _traversalStack = new Stack<Transform>(64);
         private SlotSocketBindings _bindings;
+        private bool _syncRunning;
+        private bool _syncDirty;
+        private BikeSimulation _pendingSyncSimulation;
 
         public event Action<string> PartMounted;
         public event Action<string> PartUnmounted;
@@ -91,8 +94,14 @@ namespace MopedSim.Garage
             _bindings = bindings;
         }
 
+        public bool IsSyncing
+        {
+            get { return _syncRunning; }
+        }
+
         /// <summary>
         /// Mirrors the BikeSimulation assembly graph: unmounts emptied/swapped slots, then mounts installed parts parent-first.
+        /// Calls made while a sync is awaiting glTF loads are coalesced into one follow-up pass (never overlapping passes).
         /// </summary>
         public async Task SyncWithSimulationAsync(BikeSimulation simulation)
         {
@@ -101,6 +110,31 @@ namespace MopedSim.Garage
                 throw new ArgumentNullException(nameof(simulation));
             }
 
+            _pendingSyncSimulation = simulation;
+            if (_syncRunning)
+            {
+                _syncDirty = true;
+                return;
+            }
+
+            _syncRunning = true;
+            try
+            {
+                do
+                {
+                    _syncDirty = false;
+                    await SyncPassAsync(_pendingSyncSimulation);
+                }
+                while (_syncDirty && this != null);
+            }
+            finally
+            {
+                _syncRunning = false;
+            }
+        }
+
+        private async Task SyncPassAsync(BikeSimulation simulation)
+        {
             IReadOnlyList<MountSlotNode> slots = simulation.Assembly.Slots;
             for (int i = 0; i < slots.Count; i++)
             {
@@ -267,7 +301,12 @@ namespace MopedSim.Garage
         {
             while (_mountOrder.Count > 0)
             {
-                UnmountPart(_mountOrder[0]);
+                string slotId = _mountOrder[_mountOrder.Count - 1];
+                if (!UnmountPart(slotId))
+                {
+                    // Always drain: never spin on an id that is no longer tracked.
+                    _mountOrder.RemoveAt(_mountOrder.Count - 1);
+                }
             }
         }
 
@@ -426,12 +465,19 @@ namespace MopedSim.Garage
 
         private GameObject CompleteMount(MountedPart mounted)
         {
+            // A concurrent mount of the same slot may have completed while this one awaited glTF IO: replace it cleanly.
+            if (_mounted.ContainsKey(mounted.SlotId))
+            {
+                UnmountPart(mounted.SlotId);
+            }
+
             if (mounted.Container != null)
             {
                 IndexSockets(mounted);
             }
 
             _mounted[mounted.SlotId] = mounted;
+            _mountOrder.Remove(mounted.SlotId);
             _mountOrder.Add(mounted.SlotId);
 
             Action<string> handler = PartMounted;

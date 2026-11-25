@@ -121,6 +121,19 @@ namespace MopedSim.Garage
             _block = new MaterialPropertyBlock();
         }
 
+        /// <summary>
+        /// Enables the inspection camera and mouse orbit/pick while the Garage session state is active.
+        /// </summary>
+        public void SetInspectionActive(bool active)
+        {
+            _readMouseInput = active;
+            if (_inspectionCamera != null)
+            {
+                _inspectionCamera.enabled = active;
+                _inspectionCamera.depth = 10f;
+            }
+        }
+
         public void Bind(GarageBikeContext context)
         {
             if (_context != null)

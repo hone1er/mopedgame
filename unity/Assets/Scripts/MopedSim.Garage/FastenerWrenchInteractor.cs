@@ -15,12 +15,15 @@ namespace MopedSim.Garage
     {
         [SerializeField] private float _torqueRampNmPerSecond = 6f;
         [SerializeField] private float _maxWrenchTorqueNm = 60f;
-        [SerializeField] private bool _readMouseInput = true;
+        [SerializeField] private float _minHoldSecondsToCommit = 0.2f;
+        [SerializeField] private bool _readMouseInput;
 
         private GarageBikeContext _context;
         private string _activeFastenerId = string.Empty;
         private float _pendingTorqueNm;
         private bool _wrenchHeld;
+        private float _heldSeconds;
+        private int _selectedFrame = -1;
 
         /// <summary>
         /// Raised with each Core wrench result (torque, loosen, oil, thread repair).
@@ -97,6 +100,8 @@ namespace MopedSim.Garage
             _activeFastenerId = fastenerId;
             _pendingTorqueNm = 0f;
             _wrenchHeld = false;
+            _heldSeconds = 0f;
+            _selectedFrame = Time.frameCount;
             Action<FastenerState> handler = ActiveFastenerChanged;
             if (handler != null)
             {
@@ -121,6 +126,7 @@ namespace MopedSim.Garage
             }
 
             _wrenchHeld = true;
+            _heldSeconds = 0f;
             _pendingTorqueNm = 0f;
         }
 
@@ -134,6 +140,7 @@ namespace MopedSim.Garage
                 return;
             }
 
+            _heldSeconds += dt;
             _pendingTorqueNm = Mathf.Min(_maxWrenchTorqueNm, _pendingTorqueNm + _torqueRampNmPerSecond * dt);
         }
 
@@ -216,13 +223,22 @@ namespace MopedSim.Garage
                 Mouse mouse = Mouse.current;
                 if (mouse != null && _activeFastenerId.Length > 0)
                 {
-                    if (mouse.leftButton.wasPressedThisFrame)
+                    // The press that selected the fastener on the work stand never starts a pull.
+                    if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != _selectedFrame)
                     {
                         BeginTorque();
                     }
                     else if (mouse.leftButton.wasReleasedThisFrame && _wrenchHeld)
                     {
-                        ReleaseAndCommit();
+                        // A quick tap is not a wrench pull: cancel instead of committing a near-zero torque.
+                        if (_heldSeconds >= _minHoldSecondsToCommit)
+                        {
+                            ReleaseAndCommit();
+                        }
+                        else
+                        {
+                            CancelTorque();
+                        }
                     }
                 }
             }

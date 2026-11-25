@@ -277,7 +277,7 @@ namespace MopedSim.App
         }
 
         /// <summary>
-        /// Default catalog location: repo data/catalogs next to the Unity project in the Editor, StreamingAssets/catalogs in players.
+        /// Default catalog location: repo data/catalogs next to the Unity project in the Editor, StreamingAssets/Catalogs in players.
         /// </summary>
         public string ResolveCatalogDirectory()
         {
@@ -291,7 +291,8 @@ namespace MopedSim.App
                 return Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "data", "catalogs"));
             }
 
-            return Path.Combine(Application.streamingAssetsPath, "catalogs");
+            // Staged by MopedSim.Editor.CliBuild before every player build (see CliBuild.StagedCatalogFolder).
+            return Path.Combine(Application.streamingAssetsPath, "Catalogs");
         }
 
         /// <summary>
@@ -391,6 +392,11 @@ namespace MopedSim.App
                 _ride.SetAero(_aero);
                 _ride.Bind(_bike, world.Random);
                 _ride.SetSurfaceResolver(WorldSurfaceBridge.TryResolve);
+                if (_weather != null)
+                {
+                    // Karl the Fog trigger volumes only react to the ride moped's rigidbody.
+                    _weather.SetTrackedRider(_ride.GetComponent<Rigidbody>());
+                }
             }
 
             if (_workstand != null)

@@ -282,6 +282,7 @@ namespace MopedSim.Editor
             fogBox.isTrigger = true;
             fogBox.size = new Vector3(60f, 30f, 300f);
             fog.AddComponent<RoadHazardZone>().ConfigureKarlFogVolume(0.9f);
+            fog.AddComponent<KarlTheFogVolume>().Configure(0.9f, 20f);
             EditorSceneManager.MarkSceneDirty(scene);
         }
 

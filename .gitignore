@@ -1,0 +1,55 @@
+# Unity generated directories
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+
+# Unity generated IDE/solution files
+unity/*.csproj
+unity/*.sln
+unity/*.unityproj
+unity/*.booproj
+unity/*.svd
+unity/*.pdb
+unity/*.mdb
+unity/*.opendb
+unity/*.VC.db
+unity/*.pidb
+unity/Assets/AssetStoreTools*
+
+# IDE & Editor files
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userprefs
+
+# .NET build & test outputs
+bin/
+obj/
+logs/
+TestResults/
+*.nupkg
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# Blender backup files
+*.blend1
+*.blend2
+
+# OS & temporary files
+.DS_Store
+*.tmp
+*.swp
+*~

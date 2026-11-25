@@ -1,0 +1,26 @@
+# Default text normalization
+* text=auto eol=lf
+
+# Source, scripts, configs, and Unity YAML
+*.cs text diff=csharp
+*.py text diff=python
+*.sh text eol=lf
+*.json text
+*.md text
+*.txt text
+*.asmdef text
+*.csproj text
+*.sln text
+*.unity text
+*.prefab text
+*.asset text
+*.mat text
+*.meta text
+*.xml text
+*.svg text
+
+# Binary media & 3D assets tracked by Git LFS
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text

@@ -265,7 +265,7 @@ namespace MopedSim.Data
             }
 
             // Every catalog part must install where the catalog says it can, and nowhere else (Core checks only
-            // Core category + interface overlap, and several catalog categories share PartCategory.Consumable).
+            // Core category + interface overlap, and Tool/Spare share PartCategory.ToolRollItem).
             bool anyCandidate = false;
             for (int i = 0; i < db.PartList.Count; i++)
             {

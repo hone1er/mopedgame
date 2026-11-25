@@ -81,7 +81,7 @@
     "defaultToolRollSlots": {
       "type": "integer",
       "minimum": 4,
-      "maximum": 12
+      "maximum": 10
     },
     "basePriceUsd": {
       "type": "number",

@@ -717,16 +717,21 @@ namespace MopedSim.App
         }
 
         /// <summary>
-        /// Buys a catalog part into the milk-crate inventory when cash covers the listed price.
+        /// Buys a catalog part into the milk-crate inventory. Cash rules live in Core (SimulationWorld.TryPurchasePart).
         /// </summary>
         public bool TryPurchasePart(PartDefinition part)
         {
-            if (_world == null || part == null || _world.CashUsd < part.PriceUsd)
+            if (_world == null || part == null)
             {
                 return false;
             }
 
-            _world.CashUsd -= part.PriceUsd;
+            PurchaseResult purchase = _world.TryPurchasePart(part);
+            if (!purchase.Succeeded)
+            {
+                return false;
+            }
+
             _inventory.Add(part.Id);
             if (_shop != null)
             {

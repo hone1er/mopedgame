@@ -8,7 +8,7 @@ namespace MopedSim.App
     /// <summary>
     /// Maps runtime MopedSim.Core state (SimulationWorld + BikeSimulation) to and from the versioned MopedSim.Data SaveState.
     /// Serialization, schema validation, and migrations are owned by MopedSim.Data.SaveMigrator; restoration only dispatches
-    /// public Core commands (TrySwapPart, TryTorqueFastener, Refuel, InduceFault) so Core keeps every rule.
+    /// public Core commands (TrySwapPart, RestoreFastenerState, Refuel, InduceFault) so Core keeps every rule.
     /// Called on save/load events only (allocates; never per frame).
     /// </summary>
     public static class SaveLoadBridge
@@ -244,32 +244,18 @@ namespace MopedSim.App
             for (int i = 0; i < saved.Fasteners.Count; i++)
             {
                 FastenerSaveState fs = saved.Fasteners[i];
-                FastenerState f = bike.Assembly.GetFastener(fs.FastenerId);
-                if (f == null)
+                // Saves carry no explicit "installed" flag: removal zeroes torque, and stripped threads stay installed.
+                bool installed = fs.IsStripped || fs.CurrentTorqueNm > 0f;
+                WrenchActionResult restored = bike.RestoreFastenerState(
+                    fs.FastenerId,
+                    installed,
+                    fs.CurrentTorqueNm,
+                    fs.IsStripped,
+                    fs.IsSeized,
+                    fs.HasPenetratingOil);
+                if (!restored.Succeeded)
                 {
                     rejected++;
-                    continue;
-                }
-
-                if (fs.IsStripped || !f.IsInstalled)
-                {
-                    // Core exposes no direct "restore stripped thread" command; stripped studs re-strip via over-torque.
-                    if (fs.IsStripped)
-                    {
-                        bike.TryTorqueFastener(fs.FastenerId, f.StripThresholdNm + 1f);
-                    }
-
-                    continue;
-                }
-
-                if (Math.Abs(f.CurrentTorqueNm - fs.CurrentTorqueNm) > 0.001f)
-                {
-                    bike.TryTorqueFastener(fs.FastenerId, fs.CurrentTorqueNm);
-                }
-
-                if (fs.IsSeized)
-                {
-                    bike.Assembly.SetFastenerSeized(fs.FastenerId, true);
                 }
             }
 

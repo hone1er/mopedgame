@@ -1,4 +1,16 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project>
+  <!--
+    Build outputs are redirected to <repo>/artifacts/ so Unity's UPM import of src/MopedSim.Data never picks up stray
+    bin/obj .dll files. BaseIntermediateOutputPath must be set before Sdk.props is imported (restore reads it there),
+    which is why the SDK is imported explicitly instead of via <Project Sdk="...">.
+  -->
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../artifacts/bin/$(MSBuildProjectName)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../artifacts/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <LangVersion>9.0</LangVersion>
@@ -16,4 +28,6 @@
   <ItemGroup>
     <ProjectReference Include="../MopedSim.Core/MopedSim.Core.csproj" />
   </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
 </Project>

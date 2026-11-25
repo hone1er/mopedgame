@@ -21,6 +21,10 @@ unity/*.VC.db
 unity/*.pidb
 unity/Assets/AssetStoreTools*
 
+# Catalog JSON staged by MopedSim.Editor.CliBuild before player builds (source of truth: data/catalogs/)
+unity/Assets/StreamingAssets/Catalogs/
+unity/Assets/StreamingAssets/Catalogs.meta
+
 # IDE & Editor files
 .vs/
 .idea/
@@ -29,7 +33,8 @@ unity/Assets/AssetStoreTools*
 *.user
 *.userprefs
 
-# .NET build & test outputs
+# .NET build & test outputs (src/*.csproj redirect bin/obj here so Unity UPM never imports stray .dlls)
+artifacts/
 bin/
 obj/
 logs/

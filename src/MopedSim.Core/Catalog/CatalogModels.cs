@@ -253,6 +253,18 @@ namespace MopedSim.Core
         public float WheelbaseM { get; set; } = 1.16f;
         public float DragAreaCdA { get; set; } = 0.56f;
         public float RollingResistanceCoeff { get; set; } = 0.015f;
+
+        /// <summary>Fuel loaded into a freshly built bike (catalog defaultFuelMix.fuelLiters; clamped to tank capacity).</summary>
+        public float DefaultFuelLiters { get; set; } = 3.0f;
+
+        /// <summary>Premix oil fraction of a freshly built bike's fuel (0.025 = 40:1). Catalogs author X:1; see ThermalModel.PremixFromRatio.</summary>
+        public float DefaultPremixOilFraction { get; set; } = 0.025f;
+
+        public PetcockMode DefaultPetcockMode { get; set; } = PetcockMode.On;
+
+        /// <summary>Rust contamination of the stock fuel tank (0..1), applied to the tank PartInstance.</summary>
+        public float DefaultTankRustContamination { get; set; }
+
         public List<MountSlotSpec> MountSlots { get; set; } = new List<MountSlotSpec>();
         public List<FastenerSpec> Fasteners { get; set; } = new List<FastenerSpec>();
         public Dictionary<string, string> DefaultPartIds { get; set; } = new Dictionary<string, string>();

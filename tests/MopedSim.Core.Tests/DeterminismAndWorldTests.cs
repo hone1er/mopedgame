@@ -127,5 +127,60 @@ namespace MopedSim.Core.Tests
             Assert.Equal(a.IsSeized, b.IsSeized);
             Assert.Equal(a.CurrentGear, b.CurrentGear);
         }
-    }
+    
+        [Fact]
+        public void TryPurchasePart_DeductsOnlyWhenAffordable_AndRejectsInvalidPrices()
+        {
+            var world = new SimulationWorld(new SeededSimRandom(5u));
+            world.CashUsd = 100m;
+            var jet = new PartDefinition("jet_72", "Main Jet #72", PartCategory.MainJet, new[] { "M5_MainJet" }, 0.01f, 4.50m);
+            var kit = new PartDefinition("cyl_kit_70", "70cc Kit", PartCategory.Cylinder, new[] { "Moped_TopEnd_Studs" }, 2.3f, 165m);
+            var bogus = new PartDefinition("bogus", "Bogus", PartCategory.Seat, new[] { "X" }, 1f, -10m);
+
+            PurchaseResult bought = world.TryPurchasePart(jet);
+            Assert.True(bought.Succeeded);
+            Assert.Equal("jet_72", bought.PartId);
+            Assert.Equal(4.50m, bought.PriceUsd);
+            Assert.Equal(95.50m, bought.RemainingCashUsd);
+            Assert.Equal(95.50m, world.CashUsd);
+
+            PurchaseResult tooExpensive = world.TryPurchasePart(kit);
+            Assert.False(tooExpensive.Succeeded);
+            Assert.Equal(95.50m, tooExpensive.RemainingCashUsd);
+            Assert.Equal(95.50m, world.CashUsd);
+
+            Assert.False(world.TryPurchasePart(bogus).Succeeded);
+            Assert.False(world.TryPurchasePart(null!).Succeeded);
+            Assert.Equal(95.50m, world.CashUsd);
+
+            world.CashUsd = 165m;
+            Assert.True(world.TryPurchasePart(kit).Succeeded);
+            Assert.Equal(0m, world.CashUsd);
+        }
+
+        [Fact]
+        public void ArchetypeFuelDefaults_HydrateFreshBike_AndTankRustSurvivesSubsystemSync()
+        {
+            BikeArchetypeSpec spec = TestFixtures.CreateArchetype(ArchetypeIds.MaxerE50);
+            spec.DefaultFuelLiters = 9.0f; // more than the 3.2 L tank holds
+            spec.DefaultPremixOilFraction = ThermalModel.PremixFromRatio(50f);
+            spec.DefaultPetcockMode = PetcockMode.Reserve;
+            spec.DefaultTankRustContamination = 0.3f;
+            var bike = new BikeSimulation(spec, TestFixtures.CreateCatalog());
+
+            Assert.Equal(3.2f, bike.Fuel.FuelLevelLiters, 4);
+            Assert.Equal(0.02f, bike.Fuel.PremixRatio, 5);
+            Assert.Equal(PetcockMode.Reserve, bike.Fuel.PetcockMode);
+            Assert.Equal(bike.Fuel.FloatBowlCapacityLiters, bike.Fuel.FloatBowlLiters);
+
+            var idle = new RideInputState(throttle: 0.1f);
+            bike.Step(1f / 60f, in idle, new SeededSimRandom(1u));
+            Assert.Equal(0.3f, bike.Fuel.RustContamination, 5);
+
+            bike.Refuel(0.5f, ThermalModel.PremixFromRatio(40f), 0.05f);
+            bike.Step(1f / 60f, in idle, new SeededSimRandom(1u));
+            Assert.Equal(0.05f, bike.Fuel.RustContamination, 5);
+            Assert.Equal(0.05f, bike.Assembly.GetInstalledPart(SlotIds.FuelTank)!.RustContamination, 5);
+        }
+}
 }

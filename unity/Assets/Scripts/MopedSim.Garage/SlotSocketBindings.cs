@@ -45,9 +45,10 @@ namespace MopedSim.Garage
             b.Set(SlotIds.InlineFilter, "SOCKET_PETCOCK");
             b.Set(SlotIds.EngineCradle, "SOCKET_ENGINE_MOUNT");
             b.Set(SlotIds.Ignition, "SOCKET_IGNITION_STATOR");
-            b.Set(SlotIds.StatorPlate, "SOCKET_IGNITION_STATOR");
+            b.Set(SlotIds.Flywheel, "SOCKET_IGNITION_STATOR");
             b.Set(SlotIds.DrivetrainSide, "SOCKET_CLUTCH_OUTPUT");
-            b.Set(SlotIds.DriveBelt, "SOCKET_DRIVE_OUTPUT");
+            b.Set(SlotIds.VariatorRollers, "SOCKET_DRIVE_OUTPUT");
+            b.Set(SlotIds.VariatorBelt, "SOCKET_DRIVE_OUTPUT");
             b.Set(SlotIds.FrontSprocket, "SOCKET_CLUTCH_OUTPUT");
             b.Set(SlotIds.BaseGasket, "SOCKET_CYLINDER_BASE");
             b.Set(SlotIds.Piston, "SOCKET_CYLINDER_BASE");
@@ -62,15 +63,10 @@ namespace MopedSim.Garage
             b.Set(SlotIds.Carburetor, "SOCKET_CARB_MOUNT");
             b.Set(SlotIds.MainJet, "SOCKET_AIR_FILTER");
             b.Set(SlotIds.AirFilter, "SOCKET_AIR_FILTER");
-
-            // Catalog-only slot IDs (data/catalogs/archetypes.json) that have no Core SlotIds constant.
-            b.Set("SLOT_FRONT_BRAKE", "SOCKET_WHEEL_HUB");
-            b.Set("SLOT_REAR_BRAKE_CABLE", "SOCKET_REAR_AXLE");
-            b.Set("SLOT_FLYWHEEL", "SOCKET_IGNITION_STATOR");
-            b.Set("SLOT_PLUG_BOOT", "SOCKET_PLUG_BOOT");
-            b.Set("SLOT_PILOT_JET", "SOCKET_AIR_FILTER");
-            b.Set("SLOT_VARIATOR_ROLLERS", "SOCKET_DRIVE_OUTPUT");
-            b.Set("SLOT_VARIATOR_BELT", "SOCKET_DRIVE_OUTPUT");
+            b.Set(SlotIds.FrontBrake, "SOCKET_WHEEL_HUB");
+            b.Set(SlotIds.RearBrakeCable, "SOCKET_REAR_AXLE");
+            b.Set(SlotIds.PlugBoot, "SOCKET_PLUG_BOOT");
+            b.Set(SlotIds.PilotJet, "SOCKET_AIR_FILTER");
             return b;
         }
 

@@ -22,7 +22,7 @@
         "SOCKET_CARGO_RACK",
         "SOCKET_CENTER_STAND"
       ],
-      "massKg": 14.5,
+      "massKg": 8.6,
       "priceUsd": 220.0,
       "toolRollSlots": 0,
       "stats": {
@@ -53,7 +53,7 @@
         "SOCKET_CARGO_RACK",
         "SOCKET_CENTER_STAND"
       ],
-      "massKg": 15.8,
+      "massKg": 11.0,
       "priceUsd": 265.0,
       "toolRollSlots": 0,
       "stats": {
@@ -84,7 +84,7 @@
         "SOCKET_CARGO_RACK",
         "SOCKET_CENTER_STAND"
       ],
-      "massKg": 15.2,
+      "massKg": 10.9,
       "priceUsd": 250.0,
       "toolRollSlots": 0,
       "stats": {
@@ -110,7 +110,7 @@
         "SOCKET_HEADLIGHT_MOUNT",
         "SOCKET_FENDER_FRONT"
       ],
-      "massKg": 4.2,
+      "massKg": 2.9,
       "priceUsd": 85.0,
       "toolRollSlots": 0,
       "stats": {
@@ -138,7 +138,7 @@
         "BOLT_ENGINE_MOUNT_2",
         "BOLT_ENGINE_MOUNT_3"
       ],
-      "massKg": 6.8,
+      "massKg": 5.2,
       "priceUsd": 180.0,
       "toolRollSlots": 0,
       "stats": {
@@ -167,7 +167,7 @@
         "BOLT_ENGINE_MOUNT_2",
         "BOLT_ENGINE_MOUNT_3"
       ],
-      "massKg": 7.6,
+      "massKg": 5.9,
       "priceUsd": 230.0,
       "toolRollSlots": 0,
       "stats": {
@@ -196,7 +196,7 @@
         "BOLT_ENGINE_MOUNT_2",
         "BOLT_ENGINE_MOUNT_3"
       ],
-      "massKg": 7.4,
+      "massKg": 5.9,
       "priceUsd": 215.0,
       "toolRollSlots": 0,
       "stats": {
@@ -579,7 +579,7 @@
       "meshAssetPath": "Models/Parts/Fuel/tank_stock.glb",
       "assetClass": "Small",
       "requiredSockets": ["SOCKET_PETCOCK"],
-      "massKg": 2.3,
+      "massKg": 1.8,
       "priceUsd": 70.0,
       "toolRollSlots": 0,
       "stats": {
@@ -599,7 +599,7 @@
       "meshAssetPath": "Models/Parts/Exhaust/pipe_stock_baffled.glb",
       "assetClass": "Major",
       "requiredSockets": ["SOCKET_EXHAUST_FLANGE", "SOCKET_EXHAUST_BRACKET"],
-      "massKg": 2.9,
+      "massKg": 2.2,
       "priceUsd": 50.0,
       "toolRollSlots": 0,
       "stats": {
@@ -628,7 +628,7 @@
       "meshAssetPath": "Models/Parts/Exhaust/pipe_circuit_e50_proma.glb",
       "assetClass": "Major",
       "requiredSockets": ["SOCKET_EXHAUST_FLANGE", "SOCKET_EXHAUST_BRACKET"],
-      "massKg": 2.4,
+      "massKg": 2.0,
       "priceUsd": 135.0,
       "toolRollSlots": 0,
       "stats": {
@@ -656,7 +656,7 @@
       "meshAssetPath": "Models/Parts/Exhaust/pipe_topend_expansion.glb",
       "assetClass": "Major",
       "requiredSockets": ["SOCKET_EXHAUST_FLANGE", "SOCKET_EXHAUST_BRACKET"],
-      "massKg": 2.2,
+      "massKg": 1.85,
       "priceUsd": 175.0,
       "toolRollSlots": 0,
       "stats": {
@@ -816,7 +816,7 @@
       "meshAssetPath": "Models/Parts/Chassis/wheel_16_spoke.glb",
       "assetClass": "Major",
       "requiredSockets": ["SOCKET_WHEEL_HUB", "SOCKET_SPROCKET_MOUNT", "BOLT_AXLE_L", "BOLT_AXLE_R"],
-      "massKg": 5.4,
+      "massKg": 3.8,
       "priceUsd": 65.0,
       "toolRollSlots": 0,
       "stats": {
@@ -838,7 +838,7 @@
       "meshAssetPath": "Models/Parts/Chassis/wheel_16_mag.glb",
       "assetClass": "Major",
       "requiredSockets": ["SOCKET_WHEEL_HUB", "SOCKET_SPROCKET_MOUNT", "BOLT_AXLE_L", "BOLT_AXLE_R"],
-      "massKg": 5.9,
+      "massKg": 4.3,
       "priceUsd": 120.0,
       "toolRollSlots": 0,
       "stats": {
@@ -860,7 +860,7 @@
       "meshAssetPath": "Models/Parts/Chassis/shocks_stock_rear.glb",
       "assetClass": "Small",
       "requiredSockets": ["SOCKET_SHOCK_EYE_TOP", "SOCKET_SHOCK_EYE_BOT"],
-      "massKg": 1.8,
+      "massKg": 1.5,
       "priceUsd": 38.0,
       "toolRollSlots": 0,
       "stats": {
@@ -880,7 +880,7 @@
       "meshAssetPath": "Models/Parts/Chassis/shocks_heavy_rear.glb",
       "assetClass": "Small",
       "requiredSockets": ["SOCKET_SHOCK_EYE_TOP", "SOCKET_SHOCK_EYE_BOT"],
-      "massKg": 2.1,
+      "massKg": 1.8,
       "priceUsd": 78.0,
       "toolRollSlots": 0,
       "stats": {
@@ -977,7 +977,7 @@
       "meshAssetPath": "Models/Parts/Chassis/seat_long_buddy.glb",
       "assetClass": "Small",
       "requiredSockets": ["SOCKET_SEAT_CLAMP"],
-      "massKg": 2.15,
+      "massKg": 1.9,
       "priceUsd": 65.0,
       "toolRollSlots": 0,
       "stats": {
@@ -1039,7 +1039,7 @@
       "meshAssetPath": "Models/Parts/Chassis/rack_rear_wire.glb",
       "assetClass": "Small",
       "requiredSockets": ["SOCKET_CARGO_ANCHOR", "BOLT_RACK_1", "BOLT_RACK_2"],
-      "massKg": 1.1,
+      "massKg": 0.8,
       "priceUsd": 25.0,
       "toolRollSlots": 0,
       "stats": {
@@ -1801,7 +1801,7 @@
       "meshAssetPath": null,
       "assetClass": "None",
       "requiredSockets": [],
-      "massKg": 0.72,
+      "massKg": 0.45,
       "priceUsd": 22.0,
       "toolRollSlots": 0,
       "stats": { "teethCount": 45, "position": "Rear" }
@@ -1817,7 +1817,7 @@
       "meshAssetPath": null,
       "assetClass": "None",
       "requiredSockets": [],
-      "massKg": 0.58,
+      "massKg": 0.38,
       "priceUsd": 26.0,
       "toolRollSlots": 0,
       "stats": { "teethCount": 38, "position": "Rear" }

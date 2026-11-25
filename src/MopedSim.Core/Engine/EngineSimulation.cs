@@ -5,6 +5,23 @@ namespace MopedSim.Core
     /// </summary>
     public sealed class EngineSimulation
     {
+        /// <summary>Ideal main jet for a stock 49cc engine on its matched 12mm venturi with a neutral (1.0 flow) pipe.</summary>
+        public const float BaseIdealMainJet = 59.5f;
+
+        /// <summary>Venturi bore (mm) matched to a stock 49cc engine; the reference size for venturi metering.</summary>
+        public const float ReferenceVenturiMm = 12f;
+
+        /// <summary>
+        /// Matched venturi grows with displacement: 12mm @ 49cc, ~15mm @ 70cc, ~19mm @ 100cc.
+        /// </summary>
+        public const float MatchedVenturiDisplacementExponent = 0.625f;
+
+        /// <summary>
+        /// How strongly an oversized venturi demands a bigger main jet. A bore larger than the engine's matched size flows the
+        /// same air at lower velocity (weaker metering signal), so it needs a larger jet for the same AFR; a smaller bore the reverse.
+        /// </summary>
+        public const float VenturiMeteringExponent = 0.90f;
+
         public float Rpm { get; set; }
         public float EffectiveAfr { get; private set; } = 12.8f;
         public float CombustionTorqueNm { get; private set; }
@@ -24,6 +41,21 @@ namespace MopedSim.Core
         public void RefreshAirLeakSeverity(float assemblyAirLeakSeverity)
         {
             AirLeakSeverity = SimMath.Clamp01(assemblyAirLeakSeverity + CrankSealLeakSeverity);
+        }
+
+        /// <summary>
+        /// Main jet size that yields the ~12.8 AFR target at full main-circuit blend for the given displacement, carb venturi bore,
+        /// and exhaust flow. Stock 49cc on a 12mm Bing sits near #58-60, the same 49cc on a 15mm SHA near #70, and a 70cc kit on a
+        /// 15mm SHA with a performance pipe near #72.
+        /// </summary>
+        public static float ComputeIdealMainJet(float displacementCc, float venturiMm, float exhaustFlowEfficiency)
+        {
+            float disp = SimMath.Max(displacementCc, 30f);
+            float dispScale = SimMath.Pow(disp / 49f, 0.42f);
+            float pipeScale = 1f + (exhaustFlowEfficiency - 1f) * 0.22f;
+            float matchedVenturiMm = ReferenceVenturiMm * SimMath.Pow(disp / 49f, MatchedVenturiDisplacementExponent);
+            float venturiScale = SimMath.Pow(SimMath.Clamp(venturiMm, 8f, 32f) / matchedVenturiMm, VenturiMeteringExponent);
+            return BaseIdealMainJet * dispScale * pipeScale * venturiScale;
         }
 
         /// <summary>
@@ -61,10 +93,9 @@ namespace MopedSim.Core
         {
             RefreshAirLeakSeverity(assemblyAirLeakSeverity);
 
-            // Ideal main jet scales cleanly across 49cc stock (#58-60) and 70cc kitted (#70-74).
-            float dispScale = SimMath.Pow(SimMath.Max(displacementCc, 30f) / 49f, 0.42f);
-            float pipeScale = 1f + (exhaustFlowEfficiency - 1f) * 0.22f;
-            float idealMainJet = 59.5f * dispScale * pipeScale;
+            // Ideal main jet scales with displacement, pipe flow, and carb venturi bore relative to the engine's matched size:
+            // 49cc/12mm stock (#58-60), 49cc/15mm SHA (#66-70), 70cc kit/15mm SHA (#70-74).
+            float idealMainJet = ComputeIdealMainJet(displacementCc, venturiMm, exhaustFlowEfficiency);
 
             float throttle = input.Throttle;
             float ambientDensity = input.AmbientAirDensity <= 0f ? RideInputState.StandardAirDensity : input.AmbientAirDensity;

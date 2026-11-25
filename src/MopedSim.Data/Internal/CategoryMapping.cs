@@ -7,19 +7,12 @@ namespace MopedSim.Data
 {
     /// <summary>
     /// Maps catalog vocabulary (part.schema.json categories, drivetrain strings, petcock modes, fault ids) onto MopedSim.Core enums.
-    /// Unknown strings always throw; nothing silently falls back to a default enum value.
+    /// Every catalog category has a dedicated <see cref="PartCategory"/> (Tool and Spare both map to ToolRollItem), so Core's
+    /// category check alone keeps cables, fenders, brakes and fuel lines apart. Unknown strings always throw; nothing silently
+    /// falls back to a default enum value.
     /// </summary>
     internal static class CategoryMapping
     {
-        /// <summary>
-        /// Catalog categories with no dedicated <see cref="PartCategory"/> value. They share <see cref="PartCategory.Consumable"/>
-        /// and are kept apart at install time by interface matching; <see cref="CatalogValidator"/> proves no slot can confuse them.
-        /// </summary>
-        internal static readonly string[] CategoriesWithoutCoreEnum =
-        {
-            "FuelLine", "VariatorRoller", "Fender", "Brake", "Cable", "PremixOil", "GarageStation",
-        };
-
         private static readonly HashSet<string> KnownCatalogCategories = new HashSet<string>(StringComparer.Ordinal)
         {
             "Frame", "Fork", "Crankcase", "Cylinder", "CylinderHead", "Piston", "SparkPlug", "Intake", "Carburetor",
@@ -254,15 +247,13 @@ namespace MopedSim.Data
                 case "Gasket": category = PartCategory.Gasket; return true;
                 case "Tool": category = PartCategory.ToolRollItem; return true;
                 case "Spare": category = PartCategory.ToolRollItem; return true;
-                case "FuelLine":
-                case "VariatorRoller":
-                case "Fender":
-                case "Brake":
-                case "Cable":
-                case "PremixOil":
-                case "GarageStation":
-                    category = PartCategory.Consumable;
-                    return true;
+                case "FuelLine": category = PartCategory.FuelLine; return true;
+                case "VariatorRoller": category = PartCategory.VariatorRoller; return true;
+                case "Fender": category = PartCategory.Fender; return true;
+                case "Brake": category = PartCategory.Brake; return true;
+                case "Cable": category = PartCategory.Cable; return true;
+                case "PremixOil": category = PartCategory.PremixOil; return true;
+                case "GarageStation": category = PartCategory.GarageStation; return true;
                 default:
                     category = PartCategory.Consumable;
                     return false;

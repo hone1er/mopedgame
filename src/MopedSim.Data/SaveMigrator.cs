@@ -31,8 +31,11 @@ namespace MopedSim.Data
         /// <summary>Mirrors <see cref="SimulationWorld.CashUsd"/>'s initial value.</summary>
         public const decimal DefaultStartingCashUsd = 250m;
 
-        public const int MinToolRollCapacity = 6;
-        public const int MaxToolRollCapacity = 12;
+        /// <summary>Mirrors <see cref="SimulationWorld.BaseToolRollCapacity"/> (save_state.schema.json toolRollCapacity minimum).</summary>
+        public const int MinToolRollCapacity = SimulationWorld.BaseToolRollCapacity;
+
+        /// <summary>Mirrors <see cref="SimulationWorld.MaxToolRollCapacity"/> (save_state.schema.json toolRollCapacity maximum).</summary>
+        public const int MaxToolRollCapacity = SimulationWorld.MaxToolRollCapacity;
 
         /// <summary>
         /// Upgrade steps keyed by source version: step[v] turns a v document into a v+1 document.

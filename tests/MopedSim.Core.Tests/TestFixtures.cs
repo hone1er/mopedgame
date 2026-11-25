@@ -213,17 +213,17 @@ namespace MopedSim.Core.Tests
                 RollingResistanceCoeff = 0.014f,
                 MountSlots = new List<MountSlotSpec>
                 {
-                    new MountSlotSpec(SlotIds.FrameChassis, null, PartCategory.Frame),
-                    new MountSlotSpec(SlotIds.ForkAssembly, SlotIds.FrameChassis, PartCategory.Fork),
+                    new MountSlotSpec(SlotIds.Frame, null, PartCategory.Frame),
+                    new MountSlotSpec(SlotIds.ForkAssembly, SlotIds.Frame, PartCategory.Fork),
                     new MountSlotSpec(SlotIds.FrontWheel, SlotIds.ForkAssembly, PartCategory.Wheel),
-                    new MountSlotSpec(SlotIds.RearWheel, SlotIds.FrameChassis, PartCategory.Wheel),
+                    new MountSlotSpec(SlotIds.RearWheel, SlotIds.Frame, PartCategory.Wheel),
                     new MountSlotSpec(SlotIds.Handlebars, SlotIds.ForkAssembly, PartCategory.Handlebars),
                     new MountSlotSpec(SlotIds.Headlight, SlotIds.ForkAssembly, PartCategory.Headlight),
-                    new MountSlotSpec(SlotIds.Seat, SlotIds.FrameChassis, PartCategory.Seat),
-                    new MountSlotSpec(SlotIds.CargoRack, SlotIds.FrameChassis, PartCategory.CargoRack),
-                    new MountSlotSpec(SlotIds.FuelTank, SlotIds.FrameChassis, PartCategory.FuelTank),
+                    new MountSlotSpec(SlotIds.Seat, SlotIds.Frame, PartCategory.Seat),
+                    new MountSlotSpec(SlotIds.CargoRack, SlotIds.Frame, PartCategory.CargoRack),
+                    new MountSlotSpec(SlotIds.FuelTank, SlotIds.Frame, PartCategory.FuelTank),
                     new MountSlotSpec(SlotIds.InlineFilter, SlotIds.FuelTank, PartCategory.InlineFilter),
-                    new MountSlotSpec(SlotIds.EngineCradle, SlotIds.FrameChassis, PartCategory.EngineCase),
+                    new MountSlotSpec(SlotIds.EngineCradle, SlotIds.Frame, PartCategory.EngineCase),
                     new MountSlotSpec(SlotIds.Ignition, SlotIds.EngineCradle, PartCategory.Ignition),
                     new MountSlotSpec(SlotIds.DrivetrainSide, SlotIds.EngineCradle, driveCat, new[] { driveIface }),
                     new MountSlotSpec(SlotIds.FrontSprocket, SlotIds.EngineCradle, PartCategory.SprocketFront),
@@ -272,7 +272,7 @@ namespace MopedSim.Core.Tests
                 },
                 DefaultPartIds = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
-                    { SlotIds.FrameChassis, frame },
+                    { SlotIds.Frame, frame },
                     { SlotIds.ForkAssembly, "fork_stock_e50" },
                     { SlotIds.FrontWheel, "wheel_16_spoke" },
                     { SlotIds.RearWheel, "wheel_16_spoke" },

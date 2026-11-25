@@ -71,6 +71,34 @@ namespace MopedSim.Data.Tests
             return LoadWithReplacement(fileName, root.ToString());
         }
 
+        /// <summary>
+        /// Loads the real catalogs after mutating several files (each file may appear once).
+        /// </summary>
+        public static CatalogDatabase LoadWithMutations(params (string FileName, Action<JObject> Mutate)[] mutations)
+        {
+            var raw = new System.Collections.Generic.Dictionary<string, string>();
+            foreach (string name in new[]
+                     {
+                         CatalogLoader.PartsFileName, CatalogLoader.ArchetypesFileName, CatalogLoader.FaultsFileName,
+                         CatalogLoader.ZonesFileName, CatalogLoader.JobsFileName,
+                     })
+            {
+                raw[name] = RawCatalog(name);
+            }
+            foreach ((string fileName, Action<JObject> mutate) in mutations)
+            {
+                JObject root = JObject.Parse(raw[fileName]);
+                mutate(root);
+                raw[fileName] = root.ToString();
+            }
+            return CatalogLoader.LoadFromJson(
+                raw[CatalogLoader.PartsFileName],
+                raw[CatalogLoader.ArchetypesFileName],
+                raw[CatalogLoader.FaultsFileName],
+                raw[CatalogLoader.ZonesFileName],
+                raw[CatalogLoader.JobsFileName]);
+        }
+
         public static JObject FindById(JObject root, string arrayKey, string id)
         {
             foreach (JToken item in (JArray)root[arrayKey]!)

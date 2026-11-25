@@ -85,6 +85,14 @@ namespace MopedSim.Data
         public PetcockMode PetcockMode { get; }
         public float RustContamination { get; }
 
+        /// <summary>
+        /// <see cref="PremixRatio"/> (X:1) converted to MopedSim.Core's oil fraction (50 -> 0.02) via ThermalModel.PremixFromRatio.
+        /// </summary>
+        public float PremixOilFraction
+        {
+            get { return ThermalModel.PremixFromRatio(PremixRatio); }
+        }
+
         public FuelMixSpec(float fuelLiters, float premixRatio, PetcockMode petcockMode, float rustContamination)
         {
             FuelLiters = fuelLiters;

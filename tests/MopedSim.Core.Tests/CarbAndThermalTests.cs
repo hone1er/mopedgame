@@ -183,5 +183,49 @@ namespace MopedSim.Core.Tests
             }
             Assert.True(bikeFog.LatestTelemetry.EffectiveAfr < afrBefore);
         }
-    }
+    
+        [Fact]
+        public void IdealMainJet_ScalesWithVenturiRelativeToDisplacement()
+        {
+            // 49cc on its matched 12mm venturi with a neutral pipe is the unscaled reference.
+            Assert.Equal(EngineSimulation.BaseIdealMainJet, EngineSimulation.ComputeIdealMainJet(49f, 12f, 1.0f));
+
+            float stock12 = EngineSimulation.ComputeIdealMainJet(49f, 12f, 0.92f);
+            float stock15 = EngineSimulation.ComputeIdealMainJet(49f, 15f, 0.92f);
+            float stock19 = EngineSimulation.ComputeIdealMainJet(49f, 19f, 0.92f);
+            Assert.InRange(stock12, 57f, 60f);
+            Assert.InRange(stock15, 66f, 73f); // 15mm SHA on a stock 49cc wants roughly #66-#70
+            Assert.True(stock19 > stock15 && stock15 > stock12);
+
+            // A 70cc kit's matched venturi is ~15mm, so a 15mm SHA with a performance pipe still wants ~#72.
+            float kit15 = EngineSimulation.ComputeIdealMainJet(70f, 15f, 1.18f);
+            Assert.InRange(kit15, 70.5f, 73.5f);
+
+            // At a fixed 15mm venturi the bigger engine pulls a stronger signal, so it needs proportionally less jet per cc.
+            Assert.True(kit15 / stock15 < System.MathF.Pow(70f / 49f, 0.42f));
+        }
+
+        [Fact]
+        public void StockFortyNineCc_On15mmCarb_WithVenturiSizedJet_RunsCleanForSixtySeconds()
+        {
+            // Same 49cc fixture bike swapped to a 15mm SHA with a #72 jet: the larger venturi's weaker signal needs the bigger
+            // jet, so it runs near-optimal instead of fouling rich as it did when the ideal jet ignored venturi size.
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+            var catalog = TestFixtures.CreateCatalog();
+            Assert.True(bike.TrySwapPart(SlotIds.Carburetor, new PartInstance(catalog["carb_sha_15"])).Succeeded);
+            Assert.True(bike.TrySwapPart(SlotIds.MainJet, new PartInstance(catalog["jet_72"])).Succeeded);
+
+            var rng = new SeededSimRandom(515);
+            var cruise = new RideInputState(throttle: 0.6f);
+            for (int i = 0; i < 60 * 60; i++)
+            {
+                EngineTelemetrySnapshot snap = bike.Step(1f / 60f, in cruise, rng);
+                Assert.True(snap.IsRunning, "stalled at tick " + i);
+                Assert.False(snap.IsFourStroking);
+            }
+
+            Assert.InRange(bike.LatestTelemetry.EffectiveAfr, 11.8f, 13.6f);
+            Assert.True(bike.SparkPlug.FoulingLevel < 0.10f);
+        }
+}
 }

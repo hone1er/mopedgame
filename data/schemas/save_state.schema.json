@@ -50,7 +50,7 @@
     "toolRollCapacity": {
       "type": "integer",
       "minimum": 6,
-      "maximum": 12
+      "maximum": 10
     },
     "bikes": {
       "type": "array",

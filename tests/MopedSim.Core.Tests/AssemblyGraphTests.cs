@@ -218,5 +218,58 @@ namespace MopedSim.Core.Tests
             Assert.True(bike.LatestTelemetry.AirLeakSeverity < 0.01f);
             Assert.True(System.Math.Abs(bike.LatestTelemetry.EffectiveAfr - afrAtSixtySeconds) < 0.05f);
         }
-    }
+    
+        [Fact]
+        public void RestoreFastenerState_ReproducesStrippedSeizedAndUnderTorqued_WithoutWrenchSideEffects()
+        {
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+
+            // Stripped threads restore as stripped at the saved torque (no over-torque needed, nothing else strips).
+            WrenchActionResult stripped = bike.RestoreFastenerState(FastenerIds.HeadNut1, true, 19f, true, false, false);
+            Assert.True(stripped.Succeeded);
+            FastenerState head = bike.Assembly.GetFastener(FastenerIds.HeadNut1)!;
+            Assert.True(head.IsInstalled);
+            Assert.True(head.IsStripped);
+            Assert.Equal(19f, head.CurrentTorqueNm);
+
+            // Seized + penetrating oil survive verbatim; TryTorqueFastener would have cleared the seizure.
+            Assert.True(bike.RestoreFastenerState(FastenerIds.ExhaustFlange1, true, 9f, false, true, true).Succeeded);
+            FastenerState flange = bike.Assembly.GetFastener(FastenerIds.ExhaustFlange1)!;
+            Assert.True(flange.IsSeized);
+            Assert.True(flange.PenetratingOilApplied);
+            Assert.False(flange.IsStripped);
+
+            // Under-torqued intake bolt reopens the air leak the save recorded.
+            Assert.True(bike.RestoreFastenerState(FastenerIds.Intake1, true, 1f, false, false, false).Succeeded);
+            Assert.True(bike.Engine.AirLeakSeverity > 0f);
+
+            // Removed fasteners normalize to zero torque and no seizure/strip/oil.
+            Assert.True(bike.RestoreFastenerState(FastenerIds.CarbClamp, false, 5f, true, true, true).Succeeded);
+            FastenerState clamp = bike.Assembly.GetFastener(FastenerIds.CarbClamp)!;
+            Assert.False(clamp.IsInstalled);
+            Assert.Equal(0f, clamp.CurrentTorqueNm);
+            Assert.False(clamp.IsStripped || clamp.IsSeized || clamp.PenetratingOilApplied);
+        }
+
+        [Fact]
+        public void RestoreFastenerState_RejectsUnknownNegativeAndOrphanedFasteners()
+        {
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+
+            Assert.Equal(WrenchActionStatus.FastenerNotFound, bike.RestoreFastenerState("BOLT_NOPE", true, 5f, false, false, false).Status);
+            Assert.Equal(WrenchActionStatus.InvalidSpec, bike.RestoreFastenerState(FastenerIds.HeadNut2, true, -1f, false, false, false).Status);
+            Assert.Equal(WrenchActionStatus.InvalidSpec, bike.RestoreFastenerState(FastenerIds.HeadNut2, true, float.NaN, false, false, false).Status);
+
+            Assert.True(bike.TryRemovePart(SlotIds.Exhaust).Status == WrenchActionStatus.Blocked);
+            Assert.True(bike.TryRemoveFastener(FastenerIds.ExhaustFlange1).Succeeded);
+            Assert.True(bike.TryRemoveFastener(FastenerIds.ExhaustFlange2).Succeeded);
+            Assert.True(bike.TryRemoveFastener(FastenerIds.ExhaustFrameBracket).Succeeded);
+            Assert.True(bike.TryRemovePart(SlotIds.Exhaust).Succeeded);
+
+            WrenchActionResult orphan = bike.RestoreFastenerState(FastenerIds.ExhaustFlange1, true, 9f, false, false, false);
+            Assert.Equal(WrenchActionStatus.Blocked, orphan.Status);
+            Assert.Contains(SlotIds.Exhaust, orphan.BlockingNodes);
+            Assert.False(bike.Assembly.GetFastener(FastenerIds.ExhaustFlange1)!.IsInstalled);
+        }
+}
 }

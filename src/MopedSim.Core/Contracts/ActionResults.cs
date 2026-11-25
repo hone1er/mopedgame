@@ -187,6 +187,38 @@ namespace MopedSim.Core
     }
 
     /// <summary>
+    /// Outcome of buying a catalog part with garage cash through SimulationWorld.TryPurchasePart.
+    /// </summary>
+    public readonly struct PurchaseResult
+    {
+        private readonly string? _partId;
+        private readonly string? _message;
+
+        public readonly bool Succeeded;
+        public readonly decimal PriceUsd;
+        public readonly decimal RemainingCashUsd;
+
+        public string PartId
+        {
+            get { return _partId ?? string.Empty; }
+        }
+
+        public string Message
+        {
+            get { return _message ?? string.Empty; }
+        }
+
+        public PurchaseResult(bool succeeded, string partId, decimal priceUsd, decimal remainingCashUsd, string message)
+        {
+            Succeeded = succeeded;
+            _partId = partId ?? string.Empty;
+            PriceUsd = priceUsd;
+            RemainingCashUsd = remainingCashUsd;
+            _message = message ?? string.Empty;
+        }
+    }
+
+    /// <summary>
     /// UI-ready interactable mount slot or fastener entry returned by BikeAssemblyGraph.GetInteractableNodes().
     /// </summary>
     public readonly struct InteractableNode

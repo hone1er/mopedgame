@@ -278,6 +278,16 @@ namespace MopedSim.App { public class AppRoot : MonoBehaviour {} }""",
             rep = validate_boundaries.run_validation(root, strict=True)
             self.assertTrue(any("file-scoped namespace" in e for e in rep.errors))
 
+    def test_stray_build_output_dll_in_src_package_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._create_valid_repo(root)
+            stray = root / "src/MopedSim.Core/bin/Release/netstandard2.1/MopedSim.Core.dll"
+            stray.parent.mkdir(parents=True, exist_ok=True)
+            stray.write_bytes(b"MZ")
+            rep = validate_boundaries.run_validation(root, strict=True)
+            self.assertTrue(any("compiled binary inside UPM package" in e for e in rep.errors))
+
     def test_forbidden_unity_asmdef_ref_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -8,7 +8,10 @@ namespace MopedSim.Core
     /// </summary>
     public sealed class SimulationWorld
     {
+        /// <summary>Standard handlebar/seat Tool Roll slots (PROJECT_GUIDE.md §2.3).</summary>
         public const int BaseToolRollCapacity = 6;
+
+        /// <summary>Tool Roll ceiling with saddlebag/milk-crate upgrades (PROJECT_GUIDE.md §2.3); saves validate against it too.</summary>
         public const int MaxToolRollCapacity = 10;
 
         private readonly List<string> _activeToolRoll = new List<string>();
@@ -105,6 +108,39 @@ namespace MopedSim.Core
         public void ClearToolRoll()
         {
             _activeToolRoll.Clear();
+        }
+
+        /// <summary>
+        /// Buys a catalog part with garage cash. The only supported way to spend cash on parts: fails without deducting when
+        /// the part is null, has a negative price, or costs more than <see cref="CashUsd"/>.
+        /// </summary>
+        public PurchaseResult TryPurchasePart(PartDefinition part)
+        {
+            if (part == null)
+            {
+                return new PurchaseResult(false, string.Empty, 0m, CashUsd, "No part selected.");
+            }
+            if (part.PriceUsd < 0m)
+            {
+                return new PurchaseResult(false, part.Id, part.PriceUsd, CashUsd, "Part " + part.Id + " has an invalid negative price.");
+            }
+            if (CashUsd < part.PriceUsd)
+            {
+                return new PurchaseResult(
+                    false,
+                    part.Id,
+                    part.PriceUsd,
+                    CashUsd,
+                    "Insufficient cash for " + part.DisplayName + " ($" + part.PriceUsd.ToString("0.00") + ").");
+            }
+
+            CashUsd -= part.PriceUsd;
+            return new PurchaseResult(
+                true,
+                part.Id,
+                part.PriceUsd,
+                CashUsd,
+                "Bought " + part.DisplayName + " for $" + part.PriceUsd.ToString("0.00") + ".");
         }
 
         public EngineTelemetrySnapshot Step(float dt, in RideInputState input)

@@ -240,7 +240,7 @@ namespace MopedSim.Data.Tests
             AssertRejected(j => j["activeZoneId"] = "WestOakland");
             AssertRejected(j => j["activeZoneId"] = "Zone_WestOakland\n");
             AssertRejected(j => j["activeBikeInstanceId"] = "bike_404");
-            AssertRejected(j => j["toolRollCapacity"] = 13);
+            AssertRejected(j => j["toolRollCapacity"] = SimulationWorld.MaxToolRollCapacity + 1);
             AssertRejected(j => j["cashUsd"] = -1);
             AssertRejected(j => j["seed"] = -5);
             AssertRejected(j => j["seed"] = 4294967296L);
@@ -402,5 +402,26 @@ namespace MopedSim.Data.Tests
             });
             return state;
         }
-    }
+    
+        [Fact]
+        public void ToolRollCapacityBounds_MatchCoreAndBothJsonSchemas()
+        {
+            // PROJECT_GUIDE.md section 2.3: 6 base slots, upgradable to 10.
+            Assert.Equal(6, SimulationWorld.BaseToolRollCapacity);
+            Assert.Equal(10, SimulationWorld.MaxToolRollCapacity);
+            Assert.Equal(SimulationWorld.BaseToolRollCapacity, SaveMigrator.MinToolRollCapacity);
+            Assert.Equal(SimulationWorld.MaxToolRollCapacity, SaveMigrator.MaxToolRollCapacity);
+
+            JObject saveCapacity = (JObject)TestCatalog.ReadSchema("save_state.schema.json")["properties"]!["toolRollCapacity"]!;
+            Assert.Equal(SimulationWorld.BaseToolRollCapacity, (int)saveCapacity["minimum"]!);
+            Assert.Equal(SimulationWorld.MaxToolRollCapacity, (int)saveCapacity["maximum"]!);
+
+            JObject archetypeSlots = (JObject)TestCatalog.ReadSchema("bike_archetype.schema.json")["properties"]!["defaultToolRollSlots"]!;
+            Assert.Equal(SimulationWorld.MaxToolRollCapacity, (int)archetypeSlots["maximum"]!);
+
+            // A world packed beyond Core's ceiling still saves a schema-valid capacity.
+            var world = new SimulationWorld(new SeededSimRandom(1u));
+            Assert.InRange(world.ToolRollCapacity, SaveMigrator.MinToolRollCapacity, SaveMigrator.MaxToolRollCapacity);
+        }
+}
 }

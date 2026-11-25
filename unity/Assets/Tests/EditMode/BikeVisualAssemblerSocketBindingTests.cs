@@ -228,11 +228,11 @@ namespace MopedSim.Tests.EditMode
             PartEntry fork = new PartEntry { id = "fork", requiredSockets = new[] { "SOCKET_FRONT_AXLE" } };
             PartEntry wheel = new PartEntry { id = "wheel", requiredSockets = new[] { "SOCKET_WHEEL_HUB", "SOCKET_SPROCKET_MOUNT", "BOLT_AXLE_L", "BOLT_AXLE_R" } };
 
-            assembler.MountPartImmediate("SLOT_FRAME", "frame", string.Empty, BuildFakePartVisual(frame));
-            assembler.MountPartImmediate(SlotIds.ForkAssembly, "fork", "SLOT_FRAME", BuildFakePartVisual(fork));
+            assembler.MountPartImmediate(SlotIds.Frame, "frame", string.Empty, BuildFakePartVisual(frame));
+            assembler.MountPartImmediate(SlotIds.ForkAssembly, "fork", SlotIds.Frame, BuildFakePartVisual(fork));
             assembler.MountPartImmediate(SlotIds.FrontWheel, "wheel", SlotIds.ForkAssembly, BuildFakePartVisual(wheel));
-            assembler.MountPartImmediate(SlotIds.RearWheel, "wheel", "SLOT_FRAME", BuildFakePartVisual(wheel));
-            assembler.MountPartImmediate("SLOT_FRONT_BRAKE", "brake", SlotIds.FrontWheel, null);
+            assembler.MountPartImmediate(SlotIds.RearWheel, "wheel", SlotIds.Frame, BuildFakePartVisual(wheel));
+            assembler.MountPartImmediate(SlotIds.FrontBrake, "brake", SlotIds.FrontWheel, null);
             assembler.MountPartImmediate(SlotIds.RearBrake, "brake", SlotIds.RearWheel, null);
 
             Transform frontHub;
@@ -243,7 +243,7 @@ namespace MopedSim.Tests.EditMode
 
             GameObject frontBrake;
             GameObject rearBrake;
-            Assert.IsTrue(assembler.TryGetMountedPart("SLOT_FRONT_BRAKE", out frontBrake));
+            Assert.IsTrue(assembler.TryGetMountedPart(SlotIds.FrontBrake, out frontBrake));
             Assert.IsTrue(assembler.TryGetMountedPart(SlotIds.RearBrake, out rearBrake));
             Assert.AreSame(frontHub, frontBrake.transform.parent);
             Assert.AreSame(rearHub, rearBrake.transform.parent);

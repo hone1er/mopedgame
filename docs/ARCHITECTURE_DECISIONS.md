@@ -149,3 +149,25 @@ Every mechanical part `.glb` MUST satisfy a strict **Socket & Budget Contract**:
 
 ### Revisit Triggers
 - If custom skeletal character animations (rider tuck/pedal animations) require `.fbx` for Unity Humanoid retargeting, add an exception strictly for rigged character files while keeping all rigid moped parts, garage props, and Bay Area environment modules on `.glb`.
+
+---
+
+## ADR-006: Generated Build Outputs Live Outside Unity-Imported Source Folders
+
+- **Status**: Accepted
+- **Date**: 2026-11-25
+
+### Context
+`src/MopedSim.Core` and `src/MopedSim.Data` are both .NET projects (built by Gate 1) and local UPM packages (imported by Unity through `unity/Packages/manifest.json`). Unity imports every file inside a package folder, so default `dotnet build` output (`src/*/bin/**/*.dll`, `src/*/obj/**`) would be imported as precompiled plugins that duplicate the source-compiled assemblies. Separately, standalone players cannot read the repo's `data/catalogs/`, yet catalogs must stay single-sourced there.
+
+### Decision
+- `src/*/*.csproj` set `BaseOutputPath` / `BaseIntermediateOutputPath` to `<repo>/artifacts/bin|obj/$(MSBuildProjectName)/`. The SDK is imported explicitly (`Sdk.props` / `Sdk.targets`) so the intermediate path is set before restore reads it. `artifacts/` is git-ignored, and `validate_boundaries.py` (Gate 2) fails on any `.dll` / `.pdb` / `.mdb` inside a pure-C# UPM package.
+- `MopedSim.Editor.CliBuild` copies `data/catalogs/*.json` into `unity/Assets/StreamingAssets/Catalogs/` immediately before `BuildPlayer`, validates the staged copy through `MopedSim.Data`, and refreshes the AssetDatabase. That folder is generated and git-ignored; `data/catalogs/` remains the only source of truth.
+
+### Consequences
+- **Positive**: Unity never sees stray build binaries; Gate 1 and Unity can share one source tree. Player builds always ship the exact validated catalogs from the commit being built.
+- **Negative / Mitigations**: The `.csproj` files use explicit SDK imports instead of `<Project Sdk="...">`. A developer with pre-ADR `src/*/bin|obj` folders must delete them once; Gate 2 reports them.
+
+### Revisit Triggers
+- If MopedSim.Core/Data ever ship as precompiled DLL packages instead of source UPM packages, or if catalogs move to Addressables/remote content.
+

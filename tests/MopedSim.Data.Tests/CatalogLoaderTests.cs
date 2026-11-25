@@ -260,11 +260,11 @@ namespace MopedSim.Data.Tests
                 var slotIds = new HashSet<string>(spec.MountSlots.Select(s => s.SlotId));
                 var fastenerIds = new HashSet<string>(spec.Fasteners.Select(f => f.FastenerId));
 
-                // Catalog / Blender naming is kept verbatim (no aliasing to Core's unused FrameChassis/DriveBelt/RearAxle constants).
-                Assert.Contains("SLOT_FRAME", slotIds);
-                Assert.DoesNotContain(SlotIds.FrameChassis, slotIds);
-                Assert.Contains("BOLT_REAR_AXLE_L", fastenerIds);
-                Assert.Contains("BOLT_REAR_AXLE_R", fastenerIds);
+                // Catalog / Blender naming is kept verbatim and Core's constants use the same canonical strings.
+                Assert.Contains(SlotIds.Frame, slotIds);
+                Assert.Equal("SLOT_FRAME", SlotIds.Frame);
+                Assert.Contains(FastenerIds.RearAxleL, fastenerIds);
+                Assert.Contains(FastenerIds.RearAxleR, fastenerIds);
 
                 foreach (KeyValuePair<string, PartCategory> required in CoreIdContract.RequiredSlots)
                 {
@@ -283,9 +283,64 @@ namespace MopedSim.Data.Tests
                 }
             }
 
-            Assert.Contains("SLOT_VARIATOR_BELT", db.GetArchetype(ArchetypeIds.BramblePA50).MountSlots.Select(s => s.SlotId));
+            Assert.Equal("SLOT_VARIATOR_BELT", SlotIds.VariatorBelt);
+            Assert.Contains(SlotIds.VariatorBelt, db.GetArchetype(ArchetypeIds.BramblePA50).MountSlots.Select(s => s.SlotId));
             Assert.Equal(PartCategory.DriveBelt,
-                db.GetArchetype(ArchetypeIds.BramblePA50).MountSlots.Single(s => s.SlotId == "SLOT_VARIATOR_BELT").AcceptedCategory);
+                db.GetArchetype(ArchetypeIds.BramblePA50).MountSlots.Single(s => s.SlotId == SlotIds.VariatorBelt).AcceptedCategory);
+        }
+
+        [Fact]
+        public void CoreSlotAndFastenerConstants_AreAllLiveCatalogIds_AndEveryCatalogSlotHasAConstant()
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            var catalogSlots = new HashSet<string>(db.ArchetypeList.SelectMany(a => a.MountSlots).Select(s => s.SlotId));
+            var catalogFasteners = new HashSet<string>(db.ArchetypeList.SelectMany(a => a.Fasteners).Select(f => f.FastenerId));
+            string[] coreSlots = ConstStrings(typeof(SlotIds));
+            string[] coreFasteners = ConstStrings(typeof(FastenerIds));
+
+            // No dead Core constants: every SlotIds/FastenerIds value is mounted/declared by at least one catalog archetype.
+            Assert.Equal(System.Array.Empty<string>(), coreSlots.Where(id => !catalogSlots.Contains(id)).ToArray());
+            Assert.Equal(System.Array.Empty<string>(), coreFasteners.Where(id => !catalogFasteners.Contains(id)).ToArray());
+
+            // Every catalog slot has a Core constant, so Unity bindings and Core code never need raw slot strings.
+            Assert.Equal(System.Array.Empty<string>(), catalogSlots.Where(id => !coreSlots.Contains(id)).OrderBy(x => x).ToArray());
+            Assert.Equal(coreSlots.Length, coreSlots.Distinct().Count());
+            Assert.Equal(coreFasteners.Length, coreFasteners.Distinct().Count());
+        }
+
+        [Fact]
+        public void EveryCatalogCategory_MapsToADedicatedCorePartCategory()
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            var expected = new Dictionary<string, PartCategory>
+            {
+                { "FuelLine", PartCategory.FuelLine },
+                { "VariatorRoller", PartCategory.VariatorRoller },
+                { "Fender", PartCategory.Fender },
+                { "Brake", PartCategory.Brake },
+                { "Cable", PartCategory.Cable },
+                { "PremixOil", PartCategory.PremixOil },
+                { "GarageStation", PartCategory.GarageStation },
+            };
+
+            foreach (KeyValuePair<string, PartCategory> pair in expected)
+            {
+                IReadOnlyList<PartDefinition> parts = db.GetPartsByCategory(pair.Key);
+                Assert.True(parts.Count > 0, "catalog has no '" + pair.Key + "' parts");
+                Assert.All(parts, p => Assert.Equal(pair.Value, p.Category));
+                Assert.Equal(parts.Select(p => p.Id).OrderBy(x => x), db.GetPartsByCategory(pair.Value).Select(p => p.Id).OrderBy(x => x));
+            }
+
+            // Nothing in the real catalog falls back to the generic Consumable bucket any more.
+            Assert.Empty(db.GetPartsByCategory(PartCategory.Consumable));
+        }
+
+        private static string[] ConstStrings(System.Type type)
+        {
+            return type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+                .Select(f => (string)f.GetRawConstantValue()!)
+                .ToArray();
         }
 
         [Fact]
@@ -314,14 +369,21 @@ namespace MopedSim.Data.Tests
                 float expectedResidual = System.Math.Max(CatalogLoader.MinResidualHardwareMassKg, meta.CatalogDryMassKg - meta.StockPartsMassKg);
                 Assert.Equal(expectedResidual, spec.BaseDryMassKg, 4);
 
+                // Stock parts sum slightly below the authored whole-bike mass, so the residual is real frame hardware/wiring
+                // (2-6 kg) and the MinResidualHardwareMassKg floor never inflates the bike.
+                float residual = meta.CatalogDryMassKg - meta.StockPartsMassKg;
+                Assert.True(residual > CatalogLoader.MinResidualHardwareMassKg,
+                    spec.Id + ": stock parts " + meta.StockPartsMassKg + " kg leave only " + residual + " kg residual (floor engaged)");
+                Assert.InRange(residual, 2.0f, 6.0f);
+                Assert.Equal(residual, spec.BaseDryMassKg, 3);
+
                 var sim = new BikeSimulation(spec, db.Parts);
                 float assembledDryMassKg = spec.BaseDryMassKg + sim.Assembly.GetMountedPartsMassKg();
-                float expectedAssembled = System.Math.Max(meta.CatalogDryMassKg, meta.StockPartsMassKg + CatalogLoader.MinResidualHardwareMassKg);
-                Assert.Equal(expectedAssembled, assembledDryMassKg, 2);
+                Assert.Equal(meta.CatalogDryMassKg, assembledDryMassKg, 2);
 
-                // Realistic 50cc moped dry mass, far below the ~100 kg a naive catalog + parts sum would give.
-                Assert.InRange(assembledDryMassKg, 40f, 70f);
-                Assert.True(assembledDryMassKg < meta.CatalogDryMassKg + meta.StockPartsMassKg - 30f);
+                // Realistic vintage 50cc moped dry mass (Puch Maxi / Hobbit / Tomos class: ~46-54 kg).
+                Assert.InRange(assembledDryMassKg, 46.5f, 54f);
+                Assert.InRange(meta.CatalogDryMassKg, 46.5f, 52.5f);
             }
         }
 

@@ -51,9 +51,23 @@ namespace MopedSim.Core
             Faults = new FaultEngine();
 
             SyncSubsystemConfigFromAssembly();
+            ApplyArchetypeFuelDefaults();
             Engine.Rpm = Engine.IdleRpmTarget;
             Engine.IsRunning = true;
             LatestTelemetry = BuildSnapshot(RideInputState.Default, 0f);
+        }
+
+        /// <summary>
+        /// Hydrates the fresh bike's tank from the archetype's default fuel mix (fuel level, premix oil fraction, petcock, rust).
+        /// </summary>
+        private void ApplyArchetypeFuelDefaults()
+        {
+            Fuel.PetcockMode = Archetype.DefaultPetcockMode;
+            Fuel.FuelLevelLiters = 0f;
+            Fuel.FloatBowlLiters = 0f;
+            float liters = SimMath.Clamp(Archetype.DefaultFuelLiters, 0f, Fuel.TankCapacityLiters);
+            float rust = SimMath.Clamp01(Archetype.DefaultTankRustContamination);
+            Refuel(liters, SimMath.Max(0f, Archetype.DefaultPremixOilFraction), rust);
         }
 
         /// <summary>
@@ -453,6 +467,22 @@ namespace MopedSim.Core
             return Assembly.ApplyPenetratingOil(fastenerId);
         }
 
+        /// <summary>
+        /// Restores a persisted fastener state verbatim (save/load only) without wrenching side effects such as stripping.
+        /// </summary>
+        public WrenchActionResult RestoreFastenerState(
+            string fastenerId,
+            bool isInstalled,
+            float currentTorqueNm,
+            bool isStripped,
+            bool isSeized,
+            bool penetratingOilApplied)
+        {
+            WrenchActionResult res = Assembly.RestoreFastenerState(fastenerId, isInstalled, currentTorqueNm, isStripped, isSeized, penetratingOilApplied);
+            RefreshLeakCachesAndFaults();
+            return res;
+        }
+
         public WrenchActionResult RepairStrippedFastener(string fastenerId)
         {
             WrenchActionResult res = Assembly.RepairStrippedFastener(fastenerId);
@@ -475,9 +505,21 @@ namespace MopedSim.Core
             Fuel.PetcockMode = mode;
         }
 
+        /// <summary>
+        /// Refuels with <paramref name="premixRatio"/> as an oil fraction (use ThermalModel.PremixFromRatio for X:1).
+        /// A non-negative rust value is stored on the installed tank part, which SyncSubsystemConfigFromAssembly reads every step.
+        /// </summary>
         public void Refuel(float liters, float premixRatio, float tankRustContamination = -1f)
         {
             Fuel.Refuel(liters, premixRatio, tankRustContamination);
+            if (tankRustContamination >= 0f)
+            {
+                PartInstance? tank = Assembly.GetInstalledPart(SlotIds.FuelTank);
+                if (tank != null)
+                {
+                    tank.RustContamination = SimMath.Clamp01(tankRustContamination);
+                }
+            }
         }
 
         public void CoolDownSeconds(float seconds)

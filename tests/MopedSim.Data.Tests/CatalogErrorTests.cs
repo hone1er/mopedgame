@@ -252,11 +252,15 @@ namespace MopedSim.Data.Tests
         }
 
         [Fact]
-        public void Validate_CategoryAliasing_ConsumableCollision_ReportsError()
+        public void Validate_CatalogAllowsPartThatCoreCategoryRejects_ReportsError()
         {
-            // A cable that advertised the wheel-brake interface would pass Core's category+interface check in a brake slot.
-            CatalogDatabase db = TestCatalog.LoadWithMutation("parts.json", root =>
-                ((JArray)TestCatalog.FindById(root, "parts", "cable_throttle")["compatibleInterfaces"]!).Add("Universal_WheelBrake"));
+            // A brake slot that also lists "Cable" in acceptedCategories, plus a cable advertising the wheel-brake interface,
+            // would be catalog-compatible while Core (PartCategory.Cable != PartCategory.Brake) rejects the install.
+            CatalogDatabase db = TestCatalog.LoadWithMutations(
+                ("parts.json", root =>
+                    ((JArray)TestCatalog.FindById(root, "parts", "cable_throttle")["compatibleInterfaces"]!).Add("Universal_WheelBrake")),
+                ("archetypes.json", root =>
+                    ((JArray)TestCatalog.FindSlot(TestCatalog.FindById(root, "archetypes", ArchetypeIds.MaxerE50), "SLOT_REAR_BRAKE")["acceptedCategories"]!).Add("Cable")));
             AssertInvalid(db, "cable_throttle");
         }
 

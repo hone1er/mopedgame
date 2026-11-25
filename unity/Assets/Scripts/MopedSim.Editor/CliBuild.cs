@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using MopedSim.Data;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -14,6 +15,12 @@ namespace MopedSim.Editor
     {
         private const string MacOSOutputPath = "Builds/MacOS/arm64/MopedGame.app";
 
+        /// <summary>
+        /// Folder under Assets/StreamingAssets that players load catalogs from (AppCompositionRoot.ResolveCatalogDirectory).
+        /// Generated before each build from the repo's data/catalogs and git-ignored; data/catalogs stays the source of truth.
+        /// </summary>
+        public const string StagedCatalogFolder = "Catalogs";
+
         [MenuItem("MopedSim/Build/macOS arm64 (Dev)")]
         public static void BuildMacOSDev()
         {
@@ -21,6 +28,21 @@ namespace MopedSim.Editor
 
             // Ensure modular additive scenes exist before collecting build scene list.
             SceneScaffoldBuilder.BuildAllScenes();
+
+            // Players cannot reach the repo's data/catalogs, so stage the JSON catalogs into StreamingAssets first.
+            int stagedCatalogs;
+            try
+            {
+                stagedCatalogs = StageCatalogsIntoStreamingAssets();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[CliBuild] Catalog staging failed: " + ex.Message);
+                ExitIfBatchMode(1);
+                return;
+            }
+
+            Debug.Log("[CliBuild] Staged " + stagedCatalogs + " catalog JSON files into StreamingAssets/" + StagedCatalogFolder + ".");
 
             ConfigureMacOSArm64Architecture();
 
@@ -58,6 +80,79 @@ namespace MopedSim.Editor
 
             Debug.LogError("[CliBuild] macOS arm64 build failed with result: " + summary.result + " (errors: " + summary.totalErrors + ")");
             ExitIfBatchMode(1);
+        }
+
+        /// <summary>
+        /// Repo-level data/catalogs directory (sibling of the Unity project folder).
+        /// </summary>
+        public static string SourceCatalogDirectory
+        {
+            get { return Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "data", "catalogs")); }
+        }
+
+        /// <summary>
+        /// Absolute path of Assets/StreamingAssets/Catalogs.
+        /// </summary>
+        public static string StagedCatalogDirectory
+        {
+            get { return Path.Combine(Application.streamingAssetsPath, StagedCatalogFolder); }
+        }
+
+        /// <summary>
+        /// Copies data/catalogs/*.json into Assets/StreamingAssets/Catalogs (replacing any stale staged JSON) and refreshes
+        /// the AssetDatabase so the player build includes them. Returns the number of files staged; throws if none exist.
+        /// </summary>
+        [MenuItem("MopedSim/Build/Stage Catalogs Into StreamingAssets")]
+        public static void StageCatalogsMenu()
+        {
+            Debug.Log("[CliBuild] Staged " + StageCatalogsIntoStreamingAssets() + " catalog JSON files into StreamingAssets/" + StagedCatalogFolder + ".");
+        }
+
+        public static int StageCatalogsIntoStreamingAssets()
+        {
+            string source = SourceCatalogDirectory;
+            if (!Directory.Exists(source))
+            {
+                throw new DirectoryNotFoundException("Catalog source directory not found: " + source);
+            }
+
+            string[] catalogFiles = Directory.GetFiles(source, "*.json", SearchOption.TopDirectoryOnly);
+            if (catalogFiles.Length == 0)
+            {
+                throw new FileNotFoundException("No catalog *.json files found in " + source);
+            }
+
+            Array.Sort(catalogFiles, StringComparer.Ordinal);
+            string destination = StagedCatalogDirectory;
+            Directory.CreateDirectory(destination);
+
+            string[] stale = Directory.GetFiles(destination, "*.json", SearchOption.TopDirectoryOnly);
+            for (int i = 0; i < stale.Length; i++)
+            {
+                File.Delete(stale[i]);
+                string staleMeta = stale[i] + ".meta";
+                if (File.Exists(staleMeta))
+                {
+                    File.Delete(staleMeta);
+                }
+            }
+
+            for (int i = 0; i < catalogFiles.Length; i++)
+            {
+                string target = Path.Combine(destination, Path.GetFileName(catalogFiles[i]));
+                File.Copy(catalogFiles[i], target, true);
+            }
+
+            // Fail the build early if the staged copy would not boot (same load + validation AppCompositionRoot runs).
+            CatalogValidationReport report = CatalogLoader.Validate(CatalogLoader.LoadFromDirectory(destination));
+            if (!report.IsValid)
+            {
+                throw new InvalidOperationException(
+                    "Staged catalogs failed validation (" + report.Errors.Count + " errors); first: " + report.Errors[0]);
+            }
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            return catalogFiles.Length;
         }
 
         private static void ConfigureMacOSArm64Architecture()

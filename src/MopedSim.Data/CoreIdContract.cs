@@ -8,9 +8,9 @@ namespace MopedSim.Data
     /// reads by constant. Catalog IDs are used verbatim; <see cref="CatalogLoader.Validate"/> fails if an archetype is missing
     /// any of these or mounts the wrong Core category in them, so every validated archetype can drive BikeSimulation fully.
     /// <para>
-    /// Core constants that no Core runtime code reads (SlotIds.FrameChassis, SlotIds.DriveBelt, SlotIds.StatorPlate,
-    /// FastenerIds.RearAxle) are intentionally not required: the catalogs use SLOT_FRAME, SLOT_VARIATOR_BELT and
-    /// BOLT_REAR_AXLE_L/R, which match the Blender BOLT_*/SOCKET_* contract.
+    /// Every SlotIds/FastenerIds constant uses the canonical catalog + Blender string (SLOT_FRAME, SLOT_VARIATOR_BELT,
+    /// SLOT_FLYWHEEL, BOLT_REAR_AXLE_L/R, ...) and is mounted by at least one catalog archetype; constants that only some
+    /// archetypes declare (e.g. SlotIds.VariatorBelt) are not required here. MopedSim.Data.Tests enforces both directions.
     /// </para>
     /// </summary>
     public static class CoreIdContract

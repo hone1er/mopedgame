@@ -95,10 +95,10 @@ namespace MopedSim.Data.Tests
 
         [Theory]
         [MemberData(nameof(RealArchetypes))]
-        public void BikeSimulation_FromCatalog_StepsSixtySecondsCleanly(string archetypeId)
+        public void BikeSimulation_FromCatalog_RunsSixtySecondsAtSixtyPercentThrottle_WithoutFoulingOrStalling(string archetypeId)
         {
-            // Behaviour asserts stay deliberately weak (Core tuning is owned by the Core lane): every tick must produce finite
-            // telemetry and the stock bike must actually launch and cover ground under 60% throttle.
+            // Stock catalog jetting (12mm Bing #56, 15mm SHA #68 / #66) must sit near optimal AFR for its venturi: the bike keeps
+            // running the full minute, never four-strokes, keeps a clean chocolate-brown plug, and actually rides.
             CatalogDatabase db = TestCatalog.Real;
             var sim = new BikeSimulation(db.GetArchetype(archetypeId), db.Parts);
             var rng = new SeededSimRandom(20261125u);
@@ -106,20 +106,49 @@ namespace MopedSim.Data.Tests
 
             float maxRpm = 0f;
             float maxSpeed = 0f;
+            float minAfr = float.MaxValue;
+            float maxAfr = float.MinValue;
             for (int i = 0; i < 3600; i++)
             {
                 EngineTelemetrySnapshot t = sim.Step(1f / 60f, in input, rng);
                 Assert.True(IsFinite(t.Rpm) && IsFinite(t.ChtCelsius) && IsFinite(t.VehicleSpeedMps) && IsFinite(t.EffectiveAfr)
                     && IsFinite(t.RearWheelTorqueNm) && IsFinite(t.FuelLitersRemaining),
                     archetypeId + ": non-finite telemetry at tick " + i);
+                Assert.True(t.IsRunning && !t.IsStalled, archetypeId + ": stalled at " + (i / 60f).ToString("0.0") + " s (AFR " + t.EffectiveAfr + ")");
+                Assert.False(t.IsFourStroking, archetypeId + ": four-stroking rich at tick " + i + " (AFR " + t.EffectiveAfr + ")");
+                Assert.False(t.IsSeized, archetypeId + ": seized at tick " + i);
                 maxRpm = System.Math.Max(maxRpm, t.Rpm);
                 maxSpeed = System.Math.Max(maxSpeed, t.VehicleSpeedMps);
+                minAfr = System.Math.Min(minAfr, t.EffectiveAfr);
+                maxAfr = System.Math.Max(maxAfr, t.EffectiveAfr);
             }
 
             Assert.Equal(60f, sim.TotalSimulatedSeconds, 2);
+            Assert.True(minAfr >= 12.4f && maxAfr <= 13.5f, archetypeId + ": AFR ranged " + minAfr + ".." + maxAfr + " (want ~12.5-13.5)");
+            Assert.True(sim.SparkPlug.FoulingLevel < 0.10f, archetypeId + ": plug fouling " + sim.SparkPlug.FoulingLevel);
+            Assert.Equal(PlugColorZone.ChocolateBrown, sim.InspectSparkPlug().ColorZone);
+            Assert.InRange(sim.LatestTelemetry.ChtCelsius, 70f, 185f);
             Assert.True(maxRpm > sim.Drivetrain.ClutchEngageRpm, archetypeId + ": engine never reached clutch engagement (max " + maxRpm + " rpm)");
-            Assert.True(maxSpeed > 5f, archetypeId + ": stock bike never exceeded 5 m/s (max " + maxSpeed + ")");
-            Assert.True(sim.OdometerMeters > 100f, archetypeId + ": odometer only " + sim.OdometerMeters + " m");
+            Assert.True(maxSpeed > 8f, archetypeId + ": stock bike never exceeded 8 m/s (max " + maxSpeed + ")");
+            Assert.True(sim.OdometerMeters > 400f, archetypeId + ": odometer only " + sim.OdometerMeters + " m");
+        }
+
+        [Theory]
+        [InlineData(ArchetypeIds.MaxerE50, 12f)]
+        [InlineData(ArchetypeIds.BramblePA50, 15f)]
+        [InlineData(ArchetypeIds.TargaA35, 15f)]
+        public void StockCatalogMainJet_SitsNearCoreIdealForItsVenturi(string archetypeId, float expectedVenturiMm)
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            var sim = new BikeSimulation(db.GetArchetype(archetypeId), db.Parts);
+            PartStats carb = sim.Assembly.GetInstalledPart(SlotIds.Carburetor)!.Definition.Stats;
+            int jet = sim.Assembly.GetInstalledPart(SlotIds.MainJet)!.Definition.Stats.MainJetSize;
+            float displacement = sim.Assembly.GetInstalledPart(SlotIds.Cylinder)!.Definition.Stats.DisplacementCc;
+            float pipeFlow = sim.Assembly.GetInstalledPart(SlotIds.Exhaust)!.Definition.Stats.FlowEfficiency;
+
+            Assert.Equal(expectedVenturiMm, carb.VenturiMm);
+            float ideal = EngineSimulation.ComputeIdealMainJet(displacement, carb.VenturiMm, pipeFlow);
+            Assert.InRange(jet / ideal, 0.90f, 1.02f);
         }
 
         [Theory]
@@ -151,9 +180,9 @@ namespace MopedSim.Data.Tests
 
         [Theory]
         [MemberData(nameof(RealArchetypes))]
-        public void Wrenching_BrakeAndCableSlots_UseCatalogCategoriesWithoutCoreEnums(string archetypeId)
+        public void Wrenching_BrakeAndCableSlots_UseDedicatedCoreCategories(string archetypeId)
         {
-            // "Brake" and "Cable" have no PartCategory value; both map to Consumable and are separated by interfaces.
+            // "Brake", "Cable" and "Fender" map to their own PartCategory values, so Core's category check keeps them apart.
             CatalogDatabase db = TestCatalog.Real;
             var sim = new BikeSimulation(db.GetArchetype(archetypeId), db.Parts);
 
@@ -164,7 +193,10 @@ namespace MopedSim.Data.Tests
             Assert.True(sim.TryRemovePart("SLOT_REAR_BRAKE_CABLE").Succeeded);
             Assert.True(sim.TryRemovePart("SLOT_REAR_BRAKE").Succeeded);
 
-            // A cable or fender (also Consumable) must not fit a brake slot; a brake upgrade must.
+            Assert.Equal(PartCategory.Brake, sim.Assembly.GetSlot("SLOT_REAR_BRAKE")!.Spec.AcceptedCategory);
+            Assert.Equal(PartCategory.Cable, sim.Assembly.GetSlot("SLOT_REAR_BRAKE_CABLE")!.Spec.AcceptedCategory);
+
+            // A cable or fender must not fit a brake slot; a brake upgrade must.
             Assert.Equal(WrenchActionStatus.IncompatiblePart,
                 sim.TryInstallPart("SLOT_REAR_BRAKE", new PartInstance(db.GetPart("cable_brake_rear"))).Status);
             Assert.Equal(WrenchActionStatus.IncompatiblePart,
@@ -219,6 +251,100 @@ namespace MopedSim.Data.Tests
             Assert.True(sim.TryInstallPart(SlotIds.SparkPlug, new PartInstance(db.GetPart("plug_b8hs"))).Succeeded);
 
             Assert.Equal(8, sim.SparkPlug.HeatRange);
+        }
+
+        [Theory]
+        [MemberData(nameof(RealArchetypes))]
+        public void BikeSimulation_FromCatalog_HydratesDefaultFuelMix(string archetypeId)
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            FuelMixSpec mix = db.ArchetypeMeta[archetypeId].DefaultFuelMix;
+            JObject rawMix = (JObject)TestCatalog.FindById(TestCatalog.ReadCatalog("archetypes.json"), "archetypes", archetypeId)["defaultFuelMix"]!;
+            var sim = new BikeSimulation(db.GetArchetype(archetypeId), db.Parts);
+
+            // Catalog premix is authored X:1 (50 = 50:1); Core stores the oil fraction (0.02).
+            Assert.Equal((float)rawMix["premixRatio"]!, mix.PremixRatio);
+            Assert.Equal(1f / (float)rawMix["premixRatio"]!, mix.PremixOilFraction, 6);
+            Assert.Equal(mix.PremixOilFraction, sim.Fuel.PremixRatio, 6);
+            Assert.Equal((float)rawMix["fuelLiters"]!, sim.Fuel.FuelLevelLiters, 4);
+            Assert.Equal(mix.PetcockMode, sim.Fuel.PetcockMode);
+            Assert.Equal(sim.Fuel.FloatBowlCapacityLiters, sim.Fuel.FloatBowlLiters);
+
+            var idle = new RideInputState(throttle: 0.1f);
+            sim.Step(1f / 60f, in idle, new SeededSimRandom(1u));
+            Assert.Equal((float)rawMix["rustContamination"]!, sim.Fuel.RustContamination, 5);
+        }
+
+        [Fact]
+        public void SimulationWorld_TryPurchasePart_SpendsCatalogPriceThroughCore()
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            var world = new SimulationWorld(new SeededSimRandom(3u));
+            decimal start = world.CashUsd;
+            PartDefinition jet = db.GetPart("jet_main_68");
+
+            PurchaseResult bought = world.TryPurchasePart(jet);
+            Assert.True(bought.Succeeded, bought.Message);
+            Assert.Equal(start - jet.PriceUsd, world.CashUsd);
+
+            PartDefinition priciest = db.PartList.OrderByDescending(p => p.PriceUsd).First();
+            Assert.True(priciest.PriceUsd > world.CashUsd, "catalog needs a part pricier than starting cash for this test");
+            decimal before = world.CashUsd;
+            Assert.False(world.TryPurchasePart(priciest).Succeeded);
+            Assert.Equal(before, world.CashUsd);
+        }
+
+        [Theory]
+        [MemberData(nameof(RealArchetypes))]
+        public void SaveRoundTrip_StrippedSeizedAndRemovedFasteners_RestoreVerbatimOnFreshBike(string archetypeId)
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            var original = new BikeSimulation(db.GetArchetype(archetypeId), db.Parts);
+
+            // Strip a head nut by over-torque, seize + oil an exhaust flange, and pull the carb clamp.
+            FastenerState headNut = original.Assembly.GetFastener(FastenerIds.HeadNut1)!;
+            Assert.Equal(WrenchActionStatus.FastenerStripped,
+                original.TryTorqueFastener(FastenerIds.HeadNut1, headNut.StripThresholdNm + 2f).Status);
+            original.Assembly.SetFastenerSeized(FastenerIds.ExhaustFlange1, true);
+            Assert.True(original.ApplyPenetratingOil(FastenerIds.ExhaustFlange1).Succeeded);
+            Assert.True(original.TryRemoveFastener(FastenerIds.CarbClamp).Succeeded);
+
+            // Same projection SaveLoadBridge (MopedSim.App) writes into BikeSaveState.Fasteners, through the real serializer.
+            SaveState state = SaveMigrator.CreateNewDefault(9u, db, archetypeId);
+            BikeSaveState bike = state.Bikes[0];
+            bike.Fasteners.Clear();
+            foreach (FastenerState f in original.Assembly.Fasteners)
+            {
+                bike.Fasteners.Add(new FastenerSaveState
+                {
+                    FastenerId = f.FastenerId,
+                    CurrentTorqueNm = f.CurrentTorqueNm,
+                    IsStripped = f.IsStripped,
+                    IsSeized = f.IsSeized,
+                    HasPenetratingOil = f.PenetratingOilApplied,
+                });
+            }
+            SaveState loaded = SaveMigrator.DeserializeAndMigrate(SaveMigrator.Serialize(state, false));
+
+            var restored = new BikeSimulation(db.GetArchetype(archetypeId), db.Parts);
+            foreach (FastenerSaveState fs in loaded.Bikes[0].Fasteners)
+            {
+                bool installed = fs.IsStripped || fs.CurrentTorqueNm > 0f;
+                WrenchActionResult r = restored.RestoreFastenerState(
+                    fs.FastenerId, installed, fs.CurrentTorqueNm, fs.IsStripped, fs.IsSeized, fs.HasPenetratingOil);
+                Assert.True(r.Succeeded, fs.FastenerId + ": " + r.Message);
+            }
+
+            foreach (FastenerState expected in original.Assembly.Fasteners)
+            {
+                FastenerState actual = restored.Assembly.GetFastener(expected.FastenerId)!;
+                Assert.True(expected.IsInstalled == actual.IsInstalled, expected.FastenerId + " installed");
+                Assert.True(expected.IsStripped == actual.IsStripped, expected.FastenerId + " stripped");
+                Assert.True(expected.IsSeized == actual.IsSeized, expected.FastenerId + " seized");
+                Assert.True(expected.PenetratingOilApplied == actual.PenetratingOilApplied, expected.FastenerId + " oil");
+                Assert.Equal(expected.CurrentTorqueNm, actual.CurrentTorqueNm, 4);
+            }
+            Assert.Equal(original.Assembly.ComputeAirLeakSeverity(), restored.Assembly.ComputeAirLeakSeverity(), 5);
         }
 
         private static bool IsFinite(float value)

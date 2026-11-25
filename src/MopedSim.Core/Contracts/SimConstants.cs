@@ -1,13 +1,15 @@
 namespace MopedSim.Core
 {
     /// <summary>
-    /// Canonical mount slot identifiers matching BikeAssemblyGraph and data/catalogs/*.json.
+    /// Canonical mount slot identifiers matching BikeAssemblyGraph and data/catalogs/archetypes.json verbatim.
+    /// Every constant here is mounted by at least one catalog archetype (enforced by MopedSim.Data.Tests).
     /// </summary>
     public static class SlotIds
     {
-        public const string FrameChassis = "SLOT_FRAME_CHASSIS";
+        public const string Frame = "SLOT_FRAME";
         public const string ForkAssembly = "SLOT_FORK_ASSEMBLY";
         public const string FrontWheel = "SLOT_FRONT_WHEEL";
+        public const string FrontBrake = "SLOT_FRONT_BRAKE";
         public const string FrontBrakeCable = "SLOT_FRONT_BRAKE_CABLE";
         public const string Handlebars = "SLOT_HANDLEBARS";
         public const string ThrottleCable = "SLOT_THROTTLE_CABLE";
@@ -19,6 +21,7 @@ namespace MopedSim.Core
         public const string FrontSprocket = "SLOT_FRONT_SPROCKET";
         public const string RearSprocket = "SLOT_REAR_SPROCKET";
         public const string RearBrake = "SLOT_REAR_BRAKE";
+        public const string RearBrakeCable = "SLOT_REAR_BRAKE_CABLE";
         public const string Seat = "SLOT_SEAT";
         public const string CargoRack = "SLOT_CARGO_RACK";
         public const string FuelTank = "SLOT_FUEL_TANK";
@@ -27,13 +30,15 @@ namespace MopedSim.Core
         public const string InlineFilter = "SLOT_INLINE_FILTER";
         public const string EngineCradle = "SLOT_ENGINE_CRADLE";
         public const string Ignition = "SLOT_IGNITION";
-        public const string StatorPlate = "SLOT_STATOR_PLATE";
+        public const string Flywheel = "SLOT_FLYWHEEL";
         public const string DrivetrainSide = "SLOT_DRIVETRAIN_SIDE";
-        public const string DriveBelt = "SLOT_DRIVE_BELT";
+        public const string VariatorRollers = "SLOT_VARIATOR_ROLLERS";
+        public const string VariatorBelt = "SLOT_VARIATOR_BELT";
         public const string IntakeManifold = "SLOT_INTAKE_MANIFOLD";
         public const string IntakeGasket = "SLOT_INTAKE_GASKET";
         public const string Carburetor = "SLOT_CARBURETOR";
         public const string MainJet = "SLOT_MAIN_JET";
+        public const string PilotJet = "SLOT_PILOT_JET";
         public const string AirFilter = "SLOT_AIR_FILTER";
         public const string Cylinder = "SLOT_CYLINDER";
         public const string BaseGasket = "SLOT_BASE_GASKET";
@@ -41,12 +46,14 @@ namespace MopedSim.Core
         public const string CylinderHead = "SLOT_CYLINDER_HEAD";
         public const string HeadGasket = "SLOT_HEAD_GASKET";
         public const string SparkPlug = "SLOT_SPARK_PLUG";
+        public const string PlugBoot = "SLOT_PLUG_BOOT";
         public const string Exhaust = "SLOT_EXHAUST";
         public const string ExhaustGasket = "SLOT_EXHAUST_GASKET";
     }
 
     /// <summary>
-    /// Canonical fastener identifiers matching Blender BOLT_* nodes and BikeAssemblyGraph.
+    /// Canonical fastener identifiers matching Blender BOLT_* nodes, data/catalogs/archetypes.json, and BikeAssemblyGraph.
+    /// Every constant here is declared by at least one catalog archetype (enforced by MopedSim.Data.Tests).
     /// </summary>
     public static class FastenerIds
     {
@@ -61,7 +68,8 @@ namespace MopedSim.Core
         public const string ShockTopR = "BOLT_SHOCK_TOP_R";
         public const string ShockBotL = "BOLT_SHOCK_BOT_L";
         public const string ShockBotR = "BOLT_SHOCK_BOT_R";
-        public const string RearAxle = "BOLT_REAR_AXLE";
+        public const string RearAxleL = "BOLT_REAR_AXLE_L";
+        public const string RearAxleR = "BOLT_REAR_AXLE_R";
         public const string SeatPost = "BOLT_SEAT_POST";
         public const string Rack1 = "BOLT_RACK_1";
         public const string Rack2 = "BOLT_RACK_2";

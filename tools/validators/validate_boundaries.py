@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 
 IGNORED_DIR_NAMES = {"bin", "obj", "Library", "Temp", "Obj", "Build", "Builds", "Logs", ".git"}
+COMPILED_BINARY_SUFFIXES = {".dll", ".pdb", ".mdb"}
 
 # PROJECT_GUIDE.md §4.2 Assembly Dependency Matrix
 UNITY_ASMDEF_RULES: Dict[str, Dict[str, object]] = {
@@ -545,6 +546,18 @@ def validate_pure_package(
             is_core_pkg=(pkg_name == "MopedSim.Core"),
             report=report,
         )
+
+    # Unity imports every file inside a UPM package folder, including stale bin/obj build output. The src/ .csproj
+    # files redirect BaseOutputPath/BaseIntermediateOutputPath to <repo>/artifacts/, so no compiled binary may remain here.
+    stray_binaries = sorted(
+        p for p in pkg_dir.rglob("*") if p.is_file() and p.suffix.lower() in COMPILED_BINARY_SUFFIXES
+    )
+    for binary in stray_binaries:
+        report.error(
+            f"{binary}: compiled binary inside UPM package (Unity would import it); build outputs belong in artifacts/"
+        )
+    if not stray_binaries:
+        report.passed(f"{pkg_dir}: no stray compiled binaries (.dll/.pdb) inside UPM package")
 
     cs_files = iter_files(pkg_dir, ".cs")
     before_errors = len(report.errors)

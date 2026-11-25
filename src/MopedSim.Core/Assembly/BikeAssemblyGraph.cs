@@ -479,6 +479,44 @@ namespace MopedSim.Core
         }
 
         /// <summary>
+        /// Restores a persisted fastener state verbatim (save/load). Unlike <see cref="TryTorqueFastener"/> this never strips,
+        /// never clears seizure, and needs no penetrating oil, so a reload reproduces exactly what was saved.
+        /// Removed fasteners always restore with zero torque and no seizure/strip/oil.
+        /// </summary>
+        public WrenchActionResult RestoreFastenerState(
+            string fastenerId,
+            bool isInstalled,
+            float currentTorqueNm,
+            bool isStripped,
+            bool isSeized,
+            bool penetratingOilApplied)
+        {
+            FastenerState? f = GetFastener(fastenerId);
+            if (f == null)
+            {
+                return WrenchActionResult.Fail(WrenchActionStatus.FastenerNotFound, fastenerId, "Unknown fastener.");
+            }
+            if (currentTorqueNm < 0f || float.IsNaN(currentTorqueNm) || float.IsInfinity(currentTorqueNm))
+            {
+                return WrenchActionResult.Fail(WrenchActionStatus.InvalidSpec, fastenerId, "Restored torque must be a finite, non-negative value.");
+            }
+            if (isInstalled && !IsSlotOccupied(f.OwnerSlotId))
+            {
+                return WrenchActionResult.Blocked(
+                    fastenerId,
+                    new[] { f.OwnerSlotId },
+                    "Cannot restore installed fastener " + fastenerId + " while " + f.OwnerSlotId + " is empty.");
+            }
+
+            f.IsInstalled = isInstalled;
+            f.CurrentTorqueNm = isInstalled ? currentTorqueNm : 0f;
+            f.IsStripped = isInstalled && isStripped;
+            f.IsSeized = isInstalled && isSeized;
+            f.PenetratingOilApplied = isInstalled && penetratingOilApplied;
+            return WrenchActionResult.Ok(fastenerId, "Restored fastener " + fastenerId + ".");
+        }
+
+        /// <summary>
         /// Marks a fastener as seized by rust/heat cycling (for test setup or aging events).
         /// </summary>
         public void SetFastenerSeized(string fastenerId, bool isSeized)

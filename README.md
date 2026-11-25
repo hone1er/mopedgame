@@ -63,7 +63,7 @@ blender --background --python tools/blender/generate_all.py
 
 - **[AGENTS.md](AGENTS.md)** — Mandatory engineering rules, repo structure, 5-gate verification commands, and multi-agent coordination lanes. **Read first.**
 - **[docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)** — Master specification covering the 2-stroke simulation model, assembly dependency DAG, fault matrix, riding physics, Bay Area zones, Blender `SOCKET_*` asset contracts, and M0–M7 milestones with verifiable outcomes.
-- **[docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)** — Settled Architectural Decision Records (`ADR-001`–`ADR-005`), including engine selection, engine-agnostic core kernel, and asset validation.
+- **[docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)** — Settled Architectural Decision Records (`ADR-001`–`ADR-006`), including engine selection, engine-agnostic core kernel, asset validation, and build-output/catalog staging isolation.
 - **[docs/REFERENCES_VINTAGE_MOPEDS.md](docs/REFERENCES_VINTAGE_MOPEDS.md)** — Curated vintage moped visual, proportion, and homage naming reference sheet from `pedalcodearmy.com/stable`.
 - **[docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md)** — Host prerequisites checklist, current milestone status, and verification log.
 

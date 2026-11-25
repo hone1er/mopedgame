@@ -435,6 +435,12 @@ namespace MopedSim.Data
                     CategoryMapping.MapPetcockMode(JsonRead.RequireString(fuel, "petcockMode", fuelCtx), JsonRead.Ctx(fuelCtx, "petcockMode")),
                     (float)JsonRead.OptionalNumber(fuel, "rustContamination", fuelCtx, 0.0));
 
+                // Hydrate Core's fresh-bike fuel defaults so new BikeSimulation(spec, parts) matches the catalog mix.
+                spec.DefaultFuelLiters = fuelMix.FuelLiters;
+                spec.DefaultPremixOilFraction = fuelMix.PremixOilFraction;
+                spec.DefaultPetcockMode = fuelMix.PetcockMode;
+                spec.DefaultTankRustContamination = fuelMix.RustContamination;
+
                 archetypes.Add(spec);
                 meta.Add(new ArchetypeMetadata(
                     id,

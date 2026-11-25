@@ -183,5 +183,79 @@ namespace MopedSim.Core.Tests
             }
             Assert.True(bikeFog.LatestTelemetry.EffectiveAfr < afrBefore);
         }
-    }
+    
+        [Fact]
+        public void IdealMainJet_ScalesWithVenturiRelativeToDisplacement()
+        {
+            // 49cc on its matched 12mm venturi with a neutral pipe is the unscaled reference.
+            Assert.Equal(EngineSimulation.BaseIdealMainJet, EngineSimulation.ComputeIdealMainJet(49f, 12f, 1.0f));
+
+            float stock12 = EngineSimulation.ComputeIdealMainJet(49f, 12f, 0.92f);
+            float stock15 = EngineSimulation.ComputeIdealMainJet(49f, 15f, 0.92f);
+            float stock19 = EngineSimulation.ComputeIdealMainJet(49f, 19f, 0.92f);
+            Assert.InRange(stock12, 57f, 60f);
+            Assert.InRange(stock15, 66f, 73f); // 15mm SHA on a stock 49cc wants roughly #66-#70
+            Assert.True(stock19 > stock15 && stock15 > stock12);
+
+            // A 70cc kit's matched venturi is ~15mm, so a 15mm SHA with a performance pipe still wants ~#72.
+            float kit15 = EngineSimulation.ComputeIdealMainJet(70f, 15f, 1.18f);
+            Assert.InRange(kit15, 70.5f, 73.5f);
+
+            // At a fixed 15mm venturi the bigger engine pulls a stronger signal, so it needs proportionally less jet per cc.
+            Assert.True(kit15 / stock15 < System.MathF.Pow(70f / 49f, 0.42f));
+
+            // Undersized venturis get no credit: a 70cc kit on the stock 12mm carb wants the same big jet as on its matched 15mm.
+            float kit12 = EngineSimulation.ComputeIdealMainJet(70f, 12f, 1.18f);
+            Assert.Equal(kit12, EngineSimulation.ComputeIdealMainJet(70f, 10f, 1.18f));
+            Assert.InRange(kit12 / kit15, 0.999f, 1.0f);
+        }
+
+        [Fact]
+        public void SeventyCcKit_OnStock12mmCarb_StockJetRunsLean_UntilUpJetted()
+        {
+            // Bolting a kit + pipe onto the stock 12mm Bing without re-jetting must still be the classic lean-seize trap.
+            BikeSimulation bike = TestFixtures.Create70ccKittedBike("jet_60");
+            var catalog = TestFixtures.CreateCatalog();
+            Assert.True(bike.TrySwapPart(SlotIds.Carburetor, new PartInstance(catalog["carb_bing_12"])).Succeeded);
+
+            var rng = new SeededSimRandom(616);
+            var wot = new RideInputState(throttle: 1.0f);
+            for (int i = 0; i < 120; i++)
+            {
+                bike.Step(1f / 60f, in wot, rng);
+            }
+            Assert.True(bike.LatestTelemetry.EffectiveAfr > 14.5f, "stock #60 on a kitted 12mm should be lean, got " + bike.LatestTelemetry.EffectiveAfr);
+            Assert.True(bike.LatestTelemetry.IsDetonating);
+
+            Assert.True(bike.TrySwapPart(SlotIds.MainJet, new PartInstance(catalog["jet_72"])).Succeeded);
+            for (int i = 0; i < 120; i++)
+            {
+                bike.Step(1f / 60f, in wot, rng);
+            }
+            Assert.InRange(bike.LatestTelemetry.EffectiveAfr, 11.8f, 13.6f);
+        }
+
+        [Fact]
+        public void StockFortyNineCc_On15mmCarb_WithVenturiSizedJet_RunsCleanForSixtySeconds()
+        {
+            // Same 49cc fixture bike swapped to a 15mm SHA with a #72 jet: the larger venturi's weaker signal needs the bigger
+            // jet, so it runs near-optimal instead of fouling rich as it did when the ideal jet ignored venturi size.
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+            var catalog = TestFixtures.CreateCatalog();
+            Assert.True(bike.TrySwapPart(SlotIds.Carburetor, new PartInstance(catalog["carb_sha_15"])).Succeeded);
+            Assert.True(bike.TrySwapPart(SlotIds.MainJet, new PartInstance(catalog["jet_72"])).Succeeded);
+
+            var rng = new SeededSimRandom(515);
+            var cruise = new RideInputState(throttle: 0.6f);
+            for (int i = 0; i < 60 * 60; i++)
+            {
+                EngineTelemetrySnapshot snap = bike.Step(1f / 60f, in cruise, rng);
+                Assert.True(snap.IsRunning, "stalled at tick " + i);
+                Assert.False(snap.IsFourStroking);
+            }
+
+            Assert.InRange(bike.LatestTelemetry.EffectiveAfr, 11.8f, 13.6f);
+            Assert.True(bike.SparkPlug.FoulingLevel < 0.10f);
+        }
+}
 }

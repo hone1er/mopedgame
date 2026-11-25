@@ -37,7 +37,14 @@ namespace MopedSim.Core
         CargoRack = 29,
         Gasket = 30,
         ToolRollItem = 31,
-        Consumable = 32
+        Consumable = 32,
+        FuelLine = 33,
+        VariatorRoller = 34,
+        Fender = 35,
+        Brake = 36,
+        Cable = 37,
+        PremixOil = 38,
+        GarageStation = 39
     }
 
     /// <summary>

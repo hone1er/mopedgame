@@ -77,6 +77,7 @@ Every active moped runs a deterministic fixed-timestep simulation (`dt = 1/60s` 
   - **Air Leaks** inject unmetered air downstream of the carb, raising `EffectiveAfr` toward lean (`> 14.8:1`) especially at idle/low throttle → causes **hanging high idle**, bog on crack-open throttle, and rapid `CHT` climb.
   - **Too Rich (`EffectiveAfr < 11.2:1`)**: Induces **four-stroking** (blubbery miss-every-other-cycle sound, sluggish top-end, wet soot buildup on plug, extra exhaust smoke).
   - **Too Lean (`EffectiveAfr > 14.5:1`)**: Sharp initial snap followed by flat/hollow bog under load, rising `CHT`, pre-ignition ping, and eventual piston seizure.
+  - **Venturi-Aware Jetting** (`EngineSimulation.ComputeIdealMainJet`): the ideal main jet scales with displacement, pipe flow, and the carb's venturi bore *relative to the engine's matched venturi* (`12mm @ 49cc`, `~15mm @ 70cc`, `~19mm @ 100cc`; `matched = 12mm × (cc/49)^0.625`, `venturiScale = max(1, venturi/matched)^0.90`). An oversized venturi flows the same air at lower velocity (weaker metering signal) and needs a bigger jet; an undersized one gets no credit, so a 70cc kit on the stock 12mm Bing still runs lean on the stock jet and must be up-jetted. Targets: `49cc / 12mm Bing ≈ #58`, `49cc / 15mm SHA ≈ #70`, `70cc kit + performance pipe (12mm or 15mm) ≈ #72`. Stock catalog jetting (`Maxer E50` 12mm/#56, `Bramble PA50` 15mm/#68, `Targa A35` 15mm/#66) runs `~12.5–13.0:1` at 60% throttle for 60s without fouling or stalling (asserted in `MopedSim.Data.Tests`).
 
 #### B. Premix Lubrication & Cylinder Head Temperature (`CHT`)
 - **Fuel Tank Premix**: Player mixes pump gas + 2-stroke oil at the Garage Premix Station (e.g., `50:1` synthetic, `40:1` standard, `32:1` break-in/heavy load, or accidental **Straight Gas `0:1`** mistake!).
@@ -126,19 +127,19 @@ Every active moped runs a deterministic fixed-timestep simulation (`dt = 1/60s` 
 `MopedSim.Core` represents every bike as a directed acyclic graph of **Mount Slots** and **Fasteners**:
 
 ```text
-Frame Chassis (Root)
+SLOT_FRAME (Root)
 ├── SLOT_FORK_ASSEMBLY (BOLT_STEM_NUT)
 │   ├── SLOT_FRONT_WHEEL (BOLT_FRONT_AXLE_L/R, SLOT_FRONT_BRAKE_CABLE)
 │   ├── SLOT_HANDLEBARS (BOLT_BAR_CLAMP_1..4, SLOT_THROTTLE_CABLE, SLOT_HEADLIGHT)
 │   └── SLOT_FRONT_FENDER
 ├── SLOT_REAR_SUSPENSION (BOLT_SHOCK_TOP_L/R, BOLT_SHOCK_BOT_L/R)
-├── SLOT_REAR_WHEEL (BOLT_REAR_AXLE, SLOT_CHAIN, SLOT_REAR_SPROCKET, SLOT_REAR_BRAKE)
+├── SLOT_REAR_WHEEL (BOLT_REAR_AXLE_L/R, SLOT_CHAIN, SLOT_REAR_SPROCKET, SLOT_REAR_BRAKE -> SLOT_REAR_BRAKE_CABLE)
 ├── SLOT_SEAT (BOLT_SEAT_POST)
 ├── SLOT_CARGO_RACK (BOLT_RACK_1..2)
 ├── SLOT_FUEL_TANK (SLOT_PETCOCK -> SLOT_FUEL_LINE -> SLOT_INLINE_FILTER)
 └── SLOT_ENGINE_CRADLE (BOLT_ENGINE_MOUNT_1..3)
-    ├── SLOT_IGNITION (BOLT_FLYWHEEL_NUT, SLOT_STATOR_PLATE -> Points/Condenser or CDI)
-    ├── SLOT_DRIVETRAIN_SIDE (BOLT_CLUTCH_COVER -> Clutch/Variator/Belt)
+    ├── SLOT_IGNITION (stator plate: Points/Condenser or CDI) + SLOT_FLYWHEEL (BOLT_FLYWHEEL_NUT)
+    ├── SLOT_DRIVETRAIN_SIDE (BOLT_CLUTCH_COVER -> Clutch/Variator/Gearbox; PA50: SLOT_VARIATOR_ROLLERS, SLOT_VARIATOR_BELT)
     ├── SLOT_INTAKE_MANIFOLD (BOLT_INTAKE_1..2, SLOT_INTAKE_GASKET)
     │   └── SLOT_CARBURETOR (BOLT_CARB_CLAMP)
     │       ├── SLOT_MAIN_JET (requires Float Bowl open)
@@ -149,6 +150,8 @@ Frame Chassis (Root)
         │   └── SLOT_SPARK_PLUG (THREAD_SPARK_PLUG)
         └── SLOT_EXHAUST (BOLT_EXHAUST_FLANGE_1..2, BOLT_EXHAUST_FRAME_BRACKET, SLOT_EXHAUST_GASKET)
 ```
+
+Slot and fastener IDs are used verbatim across `data/catalogs/archetypes.json`, Blender `SOCKET_*`/`BOLT_*` nodes, and Core's `SlotIds` / `FastenerIds` constants. Every Core constant is mounted/declared by at least one catalog archetype and every catalog slot has a `SlotIds` constant (enforced by `MopedSim.Data.Tests`), so Unity `SlotSocketBindings` never uses raw slot strings.
 
 **Enforced Wrenching Rules**:
 1. **Precondition Validation**: Attempting to remove `SLOT_CYLINDER` while `BOLT_HEAD_NUT_1` is installed or `SLOT_EXHAUST` is mounted returns `WrenchActionResult.Blocked(blockingNodes)`. `TrySwapPart` fits a replacement part directly across the target slot's own healthy fasteners (preserving existing fastener torque while still blocking on stripped/seized slot fasteners or external blocking slots; failed replacement restores the original part; `TryRemovePart` remains strict).
@@ -176,7 +179,7 @@ Frame Chassis (Root)
 | `fault_hard_seize` | `CHT >= 255°C` or `0:1` straight gas | Rear wheel lockup, metallic screech, compression lost | **Not field-repairable** → Pedal of Shame or Buddy Tow | New Piston/Ring/Cylinder Kit + hone |
 
 **Tool Roll & Recovery Economy**:
-- Standard Handlebar/Seat **Tool Roll** holds **6 slots** (upgradable to **10 slots** with saddlebag/milk-crate).
+- Standard Handlebar/Seat **Tool Roll** holds **6 slots** (upgradable to **10 slots** with saddlebag/milk-crate). The ceiling is one contract: `SimulationWorld.BaseToolRollCapacity = 6` / `MaxToolRollCapacity = 10`, mirrored by `SaveMigrator` and the `toolRollCapacity` (`6..10`) / `defaultToolRollSlots` (`<= 10`) schema bounds.
 - Choosing between carrying a spare belt, extra jets, spare plug, or master link + wrenches creates genuine pre-ride preparation tension.
 - **Pedal of Shame**: Disengage drive/pedal mode lets any pedal-equipped moped limp back at ~8–12 mph using `RiderStamina`; **Buddy Truck Tow** recovers bike instantly for a cash fee scaled by distance from West Oakland Garage.
 
@@ -364,12 +367,28 @@ namespace MopedSim.Core
         public WrenchActionResult TryRemovePart(string slotId);
         public WrenchActionResult TryInstallPart(string slotId, PartInstance part);
         public WrenchActionResult TryTorqueFastener(string fastenerId, float torqueNm);
+        // Save/load only: restores torque/strip/seize/oil verbatim without wrenching side effects (never re-strips).
+        public WrenchActionResult RestoreFastenerState(string fastenerId, bool isInstalled, float currentTorqueNm,
+            bool isStripped, bool isSeized, bool penetratingOilApplied);
+        public void Refuel(float liters, float premixOilFraction, float tankRustContamination = -1f);
         public SparkPlugReading InspectSparkPlug();
+    }
+
+    public sealed class SimulationWorld
+    {
+        // The only way Unity spends garage cash on parts; never deduct CashUsd directly.
+        public PurchaseResult TryPurchasePart(PartDefinition part);
     }
 }
 ```
 
+- **Fresh-bike fuel**: `BikeArchetypeSpec.DefaultFuelLiters / DefaultPremixOilFraction / DefaultPetcockMode / DefaultTankRustContamination` hydrate every new `BikeSimulation`. `MopedSim.Data` fills them from the catalog `defaultFuelMix`, converting the authored `X:1` premix ratio to Core's oil fraction via `ThermalModel.PremixFromRatio` (`50:1 → 0.02`). Tank rust is stored on the tank `PartInstance`.
+- **Part categories**: every catalog category maps to a dedicated `PartCategory` (`FuelLine`, `VariatorRoller`, `Fender`, `Brake`, `Cable`, `PremixOil`, `GarageStation` included; `Tool`/`Spare` → `ToolRollItem`), so Core's category check alone keeps cables, fenders, and brakes apart.
+
 ### 4.4 Data Schema Contracts (`data/schemas/` & `data/catalogs/`)
+
+- **Dry mass**: an archetype's `baseDryMassKg` is the whole stock bike. Stock (default) part `massKg` values sum `2–6 kg` below it; `MopedSim.Data` passes only that residual (frame hardware, wiring, stand) to Core as `BikeArchetypeSpec.BaseDryMassKg`, so assembled dry mass equals the authored value (`46.5–52.5 kg`) and the `2.0 kg` residual floor never engages.
+- **Player builds**: players cannot reach the repo's `data/catalogs/`, so `MopedSim.Editor.CliBuild` stages `data/catalogs/*.json` into `unity/Assets/StreamingAssets/Catalogs/` (validated, git-ignored) before every build; `AppCompositionRoot` loads from there outside the Editor.
 
 Example part catalog entry (`data/catalogs/parts.json` conforming to `data/schemas/part.schema.json`):
 
@@ -554,7 +573,7 @@ Each milestone is a **complete, testable increment**. Do not move to the next mi
 - **Verifiable Outcomes**:
   1. PlayMode E2E test: Zone streaming transitions `WestOakland → OaklandHills → BayCrossing → SF_Mission` with zero null-ref errors and bounded frame time.
   2. PlayMode economy test: Accepting a 2-crate courier gig requires rear rack/milk crate installed, awards cash upon delivery in `SF_Mission`, and unlocks purchasing/installing an upgrade part in `Garage`.
-  3. Environmental test: Entering `SF_Mission` Karl-the-Fog volume alters `AmbientAirDensity` / `SurfaceGrip` telemetry as specified.
+  3. Environmental test: Entering `SF_Mission` Karl-the-Fog volume alters `AmbientAirDensity` / `SurfaceGrip` telemetry as specified. (`MopedSim.World.KarlTheFogVolume` trigger volumes register with `BayAreaWeatherController` while the tracked ride rigidbody is inside; overlapping banks resolve by max intensity with a horizontal edge fade.)
 
 ### M7 — Polish, Balance, Save Migrations & Release Candidate
 - **Objective**: Lock save compatibility, tune progression and mechanical balance, profile performance on Apple Silicon, and produce a clean standalone macOS release candidate.

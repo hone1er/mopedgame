@@ -746,7 +746,11 @@ def _validate_archetypes_and_dag(
                                 f"archetypes.json[{arch_id}].slot[{sid}]: default part '{default_part_id}' "
                                 f"category '{part_cat}' not in {allowed_cats!r}"
                             )
-                    req_ifaces = slot.get("compatibleInterfaces") or slot.get("requiredInterfaces")
+                    req_ifaces = (
+                        slot.get("acceptedInterfaces")
+                        or slot.get("compatibleInterfaces")
+                        or slot.get("requiredInterfaces")
+                    )
                     part_ifaces = part_obj.get("compatibleInterfaces")
                     if (
                         isinstance(req_ifaces, list)

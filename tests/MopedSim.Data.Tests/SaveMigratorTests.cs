@@ -250,6 +250,96 @@ namespace MopedSim.Data.Tests
         }
 
         [Fact]
+        public void DeserializeAndMigrate_WrongJsonTypes_AreRejectedNotCoerced()
+        {
+            AssertRejected(j => j["seed"] = "5");
+            AssertRejected(j => j["reputation"] = 1.5);
+            AssertRejected(j => j["toolRollCapacity"] = 6.0);
+            AssertRejected(j => j["cashUsd"] = "12");
+            AssertRejected(j => j["diagnosticHintsEnabled"] = "true");
+            AssertRejected(j => j["diagnosticHintsEnabled"] = 1);
+            AssertRejected(j => j["activeBikeInstanceId"] = 5);
+            AssertRejected(j => j["bikes"]![0]!["nickname"] = 5);
+            AssertRejected(j => j["bikes"]![0]!["odometerKm"] = "12.5");
+            AssertRejected(j => j["bikes"]![0]!["fuelTank"] = new JArray());
+            AssertRejected(j => j["bikes"]![0]!["installedParts"]![0]!["installedArrowTowardExhaust"] = "yes");
+            AssertRejected(j => j["bikes"]![0]!["fasteners"]![0]!["currentTorqueNm"] = true);
+            AssertRejected(j => ((JArray)j["bikes"]![0]!["activeFaultIds"]!).Add(7));
+            AssertRejected(j => ((JArray)j["unlockedZones"]!).Add(new JObject()));
+            AssertRejected(j => j["activeToolRoll"] = "SparkPlugWrench");
+        }
+
+        [Fact]
+        public void DeserializeAndMigrate_EverySchemaLeafRejectsWrongJsonType()
+        {
+            // Schema-driven: proves the loader's type checks cover every leaf property in save_state.schema.json.
+            JObject schema = TestCatalog.ReadSchema("save_state.schema.json");
+            JObject bikeSchema = (JObject)schema["properties"]!["bikes"]!["items"]!;
+            var targets = new List<KeyValuePair<JObject, Func<JObject, JObject>>>
+            {
+                new KeyValuePair<JObject, Func<JObject, JObject>>(schema, j => j),
+                new KeyValuePair<JObject, Func<JObject, JObject>>(bikeSchema, j => (JObject)j["bikes"]![0]!),
+                new KeyValuePair<JObject, Func<JObject, JObject>>((JObject)bikeSchema["properties"]!["fuelTank"]!, j => (JObject)j["bikes"]![0]!["fuelTank"]!),
+                new KeyValuePair<JObject, Func<JObject, JObject>>((JObject)bikeSchema["properties"]!["installedParts"]!["items"]!, j => (JObject)j["bikes"]![0]!["installedParts"]![0]!),
+                new KeyValuePair<JObject, Func<JObject, JObject>>((JObject)bikeSchema["properties"]!["fasteners"]!["items"]!, j => (JObject)j["bikes"]![0]!["fasteners"]![0]!),
+                new KeyValuePair<JObject, Func<JObject, JObject>>((JObject)schema["properties"]!["inventory"]!["items"]!, j => (JObject)j["inventory"]![0]!),
+                new KeyValuePair<JObject, Func<JObject, JObject>>((JObject)schema["properties"]!["completedGigs"]!["items"]!, j => (JObject)j["completedGigs"]![0]!),
+            };
+
+            int checkedLeaves = 0;
+            foreach (KeyValuePair<JObject, Func<JObject, JObject>> target in targets)
+            {
+                foreach (JProperty prop in ((JObject)target.Key["properties"]!).Properties())
+                {
+                    string type = (string)prop.Value["type"]!;
+                    JToken wrong;
+                    switch (type)
+                    {
+                        case "integer": wrong = new JValue(1.5); break;
+                        case "number": wrong = new JValue("1"); break;
+                        case "string": wrong = new JValue(1); break;
+                        case "boolean": wrong = new JValue("true"); break;
+                        case "array": wrong = new JValue("x"); break;
+                        case "object": wrong = new JArray(); break;
+                        default: throw new InvalidOperationException("unhandled schema type " + type);
+                    }
+
+                    JObject json = JObject.Parse(SaveMigrator.Serialize(BuildRichState()));
+                    target.Value(json)[prop.Name] = wrong;
+                    Assert.True(Rejects(json), "save loader accepted wrong JSON type for '" + prop.Name + "' (schema type " + type + ")");
+                    checkedLeaves++;
+                }
+            }
+            Assert.True(checkedLeaves >= 45, "only " + checkedLeaves + " schema properties checked");
+        }
+
+        private static bool Rejects(JObject json)
+        {
+            try
+            {
+                SaveMigrator.DeserializeAndMigrate(json.ToString());
+                return false;
+            }
+            catch (SaveMigrationException)
+            {
+                return true;
+            }
+        }
+
+        [Fact]
+        public void DeserializeAndMigrate_AcceptsIntegerLiteralsForNumberFields()
+        {
+            JObject json = JObject.Parse(SaveMigrator.Serialize(SaveMigrator.CreateNewDefault(3u, TestCatalog.Real)));
+            json["cashUsd"] = 300;
+            json["bikes"]![0]!["odometerKm"] = 12;
+            json["bikes"]![0]!["fuelTank"]!["fuelLiters"] = 2;
+            SaveState state = SaveMigrator.DeserializeAndMigrate(json.ToString());
+            Assert.Equal(300m, state.CashUsd);
+            Assert.Equal(12.0, state.Bikes[0].OdometerKm);
+            Assert.Equal(2f, state.Bikes[0].FuelTank.FuelLiters);
+        }
+
+        [Fact]
         public void ValidateAgainstCatalog_ReportsUnknownIds()
         {
             CatalogDatabase db = TestCatalog.Real;

@@ -215,6 +215,14 @@ namespace MopedSim.Data
                 root["schemaVersion"] = current;
             }
 
+            // Newtonsoft would silently coerce "5" -> uint, 1.5 -> int, "true" -> bool, 5 -> string; enforce schema JSON types first.
+            var typeErrors = new List<string>();
+            SaveJsonTypes.Check(root, SaveJsonTypes.Root, "$", typeErrors);
+            if (typeErrors.Count > 0)
+            {
+                throw new SaveMigrationException("Save does not match save_state.schema.json types:\n  " + string.Join("\n  ", typeErrors));
+            }
+
             SaveState? state;
             try
             {
@@ -755,6 +763,180 @@ namespace MopedSim.Data
             {
                 errors.Add(ctx + " must be a finite number >= 0.");
             }
+        }
+    }
+
+    /// <summary>
+    /// JSON token-type shape of save_state.schema.json (schemaVersion 1), checked before deserialization so that
+    /// wrongly-typed values are rejected instead of coerced. Keep in sync with <see cref="SaveState"/>.
+    /// </summary>
+    internal static class SaveJsonTypes
+    {
+        internal enum Kind
+        {
+            Integer,
+            Number,
+            String,
+            Boolean,
+            Object,
+            ArrayOfObjects,
+            ArrayOfStrings,
+        }
+
+        internal sealed class Shape
+        {
+            public readonly Dictionary<string, KeyValuePair<Kind, Shape?>> Members = new Dictionary<string, KeyValuePair<Kind, Shape?>>(StringComparer.Ordinal);
+
+            public Shape Add(string name, Kind kind, Shape? child = null)
+            {
+                Members[name] = new KeyValuePair<Kind, Shape?>(kind, child);
+                return this;
+            }
+        }
+
+        internal static readonly Shape Root = BuildRoot();
+
+        public static void Check(JObject obj, Shape shape, string path, List<string> errors)
+        {
+            foreach (JProperty prop in obj.Properties())
+            {
+                if (!shape.Members.TryGetValue(prop.Name, out var expected))
+                {
+                    continue; // unknown members are rejected by MissingMemberHandling.Error with a precise message
+                }
+                string childPath = path + "." + prop.Name;
+                JToken? value = prop.Value;
+                if (value == null || value.Type == JTokenType.Null)
+                {
+                    continue; // nulls are rejected by Required.Always
+                }
+                switch (expected.Key)
+                {
+                    case Kind.Integer:
+                        if (value.Type != JTokenType.Integer)
+                        {
+                            errors.Add(childPath + " must be an integer, got " + value.Type + ".");
+                        }
+                        break;
+                    case Kind.Number:
+                        if (value.Type != JTokenType.Integer && value.Type != JTokenType.Float)
+                        {
+                            errors.Add(childPath + " must be a number, got " + value.Type + ".");
+                        }
+                        break;
+                    case Kind.String:
+                        if (value.Type != JTokenType.String)
+                        {
+                            errors.Add(childPath + " must be a string, got " + value.Type + ".");
+                        }
+                        break;
+                    case Kind.Boolean:
+                        if (value.Type != JTokenType.Boolean)
+                        {
+                            errors.Add(childPath + " must be a boolean, got " + value.Type + ".");
+                        }
+                        break;
+                    case Kind.Object:
+                        if (value is JObject child)
+                        {
+                            Check(child, expected.Value!, childPath, errors);
+                        }
+                        else
+                        {
+                            errors.Add(childPath + " must be an object, got " + value.Type + ".");
+                        }
+                        break;
+                    case Kind.ArrayOfObjects:
+                    case Kind.ArrayOfStrings:
+                        if (!(value is JArray arr))
+                        {
+                            errors.Add(childPath + " must be an array, got " + value.Type + ".");
+                            break;
+                        }
+                        for (int i = 0; i < arr.Count; i++)
+                        {
+                            string itemPath = childPath + "[" + i + "]";
+                            JToken item = arr[i];
+                            if (expected.Key == Kind.ArrayOfStrings)
+                            {
+                                if (item.Type != JTokenType.String)
+                                {
+                                    errors.Add(itemPath + " must be a string, got " + item.Type + ".");
+                                }
+                            }
+                            else if (item is JObject itemObj)
+                            {
+                                Check(itemObj, expected.Value!, itemPath, errors);
+                            }
+                            else
+                            {
+                                errors.Add(itemPath + " must be an object, got " + item.Type + ".");
+                            }
+                        }
+                        break;
+                }
+            }
+        }
+
+        private static Shape BuildRoot()
+        {
+            Shape fuelTank = new Shape()
+                .Add("fuelLiters", Kind.Number)
+                .Add("premixRatio", Kind.Number)
+                .Add("petcockMode", Kind.String)
+                .Add("rustContamination", Kind.Number);
+            Shape installedPart = new Shape()
+                .Add("slotId", Kind.String)
+                .Add("partId", Kind.String)
+                .Add("condition", Kind.Number)
+                .Add("wear", Kind.Number)
+                .Add("carbonClog", Kind.Number)
+                .Add("foulingLevel", Kind.Number)
+                .Add("insulatorColorIndex", Kind.Number)
+                .Add("pointsGapMm", Kind.Number)
+                .Add("installedArrowTowardExhaust", Kind.Boolean);
+            Shape fastener = new Shape()
+                .Add("fastenerId", Kind.String)
+                .Add("currentTorqueNm", Kind.Number)
+                .Add("isStripped", Kind.Boolean)
+                .Add("isSeized", Kind.Boolean)
+                .Add("hasPenetratingOil", Kind.Boolean);
+            Shape bike = new Shape()
+                .Add("instanceId", Kind.String)
+                .Add("archetypeId", Kind.String)
+                .Add("nickname", Kind.String)
+                .Add("odometerKm", Kind.Number)
+                .Add("paintHex", Kind.String)
+                .Add("patinaLevel", Kind.Number)
+                .Add("fuelTank", Kind.Object, fuelTank)
+                .Add("installedParts", Kind.ArrayOfObjects, installedPart)
+                .Add("fasteners", Kind.ArrayOfObjects, fastener)
+                .Add("activeFaultIds", Kind.ArrayOfStrings);
+            Shape inventoryItem = new Shape()
+                .Add("instanceId", Kind.String)
+                .Add("partId", Kind.String)
+                .Add("quantity", Kind.Integer)
+                .Add("condition", Kind.Number)
+                .Add("wear", Kind.Number);
+            Shape gig = new Shape()
+                .Add("jobId", Kind.String)
+                .Add("bestTimeSeconds", Kind.Number)
+                .Add("completions", Kind.Integer)
+                .Add("lastCompletedUtc", Kind.String);
+            return new Shape()
+                .Add("schemaVersion", Kind.Integer)
+                .Add("seed", Kind.Integer)
+                .Add("cashUsd", Kind.Number)
+                .Add("reputation", Kind.Integer)
+                .Add("activeBikeInstanceId", Kind.String)
+                .Add("activeZoneId", Kind.String)
+                .Add("toolRollCapacity", Kind.Integer)
+                .Add("bikes", Kind.ArrayOfObjects, bike)
+                .Add("inventory", Kind.ArrayOfObjects, inventoryItem)
+                .Add("activeToolRoll", Kind.ArrayOfStrings)
+                .Add("completedGigs", Kind.ArrayOfObjects, gig)
+                .Add("unlockedZones", Kind.ArrayOfStrings)
+                .Add("diagnosticHintsEnabled", Kind.Boolean);
         }
     }
 }

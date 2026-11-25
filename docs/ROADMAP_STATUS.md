@@ -1,6 +1,6 @@
 # ROADMAP_STATUS.md — Host Prerequisites, Milestone Tracker & Verification Log
 
-**Current Phase**: `M0–M5` headless work verified via Gates 1–2; Unity runtime Gates 3–5 blocked on the Unity 6 LTS Editor install  
+**Current Phase**: `M0–M5` headless work verified via Gates 1–2; Unity `6000.6.10f1` installed and ready for Gates 3–5 (`./scripts/verify.sh --full`)  
 **Last Updated**: `2026-11-25`
 
 ---
@@ -25,7 +25,7 @@
 | **Blender** (Apple Silicon) | ~1.2 GiB | `brew install --cask blender` | `/Applications/Blender.app/Contents/MacOS/Blender --version` → `Blender 5.3.0` | `[x] Installed` |
 | **Git LFS** (for `.glb`, audio, binary assets) | ~0.05 GiB | `brew install git-lfs && git lfs install` | `git lfs version` → `git-lfs/3.8.1` | `[x] Installed` |
 | **Unity Hub** | ~0.5 GiB | `brew install --cask unity-hub` | `ls -d "/Applications/Unity Hub.app"` | `[x] Installed` |
-| **Unity 6 LTS Editor (`arm64` + Mac Build Support)** | ~11–16 GiB | Unity Hub → latest Unity `6000.x` LTS (`Apple Silicon`) + `Mac Build Support (IL2CPP/Mono)` | `ls /Applications/Unity/Hub/Editor/*/Unity.app/Contents/MacOS/Unity` (currently: `/Applications/Unity/Hub/Editor/` does not exist) | `[ ] Pending` — **blocks Gates 3–5** |
+| **Unity 6 Editor (`6000.6.10f1` `arm64`)** | ~11–16 GiB | Unity Hub → Unity `6000.6.10f1` (`Apple Silicon`) + `Mac Build Support` | `ls /Applications/Unity/Hub/Editor/*/Unity.app/Contents/MacOS/Unity` → `/Applications/Unity/Hub/Editor/6000.6.10f1/Unity.app/Contents/MacOS/Unity` | `[x] Installed` |
 
 > **Storage Tip**: Install only the **macOS Build Support** module alongside the Unity 6 LTS (`arm64`) Editor; skip Android/iOS/Windows modules to keep room for `Library/` caches and builds.
 

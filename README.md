@@ -16,11 +16,11 @@ Ensure Git LFS `.glb` assets are pulled and the host toolchain is installed (see
 - **.NET SDK** (`.NET 8+` / `.NET 11.0`)
 - **Python 3** (for static boundary, catalog, and `.glb` validators)
 - **Blender** (`5.x+`, only required when regenerating `.glb` models)
-- **Unity 6 LTS (`6000.0.x`, Apple Silicon `arm64` + Mac Build Support)** installed via **Unity Hub**
+- **Unity 6 (`6000.6.10f1`, Apple Silicon `arm64` + Mac Build Support)** installed via **Unity Hub**
 
 ### 2. Play in the Unity Editor
-1. Open **Unity Hub** → **Add → Add project from disk** → select the `unity/` folder in this repository.
-2. Open the project in **Unity 6 LTS** (Unity automatically resolves the local `src/MopedSim.Core` and `src/MopedSim.Data` UPM packages plus URP, Input System, `glTFast`, and `Newtonsoft.Json`).
+1. Open **Unity Hub** → **Add → Add project from disk** → select `~/MopedGame/unity` (or the `unity/` folder in this repository).
+2. Open the project in **Unity `6000.6.10f1`** (Unity automatically resolves the local `src/MopedSim.Core` and `src/MopedSim.Data` UPM packages plus URP, Input System, `glTFast`, and `Newtonsoft.Json`).
 3. In the Unity top menu, run **`MopedSim → Scenes → Rebuild All Scaffold Scenes`** (`SceneScaffoldBuilder.BuildAllScenes`) to generate `Bootstrap.unity`, `Garage.unity`, `UI_Overlay.unity`, and the four Bay Area `Zone_*.unity` scenes (`Zone_WestOakland`, `Zone_OaklandHills`, `Zone_BayCrossing`, `Zone_SF_Mission`) and register them in `EditorBuildSettings`.
 4. Open `unity/Assets/Scenes/Bootstrap.unity` and press **Play** (`⌘P`).
 

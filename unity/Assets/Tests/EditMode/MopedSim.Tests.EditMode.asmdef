@@ -12,7 +12,9 @@
     "MopedSim.UI",
     "MopedSim.Audio",
     "MopedSim.App",
-    "MopedSim.Editor"
+    "MopedSim.Editor",
+    "MopedSim.Tests.PlayMode",
+    "UnityEngine.UI"
   ],
   "includePlatforms": [
     "Editor"

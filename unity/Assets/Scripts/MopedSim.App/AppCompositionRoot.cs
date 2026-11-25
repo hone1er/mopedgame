@@ -74,6 +74,7 @@ namespace MopedSim.App
         private IReadOnlyList<PartDefinition> _shopCatalog;
         private bool _bootstrapped;
         private EngineTelemetrySnapshot _frameTelemetry;
+        private SaveState _lastLoadedSave;
 
         public event Action<RoadsideRepairResult> RoadsideRepairAttempted;
         public event Action<RecoveryResult> RecoveryCompleted;
@@ -109,6 +110,14 @@ namespace MopedSim.App
         public GameSessionStateMachine Session
         {
             get { return _session; }
+        }
+
+        /// <summary>
+        /// Parts offered by the shop terminal / carb jet crate (catalog PartList, or the injected list).
+        /// </summary>
+        public IReadOnlyList<PartDefinition> ShopCatalog
+        {
+            get { return _shopCatalog; }
         }
 
         public IReadOnlyList<string> Inventory
@@ -324,8 +333,35 @@ namespace MopedSim.App
             world.RegisterBike(DefaultBikeInstanceId, bike, true);
 
             _catalog = db;
+            if (_assembler != null)
+            {
+                _assembler.SetSocketBindings(BuildSocketBindings(db, _startingArchetypeId));
+            }
+
             BootstrapWithWorld(world, db.PartList);
             return true;
+        }
+
+        /// <summary>
+        /// Builds slot-to-socket bindings from the archetype catalog's per-slot "attachSocket" metadata (falls back to defaults).
+        /// </summary>
+        public static SlotSocketBindings BuildSocketBindings(CatalogDatabase db, string archetypeId)
+        {
+            SlotSocketBindings bindings = SlotSocketBindings.CreateDefault();
+            ArchetypeMetadata meta;
+            if (db != null && db.ArchetypeMeta.TryGetValue(archetypeId, out meta) && meta != null)
+            {
+                for (int i = 0; i < meta.Slots.Count; i++)
+                {
+                    SlotMetadata slot = meta.Slots[i];
+                    if (slot != null && !string.IsNullOrEmpty(slot.AttachSocket))
+                    {
+                        bindings.Set(slot.SlotId, slot.AttachSocket);
+                    }
+                }
+            }
+
+            return bindings;
         }
 
         /// <summary>
@@ -705,7 +741,7 @@ namespace MopedSim.App
         public SaveState CaptureSave()
         {
             bool hints = _hints == null || _hints.HintsEnabled;
-            return SaveLoadBridge.Capture(_world, DefaultBikeInstanceId, _inventory, _seed, hints);
+            return SaveLoadBridge.Capture(_world, DefaultBikeInstanceId, _inventory, _seed, hints, _lastLoadedSave);
         }
 
         public void SaveToPath(string path)
@@ -719,6 +755,7 @@ namespace MopedSim.App
         public int LoadFromPath(string path)
         {
             SaveState state = SaveLoadBridge.LoadFromPath(path);
+            _lastLoadedSave = state;
             SaveLoadBridge.ApplyWorldState(state, _world);
             _inventory.Clear();
             for (int i = 0; i < state.Inventory.Count; i++)

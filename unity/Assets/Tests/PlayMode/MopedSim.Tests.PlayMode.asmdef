@@ -12,7 +12,8 @@
     "MopedSim.UI",
     "MopedSim.Audio",
     "MopedSim.App",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "UnityEngine.UI"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

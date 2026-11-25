@@ -87,6 +87,11 @@ namespace MopedSim.Ride
 
         public EngineTelemetrySnapshot LatestTelemetry { get { return _latestTelemetry; } }
         public float SpeedMps { get; private set; }
+
+        /// <summary>
+        /// Signed speed along the bike's flattened heading (negative when rolling backwards).
+        /// </summary>
+        public float ForwardSpeedMps { get; private set; }
         public float SpeedMph { get { return SpeedMps * 2.2369363f; } }
         public float LeanAngleDeg { get { return _lastLeanDeg; } }
         public float LastRailCrossingAngleDeg { get { return _lastRailCrossingAngleDeg; } }
@@ -280,6 +285,7 @@ namespace MopedSim.Ride
             }
 
             float forwardSpeed = Vector3.Dot(velocity, flatForward);
+            ForwardSpeedMps = forwardSpeed;
             SpeedMps = Mathf.Abs(forwardSpeed);
 
             if (_pedal != null)
@@ -328,7 +334,8 @@ namespace MopedSim.Ride
                     roughness,
                     _ambientAirDensity);
 
-                _latestTelemetry = _sim.Step(dt, in input, SpeedMps, _rng);
+                // Core's drivetrain models forward wheel rotation only; rolling backwards reads as a stopped wheel.
+                _latestTelemetry = _sim.Step(dt, in input, Mathf.Max(0f, forwardSpeed), _rng);
                 stepped = true;
             }
 
@@ -363,6 +370,7 @@ namespace MopedSim.Ride
                 return;
             }
 
+            bool wasGrounded = wheel.Grounded;
             wheel.Grounded = true;
             wheel.ContactPoint = hit.point;
             wheel.ContactNormal = hit.normal;
@@ -372,6 +380,11 @@ namespace MopedSim.Ride
             float springLen = rayDist - _wheelRadiusM;
             float compression = Mathf.Clamp(_suspensionRestLengthM - springLen, 0f, _suspensionRestLengthM + _suspensionTravelM);
             wheel.Compression = compression;
+            if (!wasGrounded)
+            {
+                // First contact: no damper spike from a stale zero-compression history.
+                wheel.PrevCompression = compression;
+            }
 
             float compressionVel = (compression - wheel.PrevCompression) / Mathf.Max(dt, 0.0001f);
             float springForce = (compression * _springStiffnessNPerM) + (compressionVel * _damperNsPerM);

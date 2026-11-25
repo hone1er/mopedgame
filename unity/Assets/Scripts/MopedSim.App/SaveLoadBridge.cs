@@ -14,21 +14,42 @@ namespace MopedSim.App
     public static class SaveLoadBridge
     {
         /// <summary>
+        /// Fallback frame paint when neither the baseline save nor MopedSim.Data's default supplies one.
+        /// </summary>
+        public const string FallbackPaintHex = "#C8553D";
+
+        /// <summary>
         /// Captures the world, the active bike, garage inventory, and settings into a SaveState.
+        /// Progression/cosmetic fields Core does not own (paint, patina, reputation, unlocked zones, completed gigs) are carried
+        /// over from <paramref name="baseline"/> (the last loaded save) or from SaveMigrator.CreateNewDefault.
         /// </summary>
         public static SaveState Capture(
             SimulationWorld world,
             string bikeInstanceId,
             IReadOnlyList<string> inventoryPartIds,
             uint seed,
-            bool diagnosticHintsEnabled)
+            bool diagnosticHintsEnabled,
+            SaveState baseline = null)
         {
             if (world == null)
             {
                 throw new ArgumentNullException(nameof(world));
             }
 
-            SaveState state = new SaveState();
+            SaveState state = baseline ?? SaveMigrator.CreateNewDefault(seed);
+            BikeSaveState prior = FindBike(state, bikeInstanceId);
+            if (prior == null && state.Bikes.Count > 0)
+            {
+                prior = state.Bikes[0];
+            }
+
+            string paintHex = prior != null && !string.IsNullOrEmpty(prior.PaintHex) ? prior.PaintHex : FallbackPaintHex;
+            float patina = prior != null ? prior.PatinaLevel : 0f;
+            string nickname = prior != null ? prior.Nickname : string.Empty;
+            state.Bikes.Clear();
+            state.ActiveToolRoll.Clear();
+            state.Inventory.Clear();
+
             state.Seed = seed;
             state.CashUsd = world.CashUsd;
             state.ActiveZoneId = world.CurrentZone.Id;
@@ -55,10 +76,36 @@ namespace MopedSim.App
 
             if (world.ActiveBike != null)
             {
-                state.Bikes.Add(CaptureBike(world.ActiveBike, bikeInstanceId));
+                BikeSaveState bike = CaptureBike(world.ActiveBike, bikeInstanceId);
+                bike.PaintHex = paintHex;
+                bike.PatinaLevel = patina;
+                if (!string.IsNullOrEmpty(nickname))
+                {
+                    bike.Nickname = nickname;
+                }
+
+                state.Bikes.Add(bike);
+            }
+
+            if (!string.IsNullOrEmpty(state.ActiveZoneId) && !state.UnlockedZones.Contains(state.ActiveZoneId))
+            {
+                state.UnlockedZones.Add(state.ActiveZoneId);
             }
 
             return state;
+        }
+
+        private static BikeSaveState FindBike(SaveState state, string instanceId)
+        {
+            for (int i = 0; i < state.Bikes.Count; i++)
+            {
+                if (string.Equals(state.Bikes[i].InstanceId, instanceId, StringComparison.Ordinal))
+                {
+                    return state.Bikes[i];
+                }
+            }
+
+            return null;
         }
 
         public static BikeSaveState CaptureBike(BikeSimulation bike, string instanceId)

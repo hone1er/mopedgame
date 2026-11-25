@@ -1,3 +1,5 @@
+#nullable enable
+
 using System.Collections.Generic;
 using MopedSim.Core;
 using Newtonsoft.Json;

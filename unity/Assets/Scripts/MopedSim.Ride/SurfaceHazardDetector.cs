@@ -14,7 +14,7 @@ namespace MopedSim.Ride
 
         public const float ShallowRailAngleThresholdDeg = 20f;
 
-        private readonly Dictionary<int, SurfaceHazardSample> _colliderCache = new Dictionary<int, SurfaceHazardSample>(64);
+        private readonly Dictionary<EntityId, SurfaceHazardSample> _colliderCache = new Dictionary<EntityId, SurfaceHazardSample>(64);
         private ExternalSurfaceResolver _externalResolver;
 
         public void SetExternalResolver(ExternalSurfaceResolver resolver)
@@ -38,15 +38,15 @@ namespace MopedSim.Ride
                 return SurfaceHazardSample.FromSurfaceType(RoadSurfaceType.DryAsphalt, Vector3.forward, false);
             }
 
-            int instanceId = hitCollider.GetInstanceID();
+            EntityId entityId = hitCollider.GetEntityId();
             SurfaceHazardSample cached;
-            if (_colliderCache.TryGetValue(instanceId, out cached))
+            if (_colliderCache.TryGetValue(entityId, out cached))
             {
                 return cached;
             }
 
             SurfaceHazardSample resolved = ResolveColliderColdPath(hitCollider);
-            _colliderCache[instanceId] = resolved;
+            _colliderCache[entityId] = resolved;
             return resolved;
         }
 

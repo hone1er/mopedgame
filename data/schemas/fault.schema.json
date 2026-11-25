@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mopedgame.local/schemas/fault.schema.json",
+  "title": "MechanicalFaultDefinition",
+  "description": "Schema for mechanical breakdown rules, symptoms, roadside tool roll requirements, and permanent garage fixes in data/catalogs/faults.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayName",
+    "severity",
+    "isRoadsideRepairable",
+    "rootCause",
+    "symptoms",
+    "diagnosticHint",
+    "garagePermanentFix",
+    "triggerRules",
+    "repairOptions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^fault_[a-z0-9_]+$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["RoadsideRepairable", "GarageRequired"]
+    },
+    "isRoadsideRepairable": {
+      "type": "boolean"
+    },
+    "rootCause": {
+      "type": "string",
+      "minLength": 1
+    },
+    "symptoms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "diagnosticHint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "garagePermanentFix": {
+      "type": "string",
+      "minLength": 1
+    },
+    "triggerRules": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "repairOptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "optionId",
+          "description",
+          "requiredTools",
+          "consumedSpares",
+          "durationSeconds"
+        ],
+        "properties": {
+          "optionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requiredTools": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_]+$"
+            }
+          },
+          "consumedSpares": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_]+$"
+            }
+          },
+          "durationSeconds": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

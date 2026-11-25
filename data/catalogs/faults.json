@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 1,
+  "faults": [
+    {
+      "schemaVersion": 1,
+      "id": "fault_fouled_plug",
+      "displayName": "Fouled Spark Plug",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Overly rich AFR (< 11.2:1), heavy oil premix, or prolonged cold idling coats the spark plug ceramic and electrode in wet carbon.",
+      "symptoms": [
+        "Four-stroking sputter under throttle",
+        "Random misfire and hesitation under load",
+        "Sudden stall returning to idle",
+        "Wet black soot across spark plug insulator"
+      ],
+      "diagnosticHint": "Rich blubbering followed by dead spark points straight to a fouled plug — pull it and check insulator color.",
+      "garagePermanentFix": "Step down main/pilot jet size for clean ChocolateBrown burn and mix premix at 40:1 to 50:1.",
+      "triggerRules": {
+        "foulingLevelMin": 0.85,
+        "afrBelow": 11.2
+      },
+      "repairOptions": [
+        {
+          "optionId": "clean_plug_with_brush",
+          "description": "Pull spark plug with Spark Plug Wrench and scrub electrode clean with Wire Brush.",
+          "requiredTools": ["SparkPlugWrench", "WireBrush"],
+          "consumedSpares": [],
+          "durationSeconds": 25.0
+        },
+        {
+          "optionId": "swap_spare_plug",
+          "description": "Remove fouled plug with Spark Plug Wrench and thread in a fresh Spare Plug.",
+          "requiredTools": ["SparkPlugWrench"],
+          "consumedSpares": ["SparePlug"],
+          "durationSeconds": 20.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_clogged_jet",
+      "displayName": "Clogged Main Jet",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Rust flakes from an untreated steel fuel tank bypass a missing inline fuel filter and lodge inside the main jet orifice.",
+      "symptoms": [
+        "Engine idles or runs only with choke engaged",
+        "Immediate lean bog and stall when cracking throttle open"
+      ],
+      "diagnosticHint": "Only running with the choke on means the main jet orifice is blocked by tank debris.",
+      "garagePermanentFix": "Install an Inline Fuel Filter on the fuel line and flush rust scale from the fuel tank.",
+      "triggerRules": {
+        "requiresMissingInlineFilter": true,
+        "rustContaminationMin": 0.25
+      },
+      "repairOptions": [
+        {
+          "optionId": "clear_jet_carb_cleaner",
+          "description": "Drop float bowl with Flathead screwdriver and blast main jet clear with Carb Cleaner.",
+          "requiredTools": ["Flathead"],
+          "consumedSpares": ["CarbCleaner"],
+          "durationSeconds": 30.0
+        },
+        {
+          "optionId": "clear_jet_field_blow",
+          "description": "Remove float bowl and main jet with Flathead screwdriver and clear debris manually.",
+          "requiredTools": ["Flathead"],
+          "consumedSpares": [],
+          "durationSeconds": 45.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_condenser_heatsoak",
+      "displayName": "6V Condenser Heat-Soak",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Aged 6V points ignition condenser loses capacitance once crankcase heat exceeds 95C during hot stop-and-go riding.",
+      "symptoms": [
+        "Runs crisply cold for ~12 minutes",
+        "Sudden ignition cutout at stoplight when hot",
+        "Miraculously restarts after sitting to cool down"
+      ],
+      "diagnosticHint": "Clean cold start followed by a silent hot-stoplight cutout is classic 6V condenser heat-soak.",
+      "garagePermanentFix": "Replace aged 6V condenser or upgrade stator to 12V Electronic CDI.",
+      "triggerRules": {
+        "requiresPointsIgnition": true,
+        "crankcaseTempCMin": 95.0
+      },
+      "repairOptions": [
+        {
+          "optionId": "replace_condenser_roadside",
+          "description": "Pull magneto flywheel with Flywheel Puller and Flathead, and swap in Spare Condenser.",
+          "requiredTools": ["FlywheelPuller", "Flathead"],
+          "consumedSpares": ["SpareCondenser"],
+          "durationSeconds": 60.0
+        },
+        {
+          "optionId": "curb_cooldown_wait",
+          "description": "Park on the curb until crankcase temperature drops below 80C so the condenser recovers temporarily.",
+          "requiredTools": [],
+          "consumedSpares": [],
+          "durationSeconds": 120.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_points_drift",
+      "displayName": "Breaker Points Gap Drift",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Rubbing-block wear shifts 6V breaker points gap outside the 0.30-0.45 mm window.",
+      "symptoms": [
+        "High-RPM ignition breakup and stumble",
+        "Backfire pop through exhaust or carburetor",
+        "Weak orange spark and sluggish rev ceiling"
+      ],
+      "diagnosticHint": "6V points breakup above midrange means the rubbing block wore down — re-gap to 0.35 mm.",
+      "garagePermanentFix": "Install fresh 6V breaker points or convert ignition to 12V Electronic CDI.",
+      "triggerRules": {
+        "requiresPointsIgnition": true,
+        "pointsGapMinMm": 0.30,
+        "pointsGapMaxMm": 0.45
+      },
+      "repairOptions": [
+        {
+          "optionId": "regap_points_roadside",
+          "description": "Loosen stator points screw with Flathead and set gap to 0.35 mm using Feeler Gauge.",
+          "requiredTools": ["Flathead", "FeelerGauge"],
+          "consumedSpares": [],
+          "durationSeconds": 40.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_air_leak",
+      "displayName": "Intake / Crankcase Air Leak",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Unmetered air enters behind the carburetor through a loose carb clamp, under-torqued cylinder/intake bolts, torn gasket, or worn crank seal.",
+      "symptoms": [
+        "Racing hanging high idle when throttle is closed",
+        "Hollow lean bog on throttle crack",
+        "Rapid CHT temperature climb"
+      ],
+      "diagnosticHint": "A screaming high idle that refuses to settle points to an air leak leaning out the mixture.",
+      "garagePermanentFix": "Replace torn base/intake gaskets or crank seals, torque fasteners to spec, and verify with Leak-Down Tester.",
+      "triggerRules": {
+        "airLeakSeverityMin": 0.25
+      },
+      "repairOptions": [
+        {
+          "optionId": "tighten_carb_and_intake",
+          "description": "Re-seat carburetor on spigot and tighten clamp and intake bolts with 10mm Wrench and Flathead.",
+          "requiredTools": ["Wrench10mm", "Flathead"],
+          "consumedSpares": [],
+          "durationSeconds": 25.0
+        },
+        {
+          "optionId": "snug_intake_bolts",
+          "description": "Snug backed-off intake or base fasteners using 10mm Wrench.",
+          "requiredTools": ["Wrench10mm"],
+          "consumedSpares": [],
+          "durationSeconds": 30.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_thrown_chain",
+      "displayName": "Thrown Drive Chain",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Excessive 415 chain slack combined with a sharp pothole impact whips the chain off the rear sprocket.",
+      "symptoms": [
+        "Loud metallic chain clatter under rear swingarm",
+        "Engine revs freely with zero rear-wheel drive"
+      ],
+      "diagnosticHint": "No forward drive while the engine spins freely — check if the 415 chain jumped the sprocket.",
+      "garagePermanentFix": "Replace stretched 415 drive chain and tension rear axle to 12-18 mm mid-span slack.",
+      "triggerRules": {
+        "chainSlackMaxMm": 28.0
+      },
+      "repairOptions": [
+        {
+          "optionId": "reinstall_chain_master_link",
+          "description": "Re-thread chain, fit new Master Link with Needle-Nose pliers, and tension axle with 15mm Wrench.",
+          "requiredTools": ["NeedleNose", "Wrench15mm"],
+          "consumedSpares": ["MasterLink"],
+          "durationSeconds": 45.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_snapped_belt",
+      "displayName": "Snapped Variator Belt",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "Aged or oil-glazed variator V-belt reaches terminal wear and shreds under high-RPM hill load.",
+      "symptoms": [
+        "Engine screams straight to redline",
+        "Zero power transmitted to rear pulley"
+      ],
+      "diagnosticHint": "PA50 variator spinning to the moon with zero pull means the V-belt snapped.",
+      "garagePermanentFix": "Install fresh V-belt and degrease variator and rear torque-driver pulley sheaves.",
+      "triggerRules": {
+        "requiresVariatedDrivetrain": true,
+        "beltWearMin": 1.0
+      },
+      "repairOptions": [
+        {
+          "optionId": "replace_belt_strap_tool",
+          "description": "Hold variator sheave with Variator Strap Tool and slip Spare Belt onto front and rear pulleys.",
+          "requiredTools": ["VariatorStrapTool"],
+          "consumedSpares": ["SpareBelt"],
+          "durationSeconds": 45.0
+        },
+        {
+          "optionId": "replace_belt_10mm",
+          "description": "Pull side cover bolts with 10mm Wrench and wrestle Spare Belt over pulley sheaves.",
+          "requiredTools": ["Wrench10mm"],
+          "consumedSpares": ["SpareBelt"],
+          "durationSeconds": 65.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_exhaust_loose",
+      "displayName": "Loose Exhaust Flange",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "High-frequency 2-stroke vibration backs off under-torqued M6 exhaust flange nuts.",
+      "symptoms": [
+        "Deafening unmuffled pop-pop exhaust pulse",
+        "Abrupt drop in midrange torque and backpressure"
+      ],
+      "diagnosticHint": "Sudden unmuffled exhaust bark right below the cylinder means your header flange nuts rattled loose.",
+      "garagePermanentFix": "Fit a fresh copper crush gasket, torque flange nuts evenly to spec, and secure frame bracket.",
+      "triggerRules": {
+        "exhaustLeakSeverityMin": 0.35
+      },
+      "repairOptions": [
+        {
+          "optionId": "install_spare_flange_nut",
+          "description": "Thread Spare Flange Nut onto exhaust stud and torque snug with 10mm Wrench.",
+          "requiredTools": ["Wrench10mm"],
+          "consumedSpares": ["SpareFlangeNut"],
+          "durationSeconds": 25.0
+        },
+        {
+          "optionId": "tighten_flange_nuts",
+          "description": "Re-snug backed-off exhaust flange nuts using 10mm Wrench.",
+          "requiredTools": ["Wrench10mm"],
+          "consumedSpares": [],
+          "durationSeconds": 20.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_soft_seize",
+      "displayName": "4-Corner Thermal Soft Seize",
+      "severity": "RoadsideRepairable",
+      "isRoadsideRepairable": true,
+      "rootCause": "CHT reaches 230-254C from lean carb jetting or sustained WOT pulls up steep grades, swelling the piston into the bore.",
+      "symptoms": [
+        "Sharp metallic ping warning above 206C",
+        "Abrupt heavy bog and silent stall",
+        "Sticky pedal/kick resistance until cylinder cools"
+      ],
+      "diagnosticHint": "Thermal soft seize! Pull onto the curb and let the cylinder cool before restarting or up-jetting.",
+      "garagePermanentFix": "Up-jet main jet until plug reads ChocolateBrown, verify colder heat-range plug (B7HS/B8HS), and check compression.",
+      "triggerRules": {
+        "chtMinC": 230.0,
+        "chtMaxC": 254.9
+      },
+      "repairOptions": [
+        {
+          "optionId": "cooldown_and_upjet",
+          "description": "Cool down cylinder on curb, open carb bowl with Flathead, and swap in richer Spare Main Jet.",
+          "requiredTools": ["Flathead"],
+          "consumedSpares": ["SpareMainJet"],
+          "durationSeconds": 75.0
+        },
+        {
+          "optionId": "curb_cooldown_only",
+          "description": "Wait 60-90 seconds on the curb for piston expansion to subside and nurse bike home at partial throttle.",
+          "requiredTools": [],
+          "consumedSpares": [],
+          "durationSeconds": 75.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fault_hard_seize",
+      "displayName": "Catastrophic Hard Seize",
+      "severity": "GarageRequired",
+      "isRoadsideRepairable": false,
+      "rootCause": "CHT >= 255C or oil starvation (0:1 straight gas) smears melted aluminum across piston rings and cylinder wall.",
+      "symptoms": [
+        "Violent rear-wheel lockup under load",
+        "Harsh metallic screech before dead stop",
+        "Zero compression when pedaling over"
+      ],
+      "diagnosticHint": "Scored bore and welded rings — impossible to fix on the curb. Pedal of Shame or Buddy Truck Tow to Garage.",
+      "garagePermanentFix": "Teardown top-end on Garage Workstand, replace scored Piston and Cylinder Kit, and flush unmixed straight gas.",
+      "triggerRules": {
+        "chtMinC": 255.0,
+        "oilStarvationRatioBelow": 0.008
+      },
+      "repairOptions": []
+    }
+  ]
+}

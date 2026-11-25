@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mopedgame.local/schemas/bike_archetype.schema.json",
+  "title": "BikeArchetypeDefinition",
+  "description": "Schema for a moped chassis archetype, default part loadout, fastener specs, and assembly DAG in data/catalogs/archetypes.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayName",
+    "inspiredBy",
+    "description",
+    "drivetrainArchitecture",
+    "baseDryMassKg",
+    "wheelbaseMeters",
+    "saddleHeightMeters",
+    "fuelCapacityLiters",
+    "reserveThresholdLiters",
+    "defaultToolRollSlots",
+    "basePriceUsd",
+    "defaultFuelMix",
+    "mountSlots",
+    "fasteners"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^arch_[a-z0-9_]+$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inspiredBy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "drivetrainArchitecture": {
+      "type": "string",
+      "enum": [
+        "SingleSpeedCentrifugal",
+        "VariatedBelt",
+        "TwoSpeedAuto"
+      ]
+    },
+    "baseDryMassKg": {
+      "type": "number",
+      "minimum": 25,
+      "maximum": 95
+    },
+    "wheelbaseMeters": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1.5
+    },
+    "saddleHeightMeters": {
+      "type": "number",
+      "minimum": 0.65,
+      "maximum": 0.95
+    },
+    "fuelCapacityLiters": {
+      "type": "number",
+      "minimum": 1.5,
+      "maximum": 10.0
+    },
+    "reserveThresholdLiters": {
+      "type": "number",
+      "minimum": 0.2,
+      "maximum": 2.0
+    },
+    "defaultToolRollSlots": {
+      "type": "integer",
+      "minimum": 4,
+      "maximum": 12
+    },
+    "basePriceUsd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "defaultFuelMix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fuelLiters",
+        "premixRatio",
+        "petcockMode",
+        "rustContamination"
+      ],
+      "properties": {
+        "fuelLiters": {
+          "type": "number",
+          "minimum": 0
+        },
+        "premixRatio": {
+          "type": "number",
+          "minimum": 0
+        },
+        "petcockMode": {
+          "type": "string",
+          "enum": ["Off", "On", "Reserve"]
+        },
+        "rustContamination": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "mountSlots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slotId",
+          "displayName",
+          "parentSlotId",
+          "attachSocket",
+          "acceptedCategories",
+          "acceptedInterfaces",
+          "defaultPartId",
+          "fastenerIds",
+          "blockedBy",
+          "requiresOrientationCheck",
+          "requiresCarbBowlOpen"
+        ],
+        "properties": {
+          "slotId": {
+            "type": "string",
+            "pattern": "^SLOT_[A-Z0-9_]+$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parentSlotId": {
+            "type": ["string", "null"],
+            "pattern": "^SLOT_[A-Z0-9_]+$"
+          },
+          "attachSocket": {
+            "type": ["string", "null"],
+            "pattern": "^SOCKET_[A-Z0-9_]+$"
+          },
+          "acceptedCategories": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "acceptedInterfaces": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "defaultPartId": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9_]+$"
+          },
+          "fastenerIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(BOLT|THREAD)_[A-Z0-9_]+$"
+            }
+          },
+          "blockedBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^SLOT_[A-Z0-9_]+$"
+            }
+          },
+          "requiresOrientationCheck": {
+            "type": "boolean"
+          },
+          "requiresCarbBowlOpen": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "fasteners": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fastenerId",
+          "displayName",
+          "targetTorqueNm",
+          "toleranceNm",
+          "stripThresholdNm",
+          "vibrationLoosenRate",
+          "canSeize",
+          "defaultSeized",
+          "requiredToolId"
+        ],
+        "properties": {
+          "fastenerId": {
+            "type": "string",
+            "pattern": "^(BOLT|THREAD)_[A-Z0-9_]+$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "targetTorqueNm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "toleranceNm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "stripThresholdNm": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "vibrationLoosenRate": {
+            "type": "number",
+            "minimum": 0
+          },
+          "canSeize": {
+            "type": "boolean"
+          },
+          "defaultSeized": {
+            "type": "boolean"
+          },
+          "requiredToolId": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

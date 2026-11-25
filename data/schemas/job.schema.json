@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mopedgame.local/schemas/job.schema.json",
+  "title": "JobAndRallyDefinition",
+  "description": "Schema for courier gigs, hill climbs, speed traps, and Bay Swarm rallies in data/catalogs/jobs.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayName",
+    "description",
+    "jobType",
+    "difficulty",
+    "startZoneId",
+    "targetZoneId",
+    "requiredCargoSlots",
+    "requiredCargoKg",
+    "recommendedPartIds",
+    "timeLimitSeconds",
+    "basePayoutUsd",
+    "bonusPayoutUsd",
+    "reputationReward",
+    "checkpoints"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jobType": {
+      "type": "string",
+      "enum": ["CourierGig", "HillClimb", "SpeedTrap", "BaySwarmRally"]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["Chill", "Spicy", "Brutal"]
+    },
+    "startZoneId": {
+      "type": "string",
+      "pattern": "^Zone_[A-Za-z0-9_]+$"
+    },
+    "targetZoneId": {
+      "type": "string",
+      "pattern": "^Zone_[A-Za-z0-9_]+$"
+    },
+    "requiredCargoSlots": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "requiredCargoKg": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 40
+    },
+    "recommendedPartIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_]+$"
+      }
+    },
+    "timeLimitSeconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "basePayoutUsd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "bonusPayoutUsd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reputationReward": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checkpoints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "zoneId",
+          "order",
+          "position",
+          "radiusMeters",
+          "gradePercent"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "zoneId": {
+            "type": "string",
+            "pattern": "^Zone_[A-Za-z0-9_]+$"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "position": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "z"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "z": { "type": "number" }
+            }
+          },
+          "radiusMeters": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "gradePercent": {
+            "type": "number",
+            "minimum": -30,
+            "maximum": 35
+          }
+        }
+      }
+    }
+  }
+}

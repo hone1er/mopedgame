@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mopedgame.local/schemas/save_state.schema.json",
+  "title": "MopedGameSaveState",
+  "description": "Versioned player save file schema (schemaVersion: 1) migrated sequentially by SaveMigrator in MopedSim.Data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "seed",
+    "cashUsd",
+    "reputation",
+    "activeBikeInstanceId",
+    "activeZoneId",
+    "toolRollCapacity",
+    "bikes",
+    "inventory",
+    "activeToolRoll",
+    "completedGigs",
+    "unlockedZones",
+    "diagnosticHintsEnabled"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "cashUsd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reputation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "activeBikeInstanceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activeZoneId": {
+      "type": "string",
+      "pattern": "^Zone_[A-Za-z0-9_]+$"
+    },
+    "toolRollCapacity": {
+      "type": "integer",
+      "minimum": 6,
+      "maximum": 12
+    },
+    "bikes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instanceId",
+          "archetypeId",
+          "nickname",
+          "odometerKm",
+          "paintHex",
+          "patinaLevel",
+          "fuelTank",
+          "installedParts",
+          "fasteners",
+          "activeFaultIds"
+        ],
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "archetypeId": {
+            "type": "string",
+            "pattern": "^arch_[a-z0-9_]+$"
+          },
+          "nickname": {
+            "type": "string",
+            "minLength": 1
+          },
+          "odometerKm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "paintHex": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "patinaLevel": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "fuelTank": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fuelLiters",
+              "premixRatio",
+              "petcockMode",
+              "rustContamination"
+            ],
+            "properties": {
+              "fuelLiters": {
+                "type": "number",
+                "minimum": 0
+              },
+              "premixRatio": {
+                "type": "number",
+                "minimum": 0
+              },
+              "petcockMode": {
+                "type": "string",
+                "enum": ["Off", "On", "Reserve"]
+              },
+              "rustContamination": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "installedParts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "slotId",
+                "partId",
+                "condition",
+                "wear",
+                "carbonClog",
+                "foulingLevel",
+                "insulatorColorIndex",
+                "pointsGapMm",
+                "installedArrowTowardExhaust"
+              ],
+              "properties": {
+                "slotId": {
+                  "type": "string",
+                  "pattern": "^SLOT_[A-Z0-9_]+$"
+                },
+                "partId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_]+$"
+                },
+                "condition": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "wear": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "carbonClog": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "foulingLevel": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "insulatorColorIndex": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "pointsGapMm": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2
+                },
+                "installedArrowTowardExhaust": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "fasteners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "fastenerId",
+                "currentTorqueNm",
+                "isStripped",
+                "isSeized",
+                "hasPenetratingOil"
+              ],
+              "properties": {
+                "fastenerId": {
+                  "type": "string",
+                  "pattern": "^(BOLT|THREAD)_[A-Z0-9_]+$"
+                },
+                "currentTorqueNm": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "isStripped": {
+                  "type": "boolean"
+                },
+                "isSeized": {
+                  "type": "boolean"
+                },
+                "hasPenetratingOil": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "activeFaultIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^fault_[a-z0-9_]+$"
+            }
+          }
+        }
+      }
+    },
+    "inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instanceId",
+          "partId",
+          "quantity",
+          "condition",
+          "wear"
+        ],
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "partId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_]+$"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "condition": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "wear": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "activeToolRoll": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_]+$"
+      }
+    },
+    "completedGigs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jobId",
+          "bestTimeSeconds",
+          "completions",
+          "lastCompletedUtc"
+        ],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "bestTimeSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "completions": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "lastCompletedUtc": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "unlockedZones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^Zone_[A-Za-z0-9_]+$"
+      }
+    },
+    "diagnosticHintsEnabled": {
+      "type": "boolean"
+    }
+  }
+}

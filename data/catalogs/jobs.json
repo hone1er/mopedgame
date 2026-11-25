@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 1,
+  "jobs": [
+    {
+      "schemaVersion": 1,
+      "id": "gig_west_oakland_coffee",
+      "displayName": "West Oakland Espresso Drop",
+      "description": "Run two hot thermoses from the corner roaster to Parts Alley before they go lukewarm. Fits on any basic rear wire rack.",
+      "jobType": "CourierGig",
+      "difficulty": "Chill",
+      "startZoneId": "Zone_WestOakland",
+      "targetZoneId": "Zone_WestOakland",
+      "requiredCargoSlots": 1,
+      "requiredCargoKg": 2.5,
+      "recommendedPartIds": ["rack_rear_wire"],
+      "timeLimitSeconds": 150.0,
+      "basePayoutUsd": 35.0,
+      "bonusPayoutUsd": 15.0,
+      "reputationReward": 10,
+      "checkpoints": [
+        {
+          "id": "cp_wo_roaster",
+          "displayName": "Mandela Pkwy Roaster",
+          "zoneId": "Zone_WestOakland",
+          "order": 1,
+          "position": { "x": -110.0, "y": 0.0, "z": 65.0 },
+          "radiusMeters": 8.0,
+          "gradePercent": 0.5
+        },
+        {
+          "id": "cp_wo_parts_alley",
+          "displayName": "Parts Alley Dropoff",
+          "zoneId": "Zone_WestOakland",
+          "order": 2,
+          "position": { "x": 180.0, "y": 0.0, "z": 120.0 },
+          "radiusMeters": 8.0,
+          "gradePercent": 1.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "gig_oakland_burrito_crate",
+      "displayName": "Oakland Hills Hardware & Burrito Crate",
+      "description": "Haul a stacked 3-slot catering and hardware crate up from West Oakland to the Tunnel Road work crew. Milk Crate rear rack required!",
+      "jobType": "CourierGig",
+      "difficulty": "Spicy",
+      "startZoneId": "Zone_WestOakland",
+      "targetZoneId": "Zone_OaklandHills",
+      "requiredCargoSlots": 3,
+      "requiredCargoKg": 7.5,
+      "recommendedPartIds": ["rack_milk_crate", "sprocket_front_11t", "pipe_circuit_e50_proma"],
+      "timeLimitSeconds": 240.0,
+      "basePayoutUsd": 75.0,
+      "bonusPayoutUsd": 30.0,
+      "reputationReward": 25,
+      "checkpoints": [
+        {
+          "id": "cp_burrito_pickup",
+          "displayName": "Grand Ave Kitchen Pickup",
+          "zoneId": "Zone_WestOakland",
+          "order": 1,
+          "position": { "x": 140.0, "y": 1.0, "z": -60.0 },
+          "radiusMeters": 8.0,
+          "gradePercent": 1.5
+        },
+        {
+          "id": "cp_lake_merritt_turn",
+          "displayName": "Lake Merritt Pergola Pass",
+          "zoneId": "Zone_OaklandHills",
+          "order": 2,
+          "position": { "x": 450.0, "y": 4.0, "z": -180.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 4.0
+        },
+        {
+          "id": "cp_tunnel_crew_drop",
+          "displayName": "Tunnel Road Gate Dropoff",
+          "zoneId": "Zone_OaklandHills",
+          "order": 3,
+          "position": { "x": 860.0, "y": 45.0, "z": 110.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 12.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "gig_ferry_parcel_dash",
+      "displayName": "Trans-Bay Courier Rush",
+      "description": "Cross the windy Bay Crossing span from West Oakland to the SF Ferry Terminal with priority blueprint tubes.",
+      "jobType": "CourierGig",
+      "difficulty": "Spicy",
+      "startZoneId": "Zone_WestOakland",
+      "targetZoneId": "Zone_SF_Mission",
+      "requiredCargoSlots": 1,
+      "requiredCargoKg": 3.0,
+      "recommendedPartIds": ["rack_rear_wire", "bars_cafe_clipon", "filter_inline_fuel"],
+      "timeLimitSeconds": 260.0,
+      "basePayoutUsd": 95.0,
+      "bonusPayoutUsd": 35.0,
+      "reputationReward": 30,
+      "checkpoints": [
+        {
+          "id": "cp_span_entry",
+          "displayName": "East Span Bike Ramp",
+          "zoneId": "Zone_BayCrossing",
+          "order": 1,
+          "position": { "x": -780.0, "y": 8.0, "z": 150.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 3.5
+        },
+        {
+          "id": "cp_midspan_deck",
+          "displayName": "Mid-Span Gust Deck",
+          "zoneId": "Zone_BayCrossing",
+          "order": 2,
+          "position": { "x": -1450.0, "y": 38.0, "z": 150.0 },
+          "radiusMeters": 12.0,
+          "gradePercent": 4.5
+        },
+        {
+          "id": "cp_sf_dispatch",
+          "displayName": "Valencia St. Studio Dropoff",
+          "zoneId": "Zone_SF_Mission",
+          "order": 3,
+          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 },
+          "radiusMeters": 9.0,
+          "gradePercent": 2.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "gig_mission_parts_rush",
+      "displayName": "Mission Crankcase & Gasket Courier",
+      "description": "Navigate wet Karl the Fog asphalt and slick Muni rail crossings in the Mission delivering an urgent crate of gaskets and piston kits.",
+      "jobType": "CourierGig",
+      "difficulty": "Brutal",
+      "startZoneId": "Zone_SF_Mission",
+      "targetZoneId": "Zone_SF_Mission",
+      "requiredCargoSlots": 2,
+      "requiredCargoKg": 5.5,
+      "recommendedPartIds": ["rack_milk_crate", "bars_bmx_riser", "light_boxy_led_12v"],
+      "timeLimitSeconds": 195.0,
+      "basePayoutUsd": 110.0,
+      "bonusPayoutUsd": 45.0,
+      "reputationReward": 40,
+      "checkpoints": [
+        {
+          "id": "cp_mission_start",
+          "displayName": "24th St. Dispatch",
+          "zoneId": "Zone_SF_Mission",
+          "order": 1,
+          "position": { "x": -2620.0, "y": 18.0, "z": -560.0 },
+          "radiusMeters": 8.0,
+          "gradePercent": 5.0
+        },
+        {
+          "id": "cp_valencia_tracks",
+          "displayName": "Valencia Muni Rail Chicane",
+          "zoneId": "Zone_SF_Mission",
+          "order": 2,
+          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 },
+          "radiusMeters": 9.0,
+          "gradePercent": 2.5
+        },
+        {
+          "id": "cp_noe_climb_drop",
+          "displayName": "Upper Mission Garage Drop",
+          "zoneId": "Zone_SF_Mission",
+          "order": 3,
+          "position": { "x": -2840.0, "y": 98.0, "z": -640.0 },
+          "radiusMeters": 9.0,
+          "gradePercent": 15.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "speed_embarcadero_plug_chop",
+      "displayName": "Maritime St. Quarter-Mile Speed Trap",
+      "description": "Hold wide-open throttle down the flat West Oakland straightaway for a clean speed trap clock and a textbook plug chop reading.",
+      "jobType": "SpeedTrap",
+      "difficulty": "Chill",
+      "startZoneId": "Zone_WestOakland",
+      "targetZoneId": "Zone_WestOakland",
+      "requiredCargoSlots": 0,
+      "requiredCargoKg": 0.0,
+      "recommendedPartIds": ["bars_cafe_clipon", "pipe_topend_expansion"],
+      "timeLimitSeconds": 65.0,
+      "basePayoutUsd": 45.0,
+      "bonusPayoutUsd": 25.0,
+      "reputationReward": 15,
+      "checkpoints": [
+        {
+          "id": "cp_plugchop_launch",
+          "displayName": "Maritime Start Cones",
+          "zoneId": "Zone_WestOakland",
+          "order": 1,
+          "position": { "x": -220.0, "y": 0.0, "z": 310.0 },
+          "radiusMeters": 8.0,
+          "gradePercent": 0.0
+        },
+        {
+          "id": "cp_plugchop_trap",
+          "displayName": "Quarter-Mile Radar Gate",
+          "zoneId": "Zone_WestOakland",
+          "order": 2,
+          "position": { "x": -622.0, "y": 0.0, "z": 310.0 },
+          "radiusMeters": 8.0,
+          "gradePercent": 0.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "climb_tunnel_road_torture",
+      "displayName": "Tunnel Road Thermal Hill Climb",
+      "description": "Attack sustained 12-16% switchbacks up Tunnel Road to Grizzly Peak without soft-seizing on the climb or fading your drum brakes on the descent.",
+      "jobType": "HillClimb",
+      "difficulty": "Spicy",
+      "startZoneId": "Zone_OaklandHills",
+      "targetZoneId": "Zone_OaklandHills",
+      "requiredCargoSlots": 0,
+      "requiredCargoKg": 0.0,
+      "recommendedPartIds": ["roller_set_5g", "clutch_e50_stiff", "brake_drum_ebc"],
+      "timeLimitSeconds": 180.0,
+      "basePayoutUsd": 85.0,
+      "bonusPayoutUsd": 40.0,
+      "reputationReward": 35,
+      "checkpoints": [
+        {
+          "id": "cp_tunnel_start",
+          "displayName": "Tunnel Road Gate",
+          "zoneId": "Zone_OaklandHills",
+          "order": 1,
+          "position": { "x": 860.0, "y": 45.0, "z": 110.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 9.0
+        },
+        {
+          "id": "cp_redwood_hairpin",
+          "displayName": "Redwood Hairpin Midpoint",
+          "zoneId": "Zone_OaklandHills",
+          "order": 2,
+          "position": { "x": 1080.0, "y": 175.0, "z": 260.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 16.5
+        },
+        {
+          "id": "cp_grizzly_finish",
+          "displayName": "Grizzly Peak Summit",
+          "zoneId": "Zone_OaklandHills",
+          "order": 3,
+          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 },
+          "radiusMeters": 12.0,
+          "gradePercent": 11.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "climb_twin_peaks_fog",
+      "displayName": "Twin Peaks Fog Wall Ascent",
+      "description": "Use pedal-assist bursts and crisp variator/clutch engagement to conquer 22% SF grades into dense Karl the Fog.",
+      "jobType": "HillClimb",
+      "difficulty": "Brutal",
+      "startZoneId": "Zone_SF_Mission",
+      "targetZoneId": "Zone_SF_Mission",
+      "requiredCargoSlots": 0,
+      "requiredCargoKg": 0.0,
+      "recommendedPartIds": ["sprocket_front_11t", "stator_cdi_12v", "light_boxy_led_12v"],
+      "timeLimitSeconds": 190.0,
+      "basePayoutUsd": 120.0,
+      "bonusPayoutUsd": 50.0,
+      "reputationReward": 45,
+      "checkpoints": [
+        {
+          "id": "cp_twin_peaks_base",
+          "displayName": "Market & Portola Ascent Base",
+          "zoneId": "Zone_SF_Mission",
+          "order": 1,
+          "position": { "x": -2750.0, "y": 60.0, "z": -610.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 14.0
+        },
+        {
+          "id": "cp_twin_peaks_wall",
+          "displayName": "22% Fog Hairpin",
+          "zoneId": "Zone_SF_Mission",
+          "order": 2,
+          "position": { "x": -2920.0, "y": 180.0, "z": -690.0 },
+          "radiusMeters": 10.0,
+          "gradePercent": 22.0
+        },
+        {
+          "id": "cp_twin_peaks_top",
+          "displayName": "Twin Peaks Fog Lookout",
+          "zoneId": "Zone_SF_Mission",
+          "order": 3,
+          "position": { "x": -3050.0, "y": 270.0, "z": -740.0 },
+          "radiusMeters": 12.0,
+          "gradePercent": 8.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rally_east_bay_scrambler",
+      "displayName": "East Bay Saturday Swarm Scrambler",
+      "description": "Weekend pack run from West Oakland flats up into the Oakland Hills redwood ridge and back down to Lake Merritt. Pack your tool roll!",
+      "jobType": "BaySwarmRally",
+      "difficulty": "Spicy",
+      "startZoneId": "Zone_WestOakland",
+      "targetZoneId": "Zone_OaklandHills",
+      "requiredCargoSlots": 0,
+      "requiredCargoKg": 0.0,
+      "recommendedPartIds": ["SparkPlugWrench", "SparePlug", "Wrench10mm", "MasterLink"],
+      "timeLimitSeconds": 420.0,
+      "basePayoutUsd": 140.0,
+      "bonusPayoutUsd": 60.0,
+      "reputationReward": 55,
+      "checkpoints": [
+        {
+          "id": "cp_eb_rally_start",
+          "displayName": "West Oakland Garage Pack Rollout",
+          "zoneId": "Zone_WestOakland",
+          "order": 1,
+          "position": { "x": 15.0, "y": 0.0, "z": 20.0 },
+          "radiusMeters": 12.0,
+          "gradePercent": 0.0
+        },
+        {
+          "id": "cp_eb_rally_merritt",
+          "displayName": "Lake Merritt Regroup",
+          "zoneId": "Zone_OaklandHills",
+          "order": 2,
+          "position": { "x": 450.0, "y": 4.0, "z": -180.0 },
+          "radiusMeters": 12.0,
+          "gradePercent": 2.0
+        },
+        {
+          "id": "cp_eb_rally_summit",
+          "displayName": "Grizzly Peak Two-Stroke Smoke Break",
+          "zoneId": "Zone_OaklandHills",
+          "order": 3,
+          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 10.0
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rally_bay_swarm_sunday",
+      "displayName": "Bay Swarm Sunday Mega Rally",
+      "description": "The flagship all-Bay 2-stroke pack ride across West Oakland, Tunnel Rd, the windy Bay Crossing, SF Muni tracks, and Twin Peaks. Survive the pace without a hard seize!",
+      "jobType": "BaySwarmRally",
+      "difficulty": "Brutal",
+      "startZoneId": "Zone_WestOakland",
+      "targetZoneId": "Zone_WestOakland",
+      "requiredCargoSlots": 0,
+      "requiredCargoKg": 0.0,
+      "recommendedPartIds": ["SparkPlugWrench", "SparePlug", "Flathead", "Wrench10mm", "MasterLink", "SpareBelt"],
+      "timeLimitSeconds": 780.0,
+      "basePayoutUsd": 260.0,
+      "bonusPayoutUsd": 120.0,
+      "reputationReward": 100,
+      "checkpoints": [
+        {
+          "id": "cp_swarm_01_wo",
+          "displayName": "West Oakland Staging Lot",
+          "zoneId": "Zone_WestOakland",
+          "order": 1,
+          "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 0.0
+        },
+        {
+          "id": "cp_swarm_02_hills",
+          "displayName": "Grizzly Peak Overlook",
+          "zoneId": "Zone_OaklandHills",
+          "order": 2,
+          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 14.0
+        },
+        {
+          "id": "cp_swarm_03_span",
+          "displayName": "Bay Crossing Mid-Span",
+          "zoneId": "Zone_BayCrossing",
+          "order": 3,
+          "position": { "x": -1450.0, "y": 38.0, "z": 150.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 4.0
+        },
+        {
+          "id": "cp_swarm_04_mission",
+          "displayName": "Valencia Muni Rail Regroup",
+          "zoneId": "Zone_SF_Mission",
+          "order": 4,
+          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 3.0
+        },
+        {
+          "id": "cp_swarm_05_peaks",
+          "displayName": "Twin Peaks Summit Checkpoint",
+          "zoneId": "Zone_SF_Mission",
+          "order": 5,
+          "position": { "x": -3050.0, "y": 270.0, "z": -740.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 18.0
+        },
+        {
+          "id": "cp_swarm_06_finish",
+          "displayName": "West Oakland Garage Finish Arch",
+          "zoneId": "Zone_WestOakland",
+          "order": 6,
+          "position": { "x": 20.0, "y": 0.0, "z": 0.0 },
+          "radiusMeters": 15.0,
+          "gradePercent": 0.0
+        }
+      ]
+    }
+  ]
+}

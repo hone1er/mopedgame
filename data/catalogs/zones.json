@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "zones": [
+    {
+      "schemaVersion": 1,
+      "id": "Zone_WestOakland",
+      "sceneName": "Zone_WestOakland",
+      "displayName": "West Oakland Flats & Garage",
+      "description": "Home turf under the BART tracks: brick warehouses, potholed frontage straights ideal for flat-out WOT plug chops, Parts Alley swap meet, and the West Oakland Garage.",
+      "ambientAirDensity": 1.0,
+      "ambientTempCelsius": 20.0,
+      "maxGradePercent": 3.5,
+      "headwindMps": 1.5,
+      "fogDensity": 0.06,
+      "hasMuniRails": false,
+      "primarySurfaces": [
+        "DryAsphalt",
+        "PatchedPotholeAsphalt",
+        "GravelShoulder"
+      ],
+      "towFeeUsd": 25.0,
+      "connectedZones": [
+        "Zone_OaklandHills",
+        "Zone_BayCrossing"
+      ],
+      "landmarks": [
+        {
+          "id": "lm_west_oakland_garage",
+          "displayName": "West Oakland Moped Garage",
+          "landmarkType": "Garage",
+          "position": { "x": 0.0, "y": 0.0, "z": 0.0 }
+        },
+        {
+          "id": "lm_parts_alley_swap",
+          "displayName": "Parts Alley Swap Meet",
+          "landmarkType": "Shop",
+          "position": { "x": 180.0, "y": 0.0, "z": 120.0 }
+        },
+        {
+          "id": "lm_maritime_plug_chop",
+          "displayName": "Maritime St. Quarter-Mile Plug Chop Strip",
+          "landmarkType": "PlugChopStrip",
+          "position": { "x": -420.0, "y": 0.0, "z": 310.0 }
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "Zone_OaklandHills",
+      "sceneName": "Zone_OaklandHills",
+      "displayName": "Oakland Hills & Tunnel Road",
+      "description": "Lake Merritt shoreline warm-up climbing straight into steep redwood switchbacks up Tunnel Rd and Grizzly Peak — ruthless thermal CHT and downhill drum brake fade test.",
+      "ambientAirDensity": 0.94,
+      "ambientTempCelsius": 18.5,
+      "maxGradePercent": 16.5,
+      "headwindMps": 3.0,
+      "fogDensity": 0.14,
+      "hasMuniRails": false,
+      "primarySurfaces": [
+        "DryAsphalt",
+        "PatchedPotholeAsphalt",
+        "GravelShoulder"
+      ],
+      "towFeeUsd": 55.0,
+      "connectedZones": [
+        "Zone_WestOakland",
+        "Zone_BayCrossing"
+      ],
+      "landmarks": [
+        {
+          "id": "lm_lake_merritt_loop",
+          "displayName": "Lake Merritt Pergola Warmup",
+          "landmarkType": "Hub",
+          "position": { "x": 450.0, "y": 4.0, "z": -180.0 }
+        },
+        {
+          "id": "lm_tunnel_rd_base",
+          "displayName": "Tunnel Road Climb Gate",
+          "landmarkType": "ClimbStart",
+          "position": { "x": 860.0, "y": 45.0, "z": 110.0 }
+        },
+        {
+          "id": "lm_grizzly_peak_overlook",
+          "displayName": "Grizzly Peak Bay Overlook",
+          "landmarkType": "Summit",
+          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 }
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "Zone_BayCrossing",
+      "sceneName": "Zone_BayCrossing",
+      "displayName": "Bay Crossing Service Span",
+      "description": "Long exposed bike/service span across the Bay with brisk headwinds and crosswinds — sustained WOT loads quickly expose lean main jets and weak condensers.",
+      "ambientAirDensity": 1.02,
+      "ambientTempCelsius": 15.5,
+      "maxGradePercent": 4.8,
+      "headwindMps": 9.5,
+      "fogDensity": 0.28,
+      "hasMuniRails": false,
+      "primarySurfaces": [
+        "DryAsphalt",
+        "WetAsphalt"
+      ],
+      "towFeeUsd": 75.0,
+      "connectedZones": [
+        "Zone_WestOakland",
+        "Zone_OaklandHills",
+        "Zone_SF_Mission"
+      ],
+      "landmarks": [
+        {
+          "id": "lm_east_span_approach",
+          "displayName": "East Span Toll Plaza Ramp",
+          "landmarkType": "Hub",
+          "position": { "x": -780.0, "y": 8.0, "z": 150.0 }
+        },
+        {
+          "id": "lm_midspan_wind_deck",
+          "displayName": "Mid-Span Gust Deck",
+          "landmarkType": "HazardZone",
+          "position": { "x": -1450.0, "y": 38.0, "z": 150.0 }
+        },
+        {
+          "id": "lm_ferry_terminal_west",
+          "displayName": "SF Ferry Terminal Ramp",
+          "landmarkType": "Hub",
+          "position": { "x": -2120.0, "y": 6.0, "z": 160.0 }
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "Zone_SF_Mission",
+      "sceneName": "Zone_SF_Mission",
+      "displayName": "SF Mission, Embarcadero & Twin Peaks",
+      "description": "Dense San Francisco corridors laced with slick steel Muni rail tracks, double-parked delivery vans, 22% wall climbs, and cool Karl the Fog banks shifting air density.",
+      "ambientAirDensity": 1.06,
+      "ambientTempCelsius": 13.5,
+      "maxGradePercent": 22.0,
+      "headwindMps": 4.5,
+      "fogDensity": 0.65,
+      "hasMuniRails": true,
+      "primarySurfaces": [
+        "WetAsphalt",
+        "SteelRailTrack",
+        "DryAsphalt",
+        "PatchedPotholeAsphalt"
+      ],
+      "towFeeUsd": 95.0,
+      "connectedZones": [
+        "Zone_BayCrossing"
+      ],
+      "landmarks": [
+        {
+          "id": "lm_valencia_muni_rails",
+          "displayName": "Valencia & 16th Muni Track Crossing",
+          "landmarkType": "HazardZone",
+          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 }
+        },
+        {
+          "id": "lm_mission_taqueria_hub",
+          "displayName": "24th St. Courier Dispatch",
+          "landmarkType": "Hub",
+          "position": { "x": -2620.0, "y": 18.0, "z": -560.0 }
+        },
+        {
+          "id": "lm_twin_peaks_summit",
+          "displayName": "Twin Peaks Fog Lookout",
+          "landmarkType": "Summit",
+          "position": { "x": -3050.0, "y": 270.0, "z": -740.0 }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "com.mopedgame.data",
+  "version": "0.1.0",
+  "displayName": "MopedSim Data",
+  "description": "Engine-agnostic catalog loader, cross-reference validator, and versioned save-state serialization/migration for MopedSim.",
+  "unity": "6000.0",
+  "author": {
+    "name": "MopedGame Team"
+  },
+  "dependencies": {
+    "com.mopedgame.core": "0.1.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  }
+}

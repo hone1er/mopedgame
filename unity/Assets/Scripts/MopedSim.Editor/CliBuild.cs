@@ -103,6 +103,11 @@ namespace MopedSim.Editor
         /// the AssetDatabase so the player build includes them. Returns the number of files staged; throws if none exist.
         /// </summary>
         [MenuItem("MopedSim/Build/Stage Catalogs Into StreamingAssets")]
+        public static void StageCatalogsMenu()
+        {
+            Debug.Log("[CliBuild] Staged " + StageCatalogsIntoStreamingAssets() + " catalog JSON files into StreamingAssets/" + StagedCatalogFolder + ".");
+        }
+
         public static int StageCatalogsIntoStreamingAssets()
         {
             string source = SourceCatalogDirectory;

@@ -18,7 +18,8 @@ namespace MopedSim.Core
 
         /// <summary>
         /// How strongly an oversized venturi demands a bigger main jet. A bore larger than the engine's matched size flows the
-        /// same air at lower velocity (weaker metering signal), so it needs a larger jet for the same AFR; a smaller bore the reverse.
+        /// same air at lower velocity (weaker metering signal), so it needs a larger jet for the same AFR. Undersized bores get
+        /// no credit (ratio clamped at 1): a 70cc kit on the stock 12mm carb still runs lean on the stock jet and must be up-jetted.
         /// </summary>
         public const float VenturiMeteringExponent = 0.90f;
 
@@ -46,7 +47,7 @@ namespace MopedSim.Core
         /// <summary>
         /// Main jet size that yields the ~12.8 AFR target at full main-circuit blend for the given displacement, carb venturi bore,
         /// and exhaust flow. Stock 49cc on a 12mm Bing sits near #58-60, the same 49cc on a 15mm SHA near #70, and a 70cc kit on a
-        /// 15mm SHA with a performance pipe near #72.
+        /// 15mm SHA (or the stock 12mm Bing) with a performance pipe near #72.
         /// </summary>
         public static float ComputeIdealMainJet(float displacementCc, float venturiMm, float exhaustFlowEfficiency)
         {
@@ -54,7 +55,8 @@ namespace MopedSim.Core
             float dispScale = SimMath.Pow(disp / 49f, 0.42f);
             float pipeScale = 1f + (exhaustFlowEfficiency - 1f) * 0.22f;
             float matchedVenturiMm = ReferenceVenturiMm * SimMath.Pow(disp / 49f, MatchedVenturiDisplacementExponent);
-            float venturiScale = SimMath.Pow(SimMath.Clamp(venturiMm, 8f, 32f) / matchedVenturiMm, VenturiMeteringExponent);
+            float oversize = SimMath.Max(1f, SimMath.Clamp(venturiMm, 8f, 32f) / matchedVenturiMm);
+            float venturiScale = SimMath.Pow(oversize, VenturiMeteringExponent);
             return BaseIdealMainJet * dispScale * pipeScale * venturiScale;
         }
 

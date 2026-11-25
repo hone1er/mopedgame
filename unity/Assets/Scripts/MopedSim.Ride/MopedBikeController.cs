@@ -149,6 +149,11 @@ namespace MopedSim.Ride
             EnsureInitialized();
             _sim = simulation;
             _rng = rng;
+            if (_sim != null)
+            {
+                _latestTelemetry = _sim.LatestTelemetry;
+            }
+
             RefreshChassisFromSimulation();
         }
 

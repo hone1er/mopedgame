@@ -146,5 +146,49 @@ namespace MopedSim.Core.Tests
             }
             Assert.True(hitPowerband);
         }
+
+        [Fact]
+        public void CentrifugalClutch_HoldsEngineAtStallSpeedOnLaunch_ThenReleasesToIdleWhenCoastingToStop()
+        {
+            var rng = new SeededSimRandom(1515);
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+            bike.Thermal.ChtCelsius = 140f;
+            var wot = new RideInputState(throttle: 1.0f);
+
+            // Slipping launch: crank sits at clutch stall speed in the stock pipe's torque band, never in the rev limiter.
+            float maxLaunchRpm = 0f;
+            for (int i = 0; i < 60 * 3; i++)
+            {
+                EngineTelemetrySnapshot snap = bike.Step(1f / 60f, in wot, rng);
+                if (i >= 60)
+                {
+                    maxLaunchRpm = System.Math.Max(maxLaunchRpm, snap.Rpm);
+                    Assert.Equal(1, snap.CurrentGear);
+                }
+            }
+            Assert.True(maxLaunchRpm < bike.Engine.RedlineRpm - 3000f);
+            Assert.True(maxLaunchRpm >= bike.Drivetrain.ClutchEngageRpm + 900f);
+            Assert.InRange(bike.LatestTelemetry.Rpm, bike.Drivetrain.ClutchStallRpm - 150f, bike.Drivetrain.ClutchStallRpm + 150f);
+            Assert.True(bike.LatestTelemetry.RearWheelTorqueNm > 35f);
+            Assert.True(bike.LatestTelemetry.VehicleSpeedMph > 5f);
+
+            for (int i = 0; i < 60 * 7; i++)
+            {
+                bike.Step(1f / 60f, in wot, rng);
+            }
+            Assert.True(bike.LatestTelemetry.VehicleSpeedMph > 20f);
+
+            // Closed throttle: the clutch lets go and the engine settles back to idle as the bike rolls to a stop.
+            var closed = new RideInputState(throttle: 0f);
+            for (int i = 0; i < 60 * 60; i++)
+            {
+                bike.Step(1f / 60f, in closed, rng);
+            }
+            Assert.True(bike.LatestTelemetry.VehicleSpeedMph < 0.5f);
+            Assert.Equal(0, bike.LatestTelemetry.CurrentGear);
+            Assert.Equal(0f, bike.LatestTelemetry.ClutchEngagement);
+            Assert.True(bike.LatestTelemetry.IsRunning);
+            Assert.InRange(bike.LatestTelemetry.Rpm, bike.Engine.IdleRpmTarget - 1f, bike.Engine.IdleRpmTarget + 150f);
+        }
     }
 }

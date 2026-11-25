@@ -13,6 +13,12 @@ namespace MopedSim.Core
         private const float RiderMassKg = 75f;
         private const float AirDensityKgPerM3 = 1.225f;
 
+        /// <summary>
+        /// Drag-area multiplier when the rider tucks behind stock bars (chin to bars, elbows in: ~30% less CdA).
+        /// A stock pipe's torque falls off steeply at top speed, so this cut nets the specified +3-4 mph on flat straights.
+        /// </summary>
+        public const float AeroTuckCdAMultiplier = 0.70f;
+
         public BikeArchetypeSpec Archetype { get; }
         public BikeAssemblyGraph Assembly { get; }
         public EngineSimulation Engine { get; }
@@ -349,7 +355,7 @@ namespace MopedSim.Core
                 // Aerodynamic drag with rider tuck & handlebar geometry
                 float barAero = bars != null ? bars.Definition.Stats.AeroDragMultiplier : 1.0f;
                 float barTuckBonus = bars != null ? bars.Definition.Stats.TuckDragBonusMultiplier : 1.0f;
-                float tuckMult = input.AeroTuck ? (0.74f / SimMath.Max(0.5f, barTuckBonus)) : 1.0f;
+                float tuckMult = input.AeroTuck ? (AeroTuckCdAMultiplier / SimMath.Max(0.5f, barTuckBonus)) : 1.0f;
                 float cda = Archetype.DragAreaCdA * barAero * tuckMult;
                 float airDensity = (input.AmbientAirDensity <= 0f ? RideInputState.StandardAirDensity : input.AmbientAirDensity) * AirDensityKgPerM3;
                 float aeroDragN = 0.5f * airDensity * cda * speedMps * speedMps;

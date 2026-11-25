@@ -151,5 +151,72 @@ namespace MopedSim.Core.Tests
             var nodes = bike.GetInteractableNodes();
             Assert.NotEmpty(nodes);
         }
+
+        [Fact]
+        public void SwapPart_RehangsOnOwnFasteners_PreservesTorque_ButForeignOrSeizedBlockersStillBlock()
+        {
+            var catalog = TestFixtures.CreateCatalog();
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+
+            // Plain removal of the exhaust is still blocked by its own flange/bracket fasteners.
+            WrenchActionResult remove = bike.TryRemovePart(SlotIds.Exhaust);
+            Assert.False(remove.Succeeded);
+            Assert.Equal(WrenchActionStatus.Blocked, remove.Status);
+            Assert.Contains(FastenerIds.ExhaustFlange1, remove.BlockingNodes);
+
+            // A loose flange nut stays loose after the swap: a swap is never a free re-torque.
+            Assert.True(bike.TryTorqueFastener(FastenerIds.ExhaustFlange1, 4.0f).Succeeded);
+            WrenchActionResult swap = bike.TrySwapPart(SlotIds.Exhaust, new PartInstance(catalog["pipe_circuit_e50_proma"]));
+            Assert.True(swap.Succeeded);
+            Assert.Equal("pipe_circuit_e50_proma", bike.Assembly.GetInstalledPart(SlotIds.Exhaust)!.Definition.Id);
+            Assert.Equal(4.0f, bike.Assembly.GetFastener(FastenerIds.ExhaustFlange1)!.CurrentTorqueNm);
+            Assert.True(bike.Assembly.GetFastener(FastenerIds.ExhaustFlange2)!.IsProperlyTorqued);
+
+            // A seized owned flange nut must be dealt with first; the original pipe stays mounted.
+            bike.Assembly.SetFastenerSeized(FastenerIds.ExhaustFlange2, true);
+            WrenchActionResult seizedSwap = bike.TrySwapPart(SlotIds.Exhaust, new PartInstance(catalog["pipe_topend_expansion"]));
+            Assert.False(seizedSwap.Succeeded);
+            Assert.Equal(WrenchActionStatus.Blocked, seizedSwap.Status);
+            Assert.Contains(FastenerIds.ExhaustFlange2, seizedSwap.BlockingNodes);
+            Assert.Equal("pipe_circuit_e50_proma", bike.Assembly.GetInstalledPart(SlotIds.Exhaust)!.Definition.Id);
+
+            // Foreign blockers (head nuts, mounted head/exhaust/intake) still block a cylinder swap.
+            WrenchActionResult cylSwap = bike.TrySwapPart(SlotIds.Cylinder, new PartInstance(catalog["cyl_kit_70"]));
+            Assert.False(cylSwap.Succeeded);
+            Assert.Contains(FastenerIds.HeadNut1, cylSwap.BlockingNodes);
+            Assert.Contains(SlotIds.CylinderHead, cylSwap.BlockingNodes);
+            Assert.Equal("cyl_stock_50", bike.Assembly.GetInstalledPart(SlotIds.Cylinder)!.Definition.Id);
+
+            // An incompatible replacement fails without leaving the slot empty.
+            WrenchActionResult wrongPart = bike.TrySwapPart(SlotIds.AirFilter, new PartInstance(catalog["jet_72"]));
+            Assert.False(wrongPart.Succeeded);
+            Assert.Equal(WrenchActionStatus.IncompatiblePart, wrongPart.Status);
+            Assert.Equal("filter_stock_box", bike.Assembly.GetInstalledPart(SlotIds.AirFilter)!.Definition.Id);
+        }
+
+        [Fact]
+        public void InSpecFasteners_HoldTorqueUnderSustainedWotBuzz_SoTunedAfrStaysStable()
+        {
+            BikeSimulation bike = TestFixtures.Create70ccKittedBike("jet_72");
+            var rng = new SeededSimRandom(707);
+            var wot = new RideInputState(throttle: 1.0f);
+
+            float afrAtSixtySeconds = 0f;
+            for (int i = 0; i < 60 * 180; i++)
+            {
+                bike.Step(1f / 60f, in wot, rng);
+                if (i == 60 * 60)
+                {
+                    afrAtSixtySeconds = bike.LatestTelemetry.EffectiveAfr;
+                }
+            }
+
+            Assert.True(bike.Assembly.GetFastener(FastenerIds.Intake1)!.IsProperlyTorqued);
+            Assert.True(bike.Assembly.GetFastener(FastenerIds.Intake2)!.IsProperlyTorqued);
+            Assert.True(bike.Assembly.GetFastener(FastenerIds.CarbClamp)!.IsProperlyTorqued);
+            Assert.True(bike.Assembly.GetFastener(FastenerIds.ExhaustFlange1)!.IsProperlyTorqued);
+            Assert.True(bike.LatestTelemetry.AirLeakSeverity < 0.01f);
+            Assert.True(System.Math.Abs(bike.LatestTelemetry.EffectiveAfr - afrAtSixtySeconds) < 0.05f);
+        }
     }
 }

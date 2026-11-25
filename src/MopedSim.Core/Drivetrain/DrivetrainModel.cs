@@ -7,11 +7,21 @@ namespace MopedSim.Core
     /// </summary>
     public sealed class DrivetrainModel
     {
+        // RPM span over which each clutch goes from first bite to full lock-up.
+        private const float SingleSpeedEngageSpanRpm = 900f;
+        private const float VariatorEngageSpanRpm = 700f;
+        private const float TwoSpeedEngageSpanRpm = 750f;
+
         public DrivetrainType Type { get; set; } = DrivetrainType.SingleSpeedCentrifugal;
         public float PrimaryReduction { get; set; } = 3.2f;
         public float ClutchEngageRpm { get; set; } = 2400f;
         public float ClutchSlipHeatRate { get; set; } = 1.0f;
         public float ClutchHeat { get; private set; }
+
+        /// <summary>
+        /// RPM the engine pulls above full clutch lock-up at wide-open throttle while the clutch slips during launch (stall speed).
+        /// </summary>
+        public float ClutchStallRpmRise { get; set; } = 1100f;
 
         // Variator (Bramble PA50)
         public float RollerWeightGrams { get; set; } = 6.5f;
@@ -43,6 +53,7 @@ namespace MopedSim.Core
         public float CoupledEngineRpm { get; private set; }
         public float EngineLoadTorqueNm { get; private set; }
         public float PedalWheelTorqueNm { get; private set; }
+        public float ClutchStallRpm { get; private set; }
 
         public bool IsDriveDisconnected
         {
@@ -136,7 +147,7 @@ namespace MopedSim.Core
             {
                 // Maxer E50: single wet centrifugal clutch
                 float engageThreshold = SimMath.Max(1600f, ClutchEngageRpm);
-                float rawEngage = SimMath.Clamp01((engineRpm - engageThreshold) / 900f);
+                float rawEngage = SimMath.Clamp01((engineRpm - engageThreshold) / SingleSpeedEngageSpanRpm);
                 float heatSlipLoss = SimMath.Clamp01(ClutchHeat * 0.25f);
                 ClutchEngagement = throttle < 0.04f && engineRpm < engageThreshold + 150f
                     ? 0f
@@ -160,13 +171,13 @@ namespace MopedSim.Core
                 }
 
                 // Centrifugal clutch lets engine rev up to engagement stall speed when launching from 0 mph
-                CoupledEngineRpm = wheelCoupled >= engageThreshold ? wheelCoupled : 0f;
+                CoupledEngineRpm = ComputeCoupledEngineRpm(wheelCoupled, engageThreshold, SingleSpeedEngageSpanRpm, throttle);
             }
             else if (Type == DrivetrainType.VariatedBelt)
             {
                 // Bramble PA50: dual-pulley variated belt drive
                 float engageThreshold = SimMath.Max(1800f, ClutchEngageRpm);
-                ClutchEngagement = SimMath.Clamp01((engineRpm - engageThreshold) / 700f);
+                ClutchEngagement = SimMath.Clamp01((engineRpm - engageThreshold) / VariatorEngageSpanRpm);
 
                 // Belt wear & oil contamination
                 if (dt > 0f && engineRpm > 2000f && ClutchEngagement > 0.1f)
@@ -202,14 +213,14 @@ namespace MopedSim.Core
                 driveEfficiency *= 0.85f * beltGrip;
 
                 float wheelCoupled = wheelRpm * EffectiveTotalRatio;
-                CoupledEngineRpm = wheelCoupled >= engageThreshold ? wheelCoupled : 0f;
+                CoupledEngineRpm = ComputeCoupledEngineRpm(wheelCoupled, engageThreshold, VariatorEngageSpanRpm, throttle);
             }
             else
             {
                 // Targa A35: 2-speed automatic gearbox (1st -> 2nd sprag clutch)
                 float engageThreshold = SimMath.Max(1700f, ClutchEngageRpm);
                 float corkGrip = 1f - SimMath.Clamp01(ClutchCorkGlaze * 0.40f);
-                ClutchEngagement = SimMath.Clamp01((engineRpm - engageThreshold) / 750f) * corkGrip;
+                ClutchEngagement = SimMath.Clamp01((engineRpm - engageThreshold) / TwoSpeedEngageSpanRpm) * corkGrip;
 
                 if (dt > 0f && engineRpm > 2000f && TransmissionOilLevel < 0.35f)
                 {
@@ -248,13 +259,31 @@ namespace MopedSim.Core
                 driveEfficiency *= 0.90f * corkGrip;
 
                 float wheelCoupled = wheelRpm * EffectiveTotalRatio;
-                CoupledEngineRpm = wheelCoupled >= engageThreshold ? wheelCoupled : 0f;
+                CoupledEngineRpm = ComputeCoupledEngineRpm(wheelCoupled, engageThreshold, TwoSpeedEngageSpanRpm, throttle);
             }
 
             float driveTorque = combustionTorqueNm * EffectiveTotalRatio * ClutchEngagement * driveEfficiency;
             RearWheelTorqueNm = SimMath.Max(0f, driveTorque) + PedalWheelTorqueNm;
             EngineBrakeWheelTorqueNm = engineBrakeTorqueNm * EffectiveTotalRatio * ClutchEngagement * 0.75f;
             EngineLoadTorqueNm = ClutchEngagement * SimMath.Max(0f, combustionTorqueNm * 0.35f + SimMath.Max(0f, roadSlopeRadians) * 4.5f);
+        }
+
+        /// <summary>
+        /// Resolves the engine speed the slipping/locked clutch holds the crank at. While the wheel side is still below the
+        /// throttle-dependent stall speed, a slipping centrifugal clutch holds the engine at that stall speed (strong launch
+        /// torque instead of free-revving into the limiter); once road speed catches up, the crank is locked to the wheel.
+        /// At closed throttle the stall speed collapses to the engagement threshold so the clutch releases back to idle.
+        /// </summary>
+        private float ComputeCoupledEngineRpm(float wheelCoupledRpm, float engageThreshold, float engageSpanRpm, float throttle)
+        {
+            float throttleDemand = SimMath.Pow(SimMath.Clamp01(throttle), 0.75f);
+            ClutchStallRpm = engageThreshold + (engageSpanRpm + SimMath.Max(0f, ClutchStallRpmRise)) * throttleDemand;
+
+            if (ClutchEngagement > 0.05f)
+            {
+                return SimMath.Max(wheelCoupledRpm, ClutchStallRpm);
+            }
+            return wheelCoupledRpm >= engageThreshold ? wheelCoupledRpm : 0f;
         }
 
         /// <summary>

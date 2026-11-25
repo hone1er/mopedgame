@@ -117,6 +117,12 @@ namespace MopedSim.Core
     /// </summary>
     public sealed class BikeAssemblyGraph
     {
+        /// <summary>Vibration loosening multiplier for fasteners still inside their torque window (preload friction holds them).</summary>
+        public const float InSpecLoosenMultiplier = 0.05f;
+
+        /// <summary>Vibration loosening multiplier for under-torqued fasteners (lost preload lets them unwind quickly).</summary>
+        public const float UnderTorquedLoosenMultiplier = 2.5f;
+
         private readonly List<MountSlotNode> _slotsOrdered = new List<MountSlotNode>();
         private readonly List<FastenerState> _fastenersOrdered = new List<FastenerState>();
         private readonly Dictionary<string, MountSlotNode> _slotsById = new Dictionary<string, MountSlotNode>(StringComparer.Ordinal);
@@ -348,17 +354,58 @@ namespace MopedSim.Core
         /// <summary>
         /// Swaps a part in-place (for example, swapping main jet or spark plug) when unblocked.
         /// </summary>
+        /// <remarks>
+        /// A swap re-hangs the replacement part on the slot's own fasteners (e.g. exhaust flange studs), so blockers that are
+        /// healthy fasteners owned by this slot do not prevent it; their torque state carries over unchanged (a swap is never a
+        /// free re-torque). Any foreign blocker (another slot's fastener, an occupied blocking slot) or a seized/stripped owned
+        /// fastener still blocks, exactly like <see cref="TryRemovePart"/>. On install failure the original part is restored.
+        /// </remarks>
         public WrenchActionResult TrySwapPart(string slotId, PartInstance newPart)
         {
-            if (IsSlotOccupied(slotId))
+            if (newPart == null)
             {
-                WrenchActionResult remove = TryRemovePart(slotId);
-                if (!remove.Succeeded)
+                throw new ArgumentNullException(nameof(newPart));
+            }
+
+            MountSlotNode? node = GetSlot(slotId);
+            if (node == null || !node.IsOccupied)
+            {
+                return TryInstallPart(slotId, newPart);
+            }
+
+            List<string> blocking = CollectRemovalBlockers(node);
+            if (blocking.Count > 0 && !AreAllSwapTransferableFasteners(node, blocking))
+            {
+                return WrenchActionResult.Blocked(
+                    slotId,
+                    blocking,
+                    "Cannot swap " + slotId + "; blocked by: " + string.Join(", ", blocking));
+            }
+
+            PartInstance? previous = node.InstalledPart;
+            node.InstalledPart = null;
+            WrenchActionResult install = TryInstallPart(slotId, newPart);
+            if (!install.Succeeded)
+            {
+                node.InstalledPart = previous;
+            }
+            return install;
+        }
+
+        private bool AreAllSwapTransferableFasteners(MountSlotNode node, List<string> blocking)
+        {
+            for (int i = 0; i < blocking.Count; i++)
+            {
+                FastenerState? f = GetFastener(blocking[i]);
+                if (f == null
+                    || !string.Equals(f.OwnerSlotId, node.Spec.SlotId, StringComparison.Ordinal)
+                    || f.IsSeized
+                    || f.IsStripped)
                 {
-                    return remove;
+                    return false;
                 }
             }
-            return TryInstallPart(slotId, newPart);
+            return true;
         }
 
         /// <summary>
@@ -521,8 +568,10 @@ namespace MopedSim.Core
                     continue;
                 }
 
-                float underTorqueBoost = f.IsUnderTorqued ? 2.5f : 1.0f;
-                float loss = f.VibrationLoosenRate * underTorqueBoost * intensity * dt;
+                // Clamp preload friction holds an in-spec fastener (only slow creep); once it backs off below its torque
+                // window it loses that friction and the buzz unwinds it rapidly.
+                float preloadFactor = f.IsUnderTorqued ? UnderTorquedLoosenMultiplier : InSpecLoosenMultiplier;
+                float loss = f.VibrationLoosenRate * preloadFactor * intensity * dt;
                 f.CurrentTorqueNm = SimMath.Max(0f, f.CurrentTorqueNm - loss);
             }
         }

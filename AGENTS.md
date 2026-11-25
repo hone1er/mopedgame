@@ -6,7 +6,7 @@ Read this file before inspecting code, proposing changes, or creating tasks. It 
 
 - [README.md](README.md) — Project overview and quick entry point.
 - [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md) — Master technical & gameplay specification (2-stroke mechanical model, assembly DAG, fault matrix, riding physics, Bay Area zones, Blender sockets, M0–M7 milestones).
-- [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) — Settled Architectural Decision Records (`ADR-001` through `ADR-005`).
+- [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) — Settled Architectural Decision Records (`ADR-001` through `ADR-006`).
 - [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md) — Host prerequisites checklist, milestone status (`M0`–`M7`), and verification log.
 
 ---
@@ -47,7 +47,7 @@ mopedgame/
 ├── assets/                          # Repo branding (icon.svg)
 ├── docs/
 │   ├── PROJECT_GUIDE.md             # Master architecture & gameplay blueprint
-│   ├── ARCHITECTURE_DECISIONS.md    # Formal ADR log (ADR-001 .. ADR-005)
+│   ├── ARCHITECTURE_DECISIONS.md    # Formal ADR log (ADR-001 .. ADR-006)
 │   └── ROADMAP_STATUS.md            # Host setup checklist, M0-M7 tracker, verify logs
 ├── src/                             # [planned M0+] Engine-agnostic C# UPM packages
 │   ├── MopedSim.Core/               # Simulation kernel (package.json, .asmdef, .csproj)

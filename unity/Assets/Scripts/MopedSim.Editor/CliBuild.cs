@@ -26,8 +26,8 @@ namespace MopedSim.Editor
         {
             Debug.Log("[CliBuild] Starting macOS arm64 Development build...");
 
-            // Ensure modular additive scenes exist before collecting build scene list.
-            SceneScaffoldBuilder.BuildAllScenes();
+            // Ensure modular additive scenes exist before collecting build scene list (without rewriting committed scenes).
+            SceneScaffoldBuilder.EnsureScenesAndBuildSettings();
 
             // Players cannot reach the repo's data/catalogs, so stage the JSON catalogs into StreamingAssets first.
             int stagedCatalogs;

@@ -273,7 +273,7 @@ namespace MopedSim.App
 
         private static T Find<T>() where T : UnityEngine.Object
         {
-            return UnityEngine.Object.FindFirstObjectByType<T>(FindObjectsInactive.Include);
+            return UnityEngine.Object.FindAnyObjectByType<T>(FindObjectsInactive.Include);
         }
 
         /// <summary>

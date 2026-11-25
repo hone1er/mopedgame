@@ -19,7 +19,9 @@ namespace MopedSim.Editor
     /// <summary>
     /// Deterministically (re)builds the modular additive scenes (AGENTS.md Golden Rule 4 / ADR-004) from code so no scene is
     /// hand-wired: Bootstrap, Garage, UI_Overlay, and the four Bay Area Zone_* blockouts. Every object, transform, and reference
-    /// is created in a fixed order with fixed values, so rebuilding produces identical scenes. Also writes EditorBuildSettings.
+    /// is created in a fixed order with fixed values. Unity assigns fresh local fileIDs on every save, so a rebuild rewrites the
+    /// committed .unity files even when nothing changed: CLI builds call <see cref="EnsureScenesAndBuildSettings"/> (scaffolds only
+    /// missing scenes); run the "Rebuild All Scaffold Scenes" menu item and commit the result after changing a populator.
     /// </summary>
     public static class SceneScaffoldBuilder
     {
@@ -57,6 +59,28 @@ namespace MopedSim.Editor
             BuildScene("Zone_BayCrossing", PopulateBayCrossing);
             BuildScene("Zone_SF_Mission", PopulateSfMission);
 
+            WriteBuildSettingsScenes();
+            Debug.Log("[SceneScaffoldBuilder] Rebuilt " + SceneNames.Length + " scaffold scenes and EditorBuildSettings.");
+        }
+
+        /// <summary>
+        /// Non-destructive variant for CLI builds: rebuilds the scaffold only when a scene is missing, then makes sure
+        /// EditorBuildSettings lists every scaffold scene, leaving committed scenes byte-identical otherwise.
+        /// </summary>
+        public static void EnsureScenesAndBuildSettings()
+        {
+            if (!AllScenesExist())
+            {
+                BuildAllScenes();
+                return;
+            }
+
+            WriteBuildSettingsScenes();
+            Debug.Log("[SceneScaffoldBuilder] All " + SceneNames.Length + " scaffold scenes present; EditorBuildSettings verified.");
+        }
+
+        private static void WriteBuildSettingsScenes()
+        {
             List<EditorBuildSettingsScene> buildScenes = new List<EditorBuildSettingsScene>(SceneNames.Length);
             for (int i = 0; i < SceneNames.Length; i++)
             {
@@ -65,7 +89,6 @@ namespace MopedSim.Editor
 
             EditorBuildSettings.scenes = buildScenes.ToArray();
             AssetDatabase.SaveAssets();
-            Debug.Log("[SceneScaffoldBuilder] Rebuilt " + SceneNames.Length + " scaffold scenes and EditorBuildSettings.");
         }
 
         private delegate void ScenePopulator(Scene scene);

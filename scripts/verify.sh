@@ -114,7 +114,11 @@ failed = int(root.attrib.get("failed", "0"))
 skipped = int(root.attrib.get("skipped", "0"))
 result = root.attrib.get("result", "Unknown")
 print(f"  NUnit {label}: result={result} total={total} passed={passed} failed={failed} skipped={skipped}")
-if failed > 0 or result == "Failed":
+if failed > 0 or result.startswith("Failed"):
+    print(f"[FAIL] {label}: test failures reported in {xml_path}", file=sys.stderr)
+    sys.exit(1)
+if total == 0 or passed == 0:
+    print(f"[FAIL] {label}: no tests executed (total={total})", file=sys.stderr)
     sys.exit(1)
 ' "$xml_path" "$label"
 }
@@ -178,29 +182,75 @@ if [[ ! -d "unity/Assets" ]]; then
     exit 1
 fi
 
-mkdir -p logs
+mkdir -p "$REPO_ROOT/logs"
+LOG_DIR="$REPO_ROOT/logs"
+UNITY_PROJECT="$REPO_ROOT/unity"
+
+# Fails if Unity compiled project scripts (Assets/ or local MopedSim packages) with any C# warning or error.
+check_unity_compile_log() {
+    local log_path="$1"
+    local label="$2"
+    local hits
+    hits="$(grep -E "^(Assets/|Packages/com\.mopedgame\.).*: (warning|error) CS[0-9]+" "$log_path" 2>/dev/null | sort -u || true)"
+    if [[ -n "$hits" ]]; then
+        echo "[FAIL] $label: project C# compiler diagnostics found in $log_path:" >&2
+        echo "$hits" >&2
+        return 1
+    fi
+}
+
+# Runs a Unity Test Framework pass. NOTE: never pass -quit together with -runTests;
+# Unity exits on its own once the run completes (-quit would shut it down before tests run).
+run_unity_tests() {
+    local platform="$1"
+    local xml_path="$2"
+    local log_path="$3"
+    rm -f "$xml_path"
+    local status=0
+    "$UNITY_EDITOR" -batchmode -nographics -projectPath "$UNITY_PROJECT" \
+        -runTests -testPlatform "$platform" \
+        -testResults "$xml_path" \
+        -logFile "$log_path" || status=$?
+    echo "  Unity $platform exit code: $status (log: $log_path)"
+    if grep -q "Multiple Unity instances cannot open the same project" "$log_path" 2>/dev/null; then
+        echo "[FAIL] $platform: another Unity instance has the project open; close it and re-run." >&2
+        return 1
+    fi
+    check_unity_compile_log "$log_path" "$platform" || return 1
+    check_nunit_xml "$xml_path" "$platform" || return 1
+    if [[ "$status" -ne 0 ]]; then
+        echo "[FAIL] $platform: Unity exited with code $status." >&2
+        return 1
+    fi
+}
 
 echo ""
 echo "=== Gate 3: Unity EditMode Tests ==="
-"$UNITY_EDITOR" -batchmode -nographics -projectPath unity \
-    -runTests -testPlatform EditMode \
-    -testResults logs/editmode.xml \
-    -logFile logs/unity_editmode.log -quit
-check_nunit_xml logs/editmode.xml "EditMode"
+run_unity_tests EditMode "$LOG_DIR/editmode.xml" "$LOG_DIR/unity_editmode.log"
 
 echo ""
 echo "=== Gate 4: Unity PlayMode Scenario Tests ==="
-"$UNITY_EDITOR" -batchmode -nographics -projectPath unity \
-    -runTests -testPlatform PlayMode \
-    -testResults logs/playmode.xml \
-    -logFile logs/unity_playmode.log -quit
-check_nunit_xml logs/playmode.xml "PlayMode"
+run_unity_tests PlayMode "$LOG_DIR/playmode.xml" "$LOG_DIR/unity_playmode.log"
 
 echo ""
 echo "=== Gate 5: macOS arm64 Standalone Dev Build Smoke Check ==="
-"$UNITY_EDITOR" -batchmode -nographics -projectPath unity \
+BUILD_APP="$UNITY_PROJECT/Builds/MacOS/arm64/MopedGame.app"
+rm -rf "$BUILD_APP"
+BUILD_STATUS=0
+"$UNITY_EDITOR" -batchmode -nographics -projectPath "$UNITY_PROJECT" \
     -executeMethod MopedSim.Editor.CliBuild.BuildMacOSDev \
-    -logFile logs/unity_build.log -quit
+    -logFile "$LOG_DIR/unity_build.log" -quit || BUILD_STATUS=$?
+echo "  Unity build exit code: $BUILD_STATUS (log: $LOG_DIR/unity_build.log)"
+check_unity_compile_log "$LOG_DIR/unity_build.log" "Build" || exit 1
+if [[ "$BUILD_STATUS" -ne 0 ]]; then
+    echo "[FAIL] Gate 5: Unity build exited with code $BUILD_STATUS." >&2
+    exit 1
+fi
+if [[ ! -d "$BUILD_APP" ]]; then
+    echo "[FAIL] Gate 5: expected player bundle missing at $BUILD_APP" >&2
+    exit 1
+fi
+echo "  Built: $BUILD_APP ($(du -sh "$BUILD_APP" | cut -f1))"
 
 echo ""
 echo "[PASS] All 5 verification gates passed."

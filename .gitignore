@@ -24,6 +24,7 @@ unity/Assets/AssetStoreTools*
 # Catalog JSON staged by MopedSim.Editor.CliBuild before player builds (source of truth: data/catalogs/)
 unity/Assets/StreamingAssets/Catalogs/
 unity/Assets/StreamingAssets/Catalogs.meta
+unity/Assets/StreamingAssets.meta
 
 # IDE & Editor files
 .vs/

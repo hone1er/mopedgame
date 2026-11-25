@@ -1,0 +1,10 @@
+{
+  "name": "com.mopedgame.core",
+  "version": "0.1.0",
+  "displayName": "MopedSim Core",
+  "description": "Engine-agnostic 2-stroke moped mechanical, thermal, ignition, drivetrain, assembly DAG, and fault simulation kernel.",
+  "unity": "6000.0",
+  "author": {
+    "name": "MopedGame Team"
+  }
+}

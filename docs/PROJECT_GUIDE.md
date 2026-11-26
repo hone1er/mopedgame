@@ -383,6 +383,74 @@ namespace MopedSim.Core
 ```
 
 - **Fresh-bike fuel**: `BikeArchetypeSpec.DefaultFuelLiters / DefaultPremixOilFraction / DefaultPetcockMode / DefaultTankRustContamination` hydrate every new `BikeSimulation`. `MopedSim.Data` fills them from the catalog `defaultFuelMix`, converting the authored `X:1` premix ratio to Core's oil fraction via `ThermalModel.PremixFromRatio` (`50:1 → 0.02`). Tank rust is stored on the tank `PartInstance`.
+#### M6 Economy, Jobs & Customization (`MopedSim.Core/Economy/`)
+
+All gig, cargo, rally, swap-meet, and paint rules live in Core; Unity only forwards commands and renders snapshots.
+
+```csharp
+namespace MopedSim.Core
+{
+    public readonly struct CargoCapacity { int Slots; float MaxKg; bool HasRack; bool IsSecured; string RackPartId; }
+    public static class CargoCapacityCalculator
+    {
+        public static CargoCapacity Compute(BikeSimulation bike);          // mounted SLOT_CARGO_RACK stats (cargoSlots / maxCargoKg)
+        public static CargoCapacity Compute(BikeAssemblyGraph assembly);
+        public static JobRejectReason CheckRequirement(CargoCapacity capacity, int requiredSlots, float requiredKg);
+        public static bool CanCarry(CargoCapacity capacity, JobDefinition job);
+    }
+
+    public sealed class JobSessionManager                                    // one active job (courier / hill climb / speed trap / rally)
+    {
+        public JobAcceptResult TryAcceptJob(JobDefinition job, BikeSimulation bike, ISimRandom rallyRandom = null);
+        public void Step(float dt);                                          // clock only
+        public void Step(float dt, in EngineTelemetrySnapshot telemetry, float surfaceRoughness = 0f);
+        public CheckpointReportResult ReportCheckpointReached(string checkpointId);
+        public CheckpointReportResult ReportPosition(float x, float y, float z); // metric world coords vs. catalog checkpoints
+        public void ReportPothole(float severity);  public void ReportCrash();
+        public bool Abandon();
+        public bool TryCollectReward(SimulationWorld world);                 // credits cash + reputation exactly once
+        public JobSessionSnapshot GetSnapshot();                             // allocation-free HUD view (readonly struct)
+        public JobCheckpointSpec NextCheckpoint { get; }
+        public RallyPackSimulator Rally { get; }                             // non-null for BaySwarmRally jobs
+        public CompletedGigRecord LastCompletedRecord { get; }
+    }
+
+    public sealed class RallyPackSimulator                                   // deterministic AI pack (seeded ISimRandom)
+    {
+        public void Step(float dt, float playerProgressMeters, bool playerSeized);
+        public void FinishPlayer();  public int GetPlayerPlacement();
+        public IReadOnlyList<RallyRiderState> Riders { get; }  public int FieldSize { get; }
+        public IReadOnlyList<float> CheckpointDistancesMeters { get; }       // cumulative, index 0 = start
+        public int PlayerFinalPlacement { get; }  public bool IsPackSurvivalBonusEarned { get; }
+    }
+
+    public sealed class SwapMeetMarket                                       // seeded weekend rotations of discounted used parts
+    {
+        public IReadOnlyList<SwapMeetOffer> Offers { get; }
+        public void Rotate(int rotationIndex);  public void AdvanceRotation();
+        public SwapMeetInspection InspectOffer(string offerId);              // reveals hidden defects
+        public SwapMeetPurchaseResult TryBuyOffer(string offerId, SimulationWorld world); // cash -> world.Inventory
+    }
+
+    public sealed class BikeCustomizationState                               // paint booth state
+    {
+        public string PaintHex { get; }  public float PatinaLevel { get; }  public string DecalStyle { get; } // decal optional (null)
+        public bool TrySetPaintHex(string hex);  public bool TryRepaint(string hex);
+        public void SetPatinaLevel(float level);  public bool TrySetDecalStyle(string style);
+    }
+
+    public sealed class SimulationWorld
+    {
+        public int Reputation { get; set; }
+        public GarageInventory Inventory { get; }                            // owned, unmounted PartInstances (source of truth)
+        public PurchaseResult TryPurchasePartIntoInventory(PartDefinition part, out PartInstance instance);
+        public void ApplyJobReward(CompletedGigRecord record);
+    }
+}
+```
+
+- **Unity adapters (M6)**: `MopedSim.World.CourierGigController` wraps one `JobSessionManager` (accept / abandon / collect / `StepJob` with the frame telemetry, reporting the tracked rider's world position against `NextCheckpoint`); `RallyPackController` mirrors `Rally.Riders` onto pooled marker transforms along the checkpoint polyline; `ZoneTransitionPortal` triggers stream the target zone (authored from `zones.json` `connectedZones`) through `ZoneStreamManager.Active`. `MopedSim.UI.JobBoardHudView` renders `JobSessionSnapshot` with dirty-checked precomputed strings; `SwapMeetView` lists `SwapMeetMarket.Offers` and raises purchase intents that `AppCompositionRoot` executes via `TryBuyOffer`. Courier dispatch and the rally mirror live on Bootstrap's `AppRoot` because job routes span several additive zones.
+- **Known Core allocation**: `RallyPackSimulator.Step` → `UpdatePackGap` calls `Array.Sort(float[], int, int)`, which allocates per tick under Unity's Mono runtime, so frames with an active Bay Swarm rally are not yet GC-free (courier / climb / speed-trap frames are). Core-lane follow-up: replace it with an allocation-free insertion sort over the ≤ 8-rider scratch buffer.
 - **Part categories**: every catalog category maps to a dedicated `PartCategory` (`FuelLine`, `VariatorRoller`, `Fender`, `Brake`, `Cable`, `PremixOil`, `GarageStation` included; `Tool`/`Spare` → `ToolRollItem`), so Core's category check alone keeps cables, fenders, and brakes apart.
 
 ### 4.4 Data Schema Contracts (`data/schemas/` & `data/catalogs/`)
@@ -419,6 +487,8 @@ Example part catalog entry (`data/catalogs/parts.json` conforming to `data/schem
 ```
 
 Every save file (`save_state.json`) MUST include `"schemaVersion": 1`, `"seed": <uint>`, `"cashUsd": <decimal>`, `"bikes": [...]`, `"inventory": [...]`, `"activeToolRoll": [...]`, and `"completedGigs": [...]`, migrated sequentially by `SaveMigrator` in `MopedSim.Data`.
+
+- **M6 save fields**: `"reputation"` mirrors `SimulationWorld.Reputation`; `"inventory"` entries (`instanceId`, `partId`, `condition`, `wear`) mirror `SimulationWorld.Inventory` (unique instance ids; `MopedSim.App.SaveLoadBridge` rebuilds them as `PartInstance`s from the catalog on load, so save → load → save never duplicates). Each bike carries `"paintHex"`, optional `"patinaLevel"` (0..1, default 0), and optional `"decalStyle"` (string ≤ 64 chars, omitted / `null` when none); `BikeSaveState.ToCustomizationState()` / `ApplyCustomization(...)` convert to and from Core `BikeCustomizationState`. All three are optional for backward compatibility with older v1 saves.
 
 ---
 
@@ -462,6 +532,18 @@ All attachment empties MUST exist as named glTF scene nodes on parent parts and 
   3. Presence of `TEXCOORD_0` (`UV0`) on every mesh primitive.
   4. Unit scale (`[1, 1, 1]`) and bounding box metric sanity (no `100x` cm-to-m mistakes).
   5. Every entry in `requiredSockets` from `data/catalogs/parts.json` exists verbatim as a glTF node in that `.glb`.
+- **Bay Area World kit (`Models/World/{WestOakland,OaklandHills,BayCrossing,SFMission}/*.glb`, 18 modules)**: generated by `tools/blender/world/` (`world_common.py` helpers) and validated with the World rules: **`<= 3,500` tris** per module, `UV0` on every primitive, unit scale, and a metric bounding box **`< 30 m`** per axis (20 m road tiles, rowhouses, bridge towers). Modules are collider-free visuals; zone physics stays on the scaffold road cubes (`RoadHazardZone` surfaces).
+- **World snap / landmark sockets** (glTF empties, `+Y` up after export):
+
+| Socket | Found On | Purpose |
+| :--- | :--- | :--- |
+| `SOCKET_SNAP_START`, `SOCKET_SNAP_END` | Road tiles (`*_road_*_20m`, `bc_causeway_deck_20m`) and `oh_guardrail_10m` | Path ends, oriented along the road, for chaining tiles |
+| `SOCKET_TRACK_n_START`, `SOCKET_TRACK_n_END` | `sf_muni_rail_road_20m` | Muni rail centerlines (`n` = 1, 2) for rail hazard alignment |
+| `SOCKET_DECK_START`, `SOCKET_DECK_END`, `SOCKET_DECK_LEVEL` | `wo_bart_overpass_pillar`, `bc_bridge_tower` | Elevated deck height / span ends |
+| `SOCKET_DROP_POINT`, `SOCKET_BEACON_TOP` | `sf_delivery_beacon` | Courier checkpoint drop marker (emissive beacon) |
+| `SOCKET_ENTRANCE`, `SOCKET_DELIVERY_PICKUP`, `SOCKET_GARAGE_DOOR`, `SOCKET_LOADING_BAY` | Buildings / storefronts / garage facade | Interaction and pickup anchors |
+
+- **Scene dressing**: `MopedSim.Editor.SceneScaffoldBuilder` instantiates the kit as prefab instances in each `Zone_*` scene, generates one `ZoneTransitionPortal` per `connectedZones` entry, and places `sf_delivery_beacon` instances at every catalog job checkpoint in that zone (absolute metric catalog coordinates; the scaffold road blockouts do not yet sit under those coordinates). glTFast imports materials as read-only URP shader-graph sub-assets; `GlbMaterialRemapper` reads glTF property names (`baseColorTexture`, `emissiveFactor`, `emissiveTexture`), so a URP Lit copy keeps the beacon's emission.
 
 ---
 

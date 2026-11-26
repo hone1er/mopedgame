@@ -20,8 +20,12 @@ namespace MopedSim.App
 
         /// <summary>
         /// Captures the world, the active bike, garage inventory, and settings into a SaveState.
-        /// Progression/cosmetic fields Core does not own (paint, patina, reputation, unlocked zones, completed gigs) are carried
-        /// over from <paramref name="baseline"/> (the last loaded save) or from SaveMigrator.CreateNewDefault.
+        /// Reputation and the Core <see cref="GarageInventory"/> (<c>world.Inventory</c>, the source of truth for owned parts) are
+        /// written from <paramref name="world"/>. <paramref name="inventoryPartIds"/> is the legacy id-only list: each id is
+        /// written only for copies beyond what <c>world.Inventory</c> already holds, so callers that mirror the world inventory
+        /// never duplicate entries. Paint / patina / decal come from <paramref name="customization"/> when given, otherwise they
+        /// are carried over from <paramref name="baseline"/> (the last loaded save) or SaveMigrator.CreateNewDefault, as are
+        /// nickname, unlocked zones and completed gigs.
         /// </summary>
         public static SaveState Capture(
             SimulationWorld world,
@@ -29,7 +33,8 @@ namespace MopedSim.App
             IReadOnlyList<string> inventoryPartIds,
             uint seed,
             bool diagnosticHintsEnabled,
-            SaveState baseline = null)
+            SaveState baseline = null,
+            BikeCustomizationState customization = null)
         {
             if (world == null)
             {
@@ -45,6 +50,7 @@ namespace MopedSim.App
 
             string paintHex = prior != null && !string.IsNullOrEmpty(prior.PaintHex) ? prior.PaintHex : FallbackPaintHex;
             float patina = prior != null ? prior.PatinaLevel : 0f;
+            string decal = prior != null ? prior.DecalStyle : null;
             string nickname = prior != null ? prior.Nickname : string.Empty;
             state.Bikes.Clear();
             state.ActiveToolRoll.Clear();
@@ -52,6 +58,7 @@ namespace MopedSim.App
 
             state.Seed = seed;
             state.CashUsd = world.CashUsd;
+            state.Reputation = world.Reputation > 0 ? world.Reputation : 0;
             state.ActiveZoneId = world.CurrentZone.Id;
             state.ToolRollCapacity = world.ToolRollCapacity;
             state.DiagnosticHintsEnabled = diagnosticHintsEnabled;
@@ -63,22 +70,22 @@ namespace MopedSim.App
                 state.ActiveToolRoll.Add(roll[i]);
             }
 
-            if (inventoryPartIds != null)
-            {
-                for (int i = 0; i < inventoryPartIds.Count; i++)
-                {
-                    InventoryItemState item = new InventoryItemState();
-                    item.InstanceId = inventoryPartIds[i] + "#" + i;
-                    item.PartId = inventoryPartIds[i];
-                    state.Inventory.Add(item);
-                }
-            }
+            CaptureInventory(state, world.Inventory, inventoryPartIds);
 
             if (world.ActiveBike != null)
             {
                 BikeSaveState bike = CaptureBike(world.ActiveBike, bikeInstanceId);
-                bike.PaintHex = paintHex;
-                bike.PatinaLevel = patina;
+                if (customization != null)
+                {
+                    bike.ApplyCustomization(customization);
+                }
+                else
+                {
+                    bike.PaintHex = paintHex;
+                    bike.PatinaLevel = patina;
+                    bike.DecalStyle = decal;
+                }
+
                 if (!string.IsNullOrEmpty(nickname))
                 {
                     bike.Nickname = nickname;
@@ -93,6 +100,75 @@ namespace MopedSim.App
             }
 
             return state;
+        }
+
+        private static void CaptureInventory(SaveState state, GarageInventory inventory, IReadOnlyList<string> legacyPartIds)
+        {
+            HashSet<string> usedIds = new HashSet<string>(StringComparer.Ordinal);
+            Dictionary<string, int> owned = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (inventory != null)
+            {
+                IReadOnlyList<PartInstance> items = inventory.Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    PartInstance part = items[i];
+                    if (part == null || string.IsNullOrEmpty(part.PartId))
+                    {
+                        continue;
+                    }
+
+                    InventoryItemState item = new InventoryItemState();
+                    item.InstanceId = UniqueInstanceId(usedIds, string.IsNullOrEmpty(part.InstanceId) ? part.PartId + "#w" + i : part.InstanceId);
+                    item.PartId = part.PartId;
+                    item.Condition = part.Condition;
+                    item.Wear = part.Wear;
+                    state.Inventory.Add(item);
+
+                    int count;
+                    owned.TryGetValue(part.PartId, out count);
+                    owned[part.PartId] = count + 1;
+                }
+            }
+
+            if (legacyPartIds == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < legacyPartIds.Count; i++)
+            {
+                string partId = legacyPartIds[i];
+                if (string.IsNullOrEmpty(partId))
+                {
+                    continue;
+                }
+
+                int remaining;
+                if (owned.TryGetValue(partId, out remaining) && remaining > 0)
+                {
+                    // Already captured from world.Inventory.
+                    owned[partId] = remaining - 1;
+                    continue;
+                }
+
+                InventoryItemState item = new InventoryItemState();
+                item.InstanceId = UniqueInstanceId(usedIds, partId + "#" + i);
+                item.PartId = partId;
+                state.Inventory.Add(item);
+            }
+        }
+
+        private static string UniqueInstanceId(HashSet<string> usedIds, string candidate)
+        {
+            string id = candidate;
+            int suffix = 1;
+            while (!usedIds.Add(id))
+            {
+                id = candidate + "_" + suffix;
+                suffix++;
+            }
+
+            return id;
         }
 
         private static BikeSaveState FindBike(SaveState state, string instanceId)
@@ -179,21 +255,61 @@ namespace MopedSim.App
         }
 
         /// <summary>
-        /// Restores cash and the packed Tool Roll onto a SimulationWorld.
+        /// Restores cash, reputation, and the packed Tool Roll onto a SimulationWorld. When <paramref name="catalog"/> is given,
+        /// the saved inventory is also rebuilt into <c>world.Inventory</c> as Core <see cref="PartInstance"/>s (unknown part ids are
+        /// skipped and counted in the return value); without a catalog the world inventory is left untouched (legacy behavior).
         /// </summary>
-        public static void ApplyWorldState(SaveState state, SimulationWorld world)
+        public static int ApplyWorldState(SaveState state, SimulationWorld world, IReadOnlyDictionary<string, PartDefinition> catalog = null)
         {
             if (state == null || world == null)
             {
-                return;
+                return 0;
             }
 
             world.CashUsd = state.CashUsd;
+            world.Reputation = state.Reputation > 0 ? state.Reputation : 0;
             world.ClearToolRoll();
             for (int i = 0; i < state.ActiveToolRoll.Count; i++)
             {
                 world.TryPackToolRollItem(state.ActiveToolRoll[i]);
             }
+
+            if (catalog == null)
+            {
+                return 0;
+            }
+
+            int skipped = 0;
+            world.Inventory.Clear();
+            for (int i = 0; i < state.Inventory.Count; i++)
+            {
+                InventoryItemState item = state.Inventory[i];
+                PartDefinition def;
+                if (item == null || string.IsNullOrEmpty(item.PartId) || !catalog.TryGetValue(item.PartId, out def) || def == null)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                int quantity = item.Quantity > 0 ? item.Quantity : 1;
+                for (int q = 0; q < quantity; q++)
+                {
+                    PartInstance part = new PartInstance(def, q == 0 ? item.InstanceId ?? string.Empty : string.Empty);
+                    part.Condition = item.Condition;
+                    part.Wear = item.Wear;
+                    world.Inventory.Add(part);
+                }
+            }
+
+            return skipped;
+        }
+
+        /// <summary>
+        /// Paint booth state of a saved bike (falls back to Core defaults for a missing / invalid save record).
+        /// </summary>
+        public static BikeCustomizationState ReadCustomization(BikeSaveState saved)
+        {
+            return saved != null ? saved.ToCustomizationState() : new BikeCustomizationState();
         }
 
         /// <summary>

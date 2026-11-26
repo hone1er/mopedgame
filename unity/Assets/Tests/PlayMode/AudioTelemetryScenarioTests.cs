@@ -22,6 +22,7 @@ namespace MopedSim.Tests.PlayMode
         private const int OfflineSampleRate = 48000;
 
         private GameObject _audioGo;
+        private GameObject _listenerGo;
 
         [TearDown]
         public void TearDown()
@@ -31,10 +32,24 @@ namespace MopedSim.Tests.PlayMode
                 Object.Destroy(_audioGo);
                 _audioGo = null;
             }
+
+            if (_listenerGo != null)
+            {
+                Object.Destroy(_listenerGo);
+                _listenerGo = null;
+            }
         }
 
         private TwoStrokeAudioDriver CreateDriver()
         {
+            // On hosts with a live audio output device a playing AudioSource without a listener logs
+            // "There are no audio listeners in the scene", which LogAssert.NoUnexpectedReceived rejects.
+            if (Object.FindAnyObjectByType<AudioListener>() == null)
+            {
+                _listenerGo = new GameObject("TestAudioListener");
+                _listenerGo.AddComponent<AudioListener>();
+            }
+
             _audioGo = new GameObject("TwoStrokeAudioUnderTest");
             _audioGo.AddComponent<AudioSource>();
             TwoStrokeAudioDriver driver = _audioGo.AddComponent<TwoStrokeAudioDriver>();

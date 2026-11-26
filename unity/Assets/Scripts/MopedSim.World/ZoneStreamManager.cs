@@ -33,6 +33,12 @@ namespace MopedSim.World
         private readonly HashSet<string> _loadedZones = new HashSet<string>(StringComparer.Ordinal);
         private string _activeZoneName = "Zone_WestOakland";
 
+        /// <summary>
+        /// The enabled stream manager (one per session, on Bootstrap's AppRoot). <see cref="ZoneTransitionPortal"/> triggers in
+        /// additive zone scenes resolve it here because cross-scene serialized references are not possible.
+        /// </summary>
+        public static ZoneStreamManager Active { get; private set; }
+
         public event Action<string> ZoneLoaded;
         public event Action<string> ZoneUnloaded;
         public event Action<string> ActiveZoneChanged;
@@ -40,6 +46,19 @@ namespace MopedSim.World
         public string ActiveZoneName
         {
             get { return _activeZoneName; }
+        }
+
+        private void OnEnable()
+        {
+            Active = this;
+        }
+
+        private void OnDisable()
+        {
+            if (Active == this)
+            {
+                Active = null;
+            }
         }
 
         public bool IsZoneLoaded(string zoneSceneName)

@@ -49,10 +49,13 @@ namespace MopedSim.App
         [SerializeField] private PlugChopInspector _plugInspector;
         [SerializeField] private PremixStationController _premix;
         [SerializeField] private CenterStandDynoController _dyno;
+        [SerializeField] private PaintBoothController _paintBooth;
 
         [Header("World")]
         [SerializeField] private ZoneStreamManager _zones;
         [SerializeField] private BayAreaWeatherController _weather;
+        [SerializeField] private CourierGigController _courier;
+        [SerializeField] private RallyPackController _rally;
 
         [Header("UI")]
         [SerializeField] private RideHudView _rideHud;
@@ -61,11 +64,18 @@ namespace MopedSim.App
         [SerializeField] private PlugChopChartView _plugChart;
         [SerializeField] private PartsCatalogShopView _shop;
         [SerializeField] private DiagnosticHintsPresenter _hints;
+        [SerializeField] private SettingsMenuView _settingsView;
+        [SerializeField] private SwapMeetView _swapMeet;
+        [SerializeField] private JobBoardHudView _jobBoard;
+
+        [Header("Settings")]
+        [SerializeField] private string _settingsFileName = "settings.json";
 
         [Header("Audio")]
         [SerializeField] private TwoStrokeAudioDriver _audio;
 
         private readonly List<string> _inventory = new List<string>(32);
+        private readonly List<string> _unresolvedInventory = new List<string>(4);
         private readonly List<string> _toolRollChoices = new List<string>(24);
         private SimulationWorld _world;
         private BikeSimulation _bike;
@@ -75,6 +85,13 @@ namespace MopedSim.App
         private bool _bootstrapped;
         private EngineTelemetrySnapshot _frameTelemetry;
         private SaveState _lastLoadedSave;
+        private BikeCustomizationState _customization = new BikeCustomizationState();
+        private GameSettingsData _settings;
+        private bool _persistSettings;
+        private SwapMeetMarket _swapMarket;
+        private AudioSource _engineAudioSource;
+        private float _lastAppliedAirDensity = RideInputState.StandardAirDensity;
+        private float _lastAppliedGrip = 1f;
 
         public event Action<RoadsideRepairResult> RoadsideRepairAttempted;
         public event Action<RecoveryResult> RecoveryCompleted;
@@ -120,14 +137,100 @@ namespace MopedSim.App
             get { return _shopCatalog; }
         }
 
+        /// <summary>
+        /// Part ids on the garage shelf: Core <c>World.Inventory</c> (the source of truth) plus saved ids no catalog could resolve.
+        /// Rebuilt on access (UI / save events only, never per frame).
+        /// </summary>
         public IReadOnlyList<string> Inventory
         {
-            get { return _inventory; }
+            get
+            {
+                RefreshInventoryMirror();
+                return _inventory;
+            }
+        }
+
+        private void RefreshInventoryMirror()
+        {
+            _inventory.Clear();
+            if (_world != null)
+            {
+                IReadOnlyList<PartInstance> items = _world.Inventory.Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    _inventory.Add(items[i].PartId);
+                }
+            }
+
+            for (int i = 0; i < _unresolvedInventory.Count; i++)
+            {
+                _inventory.Add(_unresolvedInventory[i]);
+            }
         }
 
         public EngineTelemetrySnapshot FrameTelemetry
         {
             get { return _frameTelemetry; }
+        }
+
+        /// <summary>Paint booth customization of the active bike (persisted as paintHex / patinaLevel / decalStyle).</summary>
+        public BikeCustomizationState Customization
+        {
+            get { return _customization; }
+        }
+
+        /// <summary>Applied settings (keybindings, audio mix, hints, graphics); null before bootstrap.</summary>
+        public GameSettingsData Settings
+        {
+            get { return _settings; }
+        }
+
+        /// <summary>Parts Alley swap meet stock (null when bootstrapped without a shop catalog).</summary>
+        public SwapMeetMarket SwapMarket
+        {
+            get { return _swapMarket; }
+        }
+
+        public CourierGigController Courier
+        {
+            get { return _courier; }
+        }
+
+        public RallyPackController Rally
+        {
+            get { return _rally; }
+        }
+
+        public ZoneStreamManager Zones
+        {
+            get { return _zones; }
+        }
+
+        public BayAreaWeatherController Weather
+        {
+            get { return _weather; }
+        }
+
+        public PaintBoothController PaintBooth
+        {
+            get { return _paintBooth; }
+        }
+
+        public InputAdapter Input
+        {
+            get { return _input; }
+        }
+
+        /// <summary>Ambient air density last pushed into the ride controller (zone baseline blended with Karl the Fog).</summary>
+        public float LastAppliedAmbientAirDensity
+        {
+            get { return _lastAppliedAirDensity; }
+        }
+
+        /// <summary>Weather surface-grip multiplier last pushed into the ride controller.</summary>
+        public float LastAppliedSurfaceGripMultiplier
+        {
+            get { return _lastAppliedGrip; }
         }
 
         public uint Seed
@@ -192,6 +295,45 @@ namespace MopedSim.App
             _weather = weather;
             _aero = aero;
             _cameraRig = cameraRig;
+        }
+
+        /// <summary>
+        /// Assigns M6 economy / customization / settings components in code (SceneScaffoldBuilder, tests). Any argument may be null.
+        /// </summary>
+        public void AssignEconomyComponents(
+            PaintBoothController paintBooth,
+            CourierGigController courier,
+            RallyPackController rally,
+            SwapMeetView swapMeet,
+            JobBoardHudView jobBoard,
+            SettingsMenuView settingsView)
+        {
+            _paintBooth = paintBooth;
+            _courier = courier;
+            _rally = rally;
+            _swapMeet = swapMeet;
+            _jobBoard = jobBoard;
+            _settingsView = settingsView;
+        }
+
+        /// <summary>
+        /// Uses <paramref name="settings"/> for the next bootstrap (or applies them immediately when already bootstrapped).
+        /// </summary>
+        public void ApplySettings(GameSettingsData settings)
+        {
+            _settings = SettingsPreferencesStore.Sanitize(settings != null ? settings : SettingsPreferencesStore.CreateDefaults());
+            if (!_bootstrapped)
+            {
+                return;
+            }
+
+            if (_settingsView != null && !ReferenceEquals(_settingsView.CurrentSettings, _settings))
+            {
+                _settingsView.Bind(_settings, _hints);
+                _settings = _settingsView.CurrentSettings;
+            }
+
+            ApplySettingsToSystems(_settings);
         }
 
         private IEnumerator Start()
@@ -269,6 +411,20 @@ namespace MopedSim.App
             if (_shop == null) { _shop = Find<PartsCatalogShopView>(); }
             if (_hints == null) { _hints = Find<DiagnosticHintsPresenter>(); }
             if (_audio == null) { _audio = Find<TwoStrokeAudioDriver>(); }
+            if (_paintBooth == null) { _paintBooth = Find<PaintBoothController>(); }
+            if (_courier == null) { _courier = Find<CourierGigController>(); }
+            if (_rally == null) { _rally = Find<RallyPackController>(); }
+            if (_settingsView == null) { _settingsView = Find<SettingsMenuView>(); }
+            if (_swapMeet == null) { _swapMeet = Find<SwapMeetView>(); }
+            if (_jobBoard == null) { _jobBoard = Find<JobBoardHudView>(); }
+        }
+
+        /// <summary>
+        /// Settings file location (Application.persistentDataPath/settings.json by default).
+        /// </summary>
+        public string ResolveSettingsPath()
+        {
+            return Path.Combine(Application.persistentDataPath, string.IsNullOrEmpty(_settingsFileName) ? "settings.json" : _settingsFileName);
         }
 
         private static T Find<T>() where T : UnityEngine.Object
@@ -334,6 +490,8 @@ namespace MopedSim.App
             world.RegisterBike(DefaultBikeInstanceId, bike, true);
 
             _catalog = db;
+            _settings = SettingsPreferencesStore.LoadFromPath(ResolveSettingsPath());
+            _persistSettings = true;
             if (_assembler != null)
             {
                 _assembler.SetSocketBindings(BuildSocketBindings(db, _startingArchetypeId));
@@ -363,6 +521,15 @@ namespace MopedSim.App
             }
 
             return bindings;
+        }
+
+        /// <summary>
+        /// Composes the session around an existing world plus a loaded catalog (job board, zone environments, save restore).
+        /// </summary>
+        public void BootstrapWithWorld(SimulationWorld world, IReadOnlyList<PartDefinition> shopCatalog, CatalogDatabase catalog)
+        {
+            _catalog = catalog;
+            BootstrapWithWorld(world, shopCatalog);
         }
 
         /// <summary>
@@ -464,6 +631,55 @@ namespace MopedSim.App
                 _session.StateChanged += OnSessionStateChanged;
             }
 
+            if (_paintBooth != null)
+            {
+                _paintBooth.Bind(_assembler);
+                _paintBooth.SetPaint(_customization.PaintHex, _customization.PatinaLevel, _paintBooth.MetallicFlake);
+                _paintBooth.PaintChanged += OnPaintChanged;
+            }
+
+            if (_courier != null)
+            {
+                _courier.Bind(world, _bike, null);
+                if (_courier.Rider == null && _ride != null)
+                {
+                    _courier.SetRider(_ride.transform);
+                }
+
+                _courier.RewardCollected += OnJobRewardCollected;
+            }
+
+            if (_rally != null && _courier != null)
+            {
+                _rally.Bind(_courier);
+            }
+
+            _swapMarket = shopCatalog != null ? new SwapMeetMarket(shopCatalog, _seed) : null;
+            if (_swapMeet != null)
+            {
+                _swapMeet.SetMarket(_swapMarket);
+                _swapMeet.PurchaseRequested += OnSwapMeetPurchaseRequested;
+            }
+
+            _engineAudioSource = _audio != null ? _audio.GetComponent<AudioSource>() : null;
+            if (_settings == null)
+            {
+                _settings = SettingsPreferencesStore.CreateDefaults();
+            }
+
+            if (_settingsView != null)
+            {
+                _settingsView.Bind(_settings, _hints);
+                _settings = _settingsView.CurrentSettings;
+                _settingsView.SettingsApplied += OnSettingsApplied;
+                _settingsView.DiagnosticHintsToggled += OnDiagnosticHintsToggled;
+                _settingsView.AudioMixChanged += OnAudioMixChanged;
+                _settingsView.KeyBindingsChanged += OnKeyBindingsChanged;
+                _settingsView.GraphicsPresetChanged += OnGraphicsPresetChanged;
+            }
+
+            ApplySettingsToSystems(_settings);
+
             _garageContext.AssemblyChanged += OnAssemblyChanged;
             _bootstrapped = true;
 
@@ -527,6 +743,30 @@ namespace MopedSim.App
                 _garageContext.AssemblyChanged -= OnAssemblyChanged;
             }
 
+            if (_paintBooth != null)
+            {
+                _paintBooth.PaintChanged -= OnPaintChanged;
+            }
+
+            if (_courier != null)
+            {
+                _courier.RewardCollected -= OnJobRewardCollected;
+            }
+
+            if (_swapMeet != null)
+            {
+                _swapMeet.PurchaseRequested -= OnSwapMeetPurchaseRequested;
+            }
+
+            if (_settingsView != null)
+            {
+                _settingsView.SettingsApplied -= OnSettingsApplied;
+                _settingsView.DiagnosticHintsToggled -= OnDiagnosticHintsToggled;
+                _settingsView.AudioMixChanged -= OnAudioMixChanged;
+                _settingsView.KeyBindingsChanged -= OnKeyBindingsChanged;
+                _settingsView.GraphicsPresetChanged -= OnGraphicsPresetChanged;
+            }
+
             _bootstrapped = false;
         }
 
@@ -542,7 +782,7 @@ namespace MopedSim.App
 
             if (_weather != null && _ride != null)
             {
-                _ride.SetEnvironment(_weather.CurrentAmbientAirDensity, _weather.CurrentSurfaceGripMultiplier);
+                PushRideEnvironment(_weather.CurrentAmbientAirDensity, _weather.CurrentSurfaceGripMultiplier);
             }
 
             if (state == GameSessionState.Ride && _ride != null)
@@ -595,6 +835,205 @@ namespace MopedSim.App
             {
                 _hints.Present(in _frameTelemetry, _bike.GetActiveFaults());
             }
+
+            if (_courier != null)
+            {
+                // The job clock runs on the road (ride, roadside repair, tow) and pauses on the garage workstand.
+                if (state != GameSessionState.Garage && _courier.HasActiveJob)
+                {
+                    float roughness = _ride != null && _ride.IsGrounded ? _ride.RearSurface.Roughness : 0f;
+                    _courier.StepJob(Time.deltaTime, in _frameTelemetry, roughness);
+                }
+
+                if (_jobBoard != null)
+                {
+                    JobSessionSnapshot snapshot = _courier.GetSnapshot();
+                    _jobBoard.Render(in snapshot, _courier.ActiveJobTitle);
+                }
+            }
+        }
+
+        private void PushRideEnvironment(float airDensity, float grip)
+        {
+            _lastAppliedAirDensity = airDensity;
+            _lastAppliedGrip = grip;
+            if (_ride != null)
+            {
+                _ride.SetEnvironment(airDensity, grip);
+            }
+        }
+
+        // ---------------------------------------------------------------- Jobs, swap meet & paint booth
+
+        /// <summary>
+        /// Accepts a catalog job by id through the courier controller (Core checks cargo rack, seize state, active job).
+        /// </summary>
+        public JobAcceptResult AcceptJob(string jobId)
+        {
+            JobDefinition job;
+            if (_catalog == null || string.IsNullOrEmpty(jobId) || !_catalog.Jobs.TryGetValue(jobId, out job) || job == null)
+            {
+                return new JobAcceptResult(false, JobRejectReason.InvalidJob, jobId ?? string.Empty, 0, 0f, CargoCapacity.None,
+                    "Unknown job '" + (jobId ?? string.Empty) + "'.");
+            }
+
+            return AcceptJob(job);
+        }
+
+        public JobAcceptResult AcceptJob(JobDefinition job)
+        {
+            if (_courier == null)
+            {
+                return new JobAcceptResult(false, JobRejectReason.NoBike, job != null ? job.Id : string.Empty, 0, 0f, CargoCapacity.None,
+                    "No courier dispatch in the scene.");
+            }
+
+            return _courier.AcceptJob(job);
+        }
+
+        public bool AbandonJob()
+        {
+            return _courier != null && _courier.AbandonJob();
+        }
+
+        /// <summary>Collects every pending job payout into world cash / reputation (exactly once; Core rule).</summary>
+        public bool CollectJobReward()
+        {
+            return _courier != null && _courier.CollectReward();
+        }
+
+        /// <summary>Buys a swap meet offer (Core prices, defects, and cash) into the garage inventory.</summary>
+        public SwapMeetPurchaseResult TryBuySwapMeetOffer(string offerId)
+        {
+            if (_swapMarket == null || _world == null)
+            {
+                return new SwapMeetPurchaseResult(false, offerId ?? string.Empty, null, SwapMeetDefect.None, false, 0m,
+                    _world != null ? _world.CashUsd : 0m, "The swap meet is closed.");
+            }
+
+            SwapMeetPurchaseResult result = _swapMarket.TryBuyOffer(offerId, _world);
+            if (_shop != null)
+            {
+                _shop.SetCash(_world.CashUsd);
+            }
+
+            if (_swapMeet != null)
+            {
+                _swapMeet.ShowPurchaseResult(in result);
+            }
+
+            return result;
+        }
+
+        /// <summary>Applies a paint booth swatch to the active bike (customization is persisted on save).</summary>
+        public bool ApplyPaintSwatch(string swatchId)
+        {
+            return _paintBooth != null && _paintBooth.ApplySwatch(swatchId);
+        }
+
+        /// <summary>Sets the active bike's decal style (Core validates the length).</summary>
+        public bool SetDecalStyle(string decalStyle)
+        {
+            return _customization.TrySetDecalStyle(decalStyle);
+        }
+
+        private void OnPaintChanged(string hex, float patina, float metallic)
+        {
+            _customization.TrySetPaintHex(hex);
+            _customization.SetPatinaLevel(patina);
+        }
+
+        private void OnJobRewardCollected(decimal cashUsd)
+        {
+            if (_shop != null)
+            {
+                _shop.SetCash(cashUsd);
+            }
+        }
+
+        private void OnSwapMeetPurchaseRequested(string offerId)
+        {
+            TryBuySwapMeetOffer(offerId);
+        }
+
+        // ---------------------------------------------------------------- Settings
+
+        private void ApplySettingsToSystems(GameSettingsData settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            if (_input != null)
+            {
+                _input.ApplyKeyBindings(settings);
+            }
+
+            ApplyAudioMix(settings.MasterVolume, settings.EngineVolume);
+            ApplyDiagnosticHints(settings.DiagnosticHintsEnabled);
+        }
+
+        private void ApplyAudioMix(float master, float engine)
+        {
+            AudioListener.volume = Mathf.Clamp01(master);
+            if (_engineAudioSource != null)
+            {
+                _engineAudioSource.volume = Mathf.Clamp01(engine);
+            }
+        }
+
+        private void ApplyDiagnosticHints(bool enabled)
+        {
+            if (_hints != null)
+            {
+                _hints.HintsEnabled = enabled;
+            }
+
+            if (_audio != null)
+            {
+                _audio.SetDiagnosticHints(enabled);
+            }
+        }
+
+        private void OnSettingsApplied(GameSettingsData settings)
+        {
+            _settings = settings;
+            ApplySettingsToSystems(settings);
+            if (_persistSettings)
+            {
+                try
+                {
+                    SettingsPreferencesStore.SaveToPath(ResolveSettingsPath(), settings);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[AppCompositionRoot] Could not save settings: " + ex.Message);
+                }
+            }
+        }
+
+        private void OnDiagnosticHintsToggled(bool enabled)
+        {
+            ApplyDiagnosticHints(enabled);
+        }
+
+        private void OnAudioMixChanged(AudioMixSettings mix)
+        {
+            ApplyAudioMix(mix.MasterVolume, mix.EngineVolume);
+        }
+
+        private void OnKeyBindingsChanged(GameSettingsData settings)
+        {
+            if (_input != null)
+            {
+                _input.ApplyKeyBindings(settings);
+            }
+        }
+
+        private void OnGraphicsPresetChanged(GraphicsQualitySettings graphics)
+        {
+            Application.targetFrameRate = graphics.TargetFrameRate;
         }
 
         // ---------------------------------------------------------------- Session flow
@@ -732,13 +1171,13 @@ namespace MopedSim.App
                 return false;
             }
 
-            PurchaseResult purchase = _world.TryPurchasePart(part);
+            PartInstance bought;
+            PurchaseResult purchase = _world.TryPurchasePartIntoInventory(part, out bought);
             if (!purchase.Succeeded)
             {
                 return false;
             }
 
-            _inventory.Add(part.Id);
             if (_shop != null)
             {
                 _shop.SetCash(_world.CashUsd);
@@ -752,7 +1191,7 @@ namespace MopedSim.App
         public SaveState CaptureSave()
         {
             bool hints = _hints == null || _hints.HintsEnabled;
-            return SaveLoadBridge.Capture(_world, DefaultBikeInstanceId, _inventory, _seed, hints, _lastLoadedSave);
+            return SaveLoadBridge.Capture(_world, DefaultBikeInstanceId, _unresolvedInventory, _seed, hints, _lastLoadedSave, _customization);
         }
 
         public void SaveToPath(string path)
@@ -767,11 +1206,17 @@ namespace MopedSim.App
         {
             SaveState state = SaveLoadBridge.LoadFromPath(path);
             _lastLoadedSave = state;
-            SaveLoadBridge.ApplyWorldState(state, _world);
-            _inventory.Clear();
+            IReadOnlyDictionary<string, PartDefinition> parts = ResolvePartLookup();
+            SaveLoadBridge.ApplyWorldState(state, _world, parts);
+            _unresolvedInventory.Clear();
             for (int i = 0; i < state.Inventory.Count; i++)
             {
-                _inventory.Add(state.Inventory[i].PartId);
+                InventoryItemState item = state.Inventory[i];
+                if (item != null && !string.IsNullOrEmpty(item.PartId) && !parts.ContainsKey(item.PartId))
+                {
+                    // Kept as an id so a save -> load -> save cycle never drops parts a stripped catalog cannot resolve.
+                    _unresolvedInventory.Add(item.PartId);
+                }
             }
 
             if (_hints != null)
@@ -785,6 +1230,11 @@ namespace MopedSim.App
                 if (string.Equals(state.Bikes[i].InstanceId, state.ActiveBikeInstanceId, StringComparison.Ordinal))
                 {
                     rejected += SaveLoadBridge.ApplyBikeState(state.Bikes[i], _bike, _catalog != null ? _catalog.Parts : null);
+                    _customization = SaveLoadBridge.ReadCustomization(state.Bikes[i]);
+                    if (_paintBooth != null)
+                    {
+                        _paintBooth.SetPaint(_customization.PaintHex, _customization.PatinaLevel, _paintBooth.MetallicFlake);
+                    }
                 }
             }
 
@@ -796,6 +1246,29 @@ namespace MopedSim.App
 
             _garageContext.NotifyAssemblyChanged();
             return rejected;
+        }
+
+        private IReadOnlyDictionary<string, PartDefinition> ResolvePartLookup()
+        {
+            if (_catalog != null)
+            {
+                return _catalog.Parts;
+            }
+
+            Dictionary<string, PartDefinition> lookup = new Dictionary<string, PartDefinition>(StringComparer.Ordinal);
+            if (_shopCatalog != null)
+            {
+                for (int i = 0; i < _shopCatalog.Count; i++)
+                {
+                    PartDefinition p = _shopCatalog[i];
+                    if (p != null && !string.IsNullOrEmpty(p.Id))
+                    {
+                        lookup[p.Id] = p;
+                    }
+                }
+            }
+
+            return lookup;
         }
 
         // ---------------------------------------------------------------- Event handlers (event-driven, may allocate)
@@ -936,14 +1409,11 @@ namespace MopedSim.App
             if (_weather != null)
             {
                 _weather.ApplyZoneEnvironment(zone);
-                if (_ride != null)
-                {
-                    _ride.SetEnvironment(_weather.CurrentAmbientAirDensity, _weather.CurrentSurfaceGripMultiplier);
-                }
+                PushRideEnvironment(_weather.CurrentAmbientAirDensity, _weather.CurrentSurfaceGripMultiplier);
             }
-            else if (_ride != null)
+            else
             {
-                _ride.SetEnvironment(zone.AmbientAirDensity, zone.BaseSurfaceGrip);
+                PushRideEnvironment(zone.AmbientAirDensity, zone.BaseSurfaceGrip);
             }
         }
 

@@ -7,6 +7,11 @@ namespace MopedSim.Editor
     /// <summary>
     /// Remaps imported glTFast / glTF PBR materials onto stylized URP Lit shaders
     /// while preserving base color, metallic, smoothness, and emissive properties.
+    /// glTFast shader-graph materials expose glTF-named properties (<c>baseColorFactor</c>, <c>baseColorTexture</c>,
+    /// <c>metallicFactor</c>, <c>roughnessFactor</c>, <c>emissiveFactor</c>, <c>emissiveTexture</c>); those are read first so the
+    /// emissive World kit pieces (e.g. <c>sf_delivery_beacon.glb</c>) keep their glow. Materials imported as sub-assets of a
+    /// <c>.glb</c> are read-only importer output (and already URP shader graphs), so the bulk menu skips them; remap a copy via
+    /// <see cref="CreateUrpCopy"/> instead.
     /// </summary>
     public static class GlbMaterialRemapper
     {
@@ -25,6 +30,10 @@ namespace MopedSim.Editor
         private static readonly int MetallicFactorId = Shader.PropertyToID("metallicFactor");
         private static readonly int BaseColorFactorId = Shader.PropertyToID("baseColorFactor");
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+        private static readonly int EmissionMapId = Shader.PropertyToID("_EmissionMap");
+        private static readonly int GltfBaseColorTextureId = Shader.PropertyToID("baseColorTexture");
+        private static readonly int GltfEmissiveFactorId = Shader.PropertyToID("emissiveFactor");
+        private static readonly int GltfEmissiveTextureId = Shader.PropertyToID("emissiveTexture");
 
         [MenuItem("MopedSim/Assets/Remap GLB Materials to URP")]
         public static void RemapAllArtModelMaterials()
@@ -44,6 +53,7 @@ namespace MopedSim.Editor
 
             string[] materialGuids = AssetDatabase.FindAssets("t:Material", new[] { ArtModelsAssetFolder });
             int updatedCount = 0;
+            int skippedImported = 0;
 
             for (int i = 0; i < materialGuids.Length; i++)
             {
@@ -51,6 +61,12 @@ namespace MopedSim.Editor
                 Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
                 if (mat == null)
                 {
+                    continue;
+                }
+
+                if (IsImportedModelMaterial(mat))
+                {
+                    skippedImported++;
                     continue;
                 }
 
@@ -62,7 +78,8 @@ namespace MopedSim.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log("[GlbMaterialRemapper] Remapped " + updatedCount + " material(s) to " + urpLit.name + ".");
+            Debug.Log("[GlbMaterialRemapper] Remapped " + updatedCount + " material(s) to " + urpLit.name + "; skipped "
+                + skippedImported + " read-only glTF importer material(s).");
         }
 
         /// <summary>
@@ -100,6 +117,66 @@ namespace MopedSim.Editor
         }
 
         /// <summary>
+        /// True for materials that are sub-assets of an imported .glb / .gltf model (read-only importer output).
+        /// </summary>
+        public static bool IsImportedModelMaterial(Material material)
+        {
+            if (material == null)
+            {
+                return false;
+            }
+
+            string path = AssetDatabase.GetAssetPath(material);
+            return !string.IsNullOrEmpty(path)
+                && (path.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".gltf", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Returns a new URP Lit material converted from <paramref name="source"/> (source untouched), or null when URP is missing.
+        /// </summary>
+        public static Material CreateUrpCopy(Material source)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            Shader urpLit = ResolveUrpShader();
+            if (urpLit == null)
+            {
+                return null;
+            }
+
+            Material copy = new Material(source);
+            copy.name = source.name + "_URP";
+            RemapMaterial(copy, urpLit);
+            return copy;
+        }
+
+        /// <summary>
+        /// Reads the emissive color a glTF or Standard/URP material renders with (black when not emissive).
+        /// </summary>
+        public static Color ReadEmission(Material material)
+        {
+            if (material == null)
+            {
+                return Color.black;
+            }
+
+            if (material.HasProperty(GltfEmissiveFactorId))
+            {
+                return material.GetColor(GltfEmissiveFactorId);
+            }
+
+            if (material.HasProperty(EmissionColorId) && material.IsKeywordEnabled("_EMISSION"))
+            {
+                return material.GetColor(EmissionColorId);
+            }
+
+            return Color.black;
+        }
+
+        /// <summary>
         /// Converts a single glTF/Standard material to URP Lit if needed.
         /// </summary>
         public static bool RemapMaterial(Material material, Shader urpLitShader)
@@ -129,7 +206,11 @@ namespace MopedSim.Editor
             }
 
             Texture baseTex = null;
-            if (material.HasProperty(BaseMapId))
+            if (material.HasProperty(GltfBaseColorTextureId))
+            {
+                baseTex = material.GetTexture(GltfBaseColorTextureId);
+            }
+            else if (material.HasProperty(BaseMapId))
             {
                 baseTex = material.GetTexture(BaseMapId);
             }
@@ -162,8 +243,18 @@ namespace MopedSim.Editor
                 smoothness = material.GetFloat(GlossinessId);
             }
 
-            bool hadEmission = material.IsKeywordEnabled("_EMISSION") && material.HasProperty(EmissionColorId);
-            Color emissionColor = hadEmission ? material.GetColor(EmissionColorId) : Color.black;
+            Color emissionColor = ReadEmission(material);
+            Texture emissionTex = null;
+            if (material.HasProperty(GltfEmissiveTextureId))
+            {
+                emissionTex = material.GetTexture(GltfEmissiveTextureId);
+            }
+            else if (material.HasProperty(EmissionMapId))
+            {
+                emissionTex = material.GetTexture(EmissionMapId);
+            }
+
+            bool hadEmission = emissionColor.maxColorComponent > 0f || emissionTex != null;
 
             material.shader = urpLitShader;
             material.SetColor(BaseColorId, baseColor);
@@ -179,6 +270,12 @@ namespace MopedSim.Editor
             {
                 material.EnableKeyword("_EMISSION");
                 material.SetColor(EmissionColorId, emissionColor);
+                if (emissionTex != null)
+                {
+                    material.SetTexture(EmissionMapId, emissionTex);
+                }
+
+                material.globalIlluminationFlags &= ~MaterialGlobalIlluminationFlags.EmissiveIsBlack;
             }
 
             return true;

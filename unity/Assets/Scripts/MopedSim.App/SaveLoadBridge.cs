@@ -375,6 +375,7 @@ namespace MopedSim.App
                 }
             }
 
+            bike.RestoreOdometer((float)(saved.OdometerKm * 1000.0));
             bike.Fuel.FuelLevelLiters = 0f;
             bike.Refuel(saved.FuelTank.FuelLiters, ThermalModel.PremixFromRatio(saved.FuelTank.PremixRatio), saved.FuelTank.RustContamination);
             bike.SetPetcockMode(saved.FuelTank.PetcockMode);

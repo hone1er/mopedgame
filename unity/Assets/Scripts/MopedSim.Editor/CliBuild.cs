@@ -21,6 +21,14 @@ namespace MopedSim.Editor
         /// </summary>
         public const string StagedCatalogFolder = "Catalogs";
 
+        /// <summary>
+        /// Folder under Assets/StreamingAssets mirroring Assets/Art for runtime glTFast loads (BikeVisualAssembler.ResolveArtAssetPath
+        /// reads StreamingAssets/Art in players). Only bike part models (Models/Parts, the catalog meshAssetPath root) are staged;
+        /// generated before each build and git-ignored.
+        /// </summary>
+        public const string StagedArtFolder = "Art";
+        public const string PartModelsRelativeFolder = "Models/Parts";
+
         [MenuItem("MopedSim/Build/macOS arm64 (Dev)")]
         public static void BuildMacOSDev()
         {
@@ -43,6 +51,21 @@ namespace MopedSim.Editor
             }
 
             Debug.Log("[CliBuild] Staged " + stagedCatalogs + " catalog JSON files into StreamingAssets/" + StagedCatalogFolder + ".");
+
+            // The assembled moped is loaded at runtime with glTFast from StreamingAssets/Art (no fallback cubes in the player).
+            int stagedModels;
+            try
+            {
+                stagedModels = StagePartModelsIntoStreamingAssets();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[CliBuild] Part model staging failed: " + ex.Message);
+                ExitIfBatchMode(1);
+                return;
+            }
+
+            Debug.Log("[CliBuild] Staged " + stagedModels + " part .glb files into StreamingAssets/" + StagedArtFolder + "/" + PartModelsRelativeFolder + ".");
 
             ConfigureMacOSArm64Architecture();
 
@@ -153,6 +176,48 @@ namespace MopedSim.Editor
 
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             return catalogFiles.Length;
+        }
+
+        /// <summary>
+        /// Mirrors Assets/Art/Models/Parts/**/*.glb into Assets/StreamingAssets/Art/Models/Parts (stale staged models removed first).
+        /// Returns the number of models staged; throws when the source folder holds none.
+        /// </summary>
+        public static int StagePartModelsIntoStreamingAssets()
+        {
+            string source = Path.Combine(Application.dataPath, "Art", PartModelsRelativeFolder);
+            if (!Directory.Exists(source))
+            {
+                throw new DirectoryNotFoundException("Part model source directory not found: " + source);
+            }
+
+            string[] models = Directory.GetFiles(source, "*.glb", SearchOption.AllDirectories);
+            if (models.Length == 0)
+            {
+                throw new FileNotFoundException("No part .glb files found under " + source);
+            }
+
+            Array.Sort(models, StringComparer.Ordinal);
+            string destination = Path.Combine(Application.streamingAssetsPath, StagedArtFolder, PartModelsRelativeFolder);
+            if (Directory.Exists(destination))
+            {
+                Directory.Delete(destination, true);
+            }
+
+            for (int i = 0; i < models.Length; i++)
+            {
+                string relative = models[i].Substring(source.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string target = Path.Combine(destination, relative);
+                string targetDir = Path.GetDirectoryName(target);
+                if (!string.IsNullOrEmpty(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+
+                File.Copy(models[i], target, true);
+            }
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            return models.Length;
         }
 
         private static void ConfigureMacOSArm64Architecture()

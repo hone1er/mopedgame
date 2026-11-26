@@ -171,3 +171,27 @@ Every mechanical part `.glb` MUST satisfy a strict **Socket & Budget Contract**:
 ### Revisit Triggers
 - If MopedSim.Core/Data ever ship as precompiled DLL packages instead of source UPM packages, or if catalogs move to Addressables/remote content.
 
+
+---
+
+## ADR-007: URP Actually Active, Runtime Part Models Staged for Players, Ride ↔ Garage Presentation in `MopedSim.App`
+
+- **Status**: Accepted
+- **Date**: 2026-11-26
+
+### Context
+ADR-001 chose URP, and `com.unity.render-pipelines.universal` 17.6 was installed, but no pipeline asset was ever assigned: `GraphicsSettings.m_CustomRenderPipeline` and every `QualitySettings` level were `{fileID: 0}`, so the project silently ran the deprecated Built-In pipeline. glTFast generated Built-In materials at import, and the Editor showed magenta `.glb` materials once URP shader graphs were involved. Separately, `BikeVisualAssembler` loads part `.glb` files at runtime from `StreamingAssets/Art` in players, but nothing staged them there, so `MopedGame.app` could only draw placeholder cubes. Finally, the assembled bike only ever lived on the Garage workstand, so riding never showed the bike the player built.
+
+### Decision
+- `MopedSim.Editor.UrpPipelineSetup.EnsureUrpPipelineAssets()` idempotently creates `Assets/Settings/MopedSim_URP_Asset.asset` + `MopedSim_URP_Renderer.asset`, mirroring URP 17's own "URP Asset (with Universal Renderer)" create path (`UniversalRenderPipelineAsset.Create(rendererData)` + the package's default `PostProcessData`). It assigns the asset to `GraphicsSettings.defaultRenderPipeline` and to every quality level's serialized `customRenderPipeline`, and it reimports `Assets/Art/Models` only when an assignment actually changed. `SceneScaffoldBuilder.BuildAllScenes` / `EnsureScenesAndBuildSettings` call it, so CLI builds always run on URP. `MopedSim.Editor` gains the `Unity.RenderPipelines.Core.Runtime` / `Unity.RenderPipelines.Universal.Runtime` references, which the §4.2 matrix in `validate_boundaries.py` already allows. The generated settings assets and the URP-configured `GraphicsSettings.asset` / `QualitySettings.asset` / `DefaultVolumeProfile.asset` / `UniversalRenderPipelineGlobalSettings.asset` are committed.
+- `CliBuild` mirrors `Assets/Art/Models/Parts/**/*.glb` (the catalog `meshAssetPath` root) into `Assets/StreamingAssets/Art/Models/Parts/` right before `BuildPlayer`. This follows ADR-006: the folder is generated and git-ignored, and `Assets/Art/Models` stays the only source of truth.
+- `BikeVisualAssembler` draws a fallback cube only when a part declares a `meshAssetPath` that fails to load. Data-only parts (jets, gaskets, sprockets, …) mount as invisible containers.
+- `AppCompositionRoot` owns Ride ↔ Garage presentation, all of it event-driven in `ApplySessionState` and never per frame. It reparents the dedicated `AssemblyRoot` between the workstand and `RideMoped` (and never the assembler's own transform), swaps the inspection and chase cameras, keeps the ride rigidbody kinematic off-road, and sets HUD visibility per mode. Views that share the composition root's GameObject are never deactivated. Session hotkeys (`F1`/`Tab`, `F2`/`Escape`, `F3`, `F4`) are sampled by `InputAdapter` and added as optional trailing `FrameControlInputs` constructor parameters, so existing call sites keep compiling.
+
+### Consequences
+- **Positive**: Rendering matches ADR-001, and glTFast materials use URP shader graphs, with no magenta. The EditMode `ReleaseCandidateSceneTests` assert the pipeline and every model material. The player rides the real assembled moped, and the PlayMode `FullCycleReleaseCandidateTests` exercise that path end to end on the real scenes. `PaintBoothController` also writes glTFast's `baseColorFactor` / `metallicFactor` / `roughnessFactor`, so paint is visible under URP.
+- **Negative / Mitigations**: The first `EnsureUrpPipelineAssets` run reimports all 69 models, which takes about a minute, and later runs are no-ops. Player builds grow by the staged part models (a few MB). Runtime glTFast imports in players rely on the URP shader graphs that the Garage/Zone `.glb` instances already pull into the build. Check `logs/player_boot.log` for glTFast shader warnings when adding new material features.
+
+### Revisit Triggers
+- If parts move to Addressables, or runtime glTF loading is replaced by imported prefabs (then drop the StreamingAssets staging).
+- If a second render pipeline (HDRP) or per-platform pipeline assets are introduced.

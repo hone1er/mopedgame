@@ -21,6 +21,18 @@ namespace MopedSim.App
         public readonly bool ToggleCameraPressed;
         public readonly bool InteractPressed;
 
+        /// <summary>F1 / Tab: toggle between the Garage workstand and riding.</summary>
+        public readonly bool ToggleGarageRidePressed;
+
+        /// <summary>F2 / Escape: open or close the settings menu.</summary>
+        public readonly bool ToggleSettingsPressed;
+
+        /// <summary>F3: open or close the parts catalog shop.</summary>
+        public readonly bool ToggleShopPressed;
+
+        /// <summary>F4: cycle the paint booth's curated swatches on the bike.</summary>
+        public readonly bool CyclePaintPressed;
+
         public FrameControlInputs(
             float throttle,
             float frontBrake,
@@ -31,7 +43,11 @@ namespace MopedSim.App
             bool choke,
             bool decompressor,
             bool toggleCameraPressed,
-            bool interactPressed)
+            bool interactPressed,
+            bool toggleGarageRidePressed = false,
+            bool toggleSettingsPressed = false,
+            bool toggleShopPressed = false,
+            bool cyclePaintPressed = false)
         {
             Throttle = throttle;
             FrontBrake = frontBrake;
@@ -43,6 +59,10 @@ namespace MopedSim.App
             Decompressor = decompressor;
             ToggleCameraPressed = toggleCameraPressed;
             InteractPressed = interactPressed;
+            ToggleGarageRidePressed = toggleGarageRidePressed;
+            ToggleSettingsPressed = toggleSettingsPressed;
+            ToggleShopPressed = toggleShopPressed;
+            CyclePaintPressed = cyclePaintPressed;
         }
     }
 
@@ -51,6 +71,7 @@ namespace MopedSim.App
     /// Keyboard bindings come from <see cref="GameSettingsData"/> (MopedSim.UI settings menu): key names are parsed into cached
     /// <see cref="Key"/> values once in <see cref="ApplyKeyBindings"/>, never per frame, so <see cref="SampleInputs"/> stays
     /// allocation-free. Arrow keys and Z remain fixed secondary bindings; gamepad controls are not rebindable yet.
+    /// Session hotkeys are fixed (not rebindable): F1/Tab Garage-Ride toggle, F2/Escape settings, F3 shop, F4 paint swatch.
     /// </summary>
     public sealed class InputAdapter : MonoBehaviour
     {
@@ -221,6 +242,10 @@ namespace MopedSim.App
             bool decompressor = false;
             bool toggleCamera = false;
             bool interact = false;
+            bool toggleGarageRide = false;
+            bool toggleSettings = false;
+            bool toggleShop = false;
+            bool cyclePaint = false;
 
             Keyboard kb = Keyboard.current;
             if (kb != null)
@@ -256,6 +281,10 @@ namespace MopedSim.App
                 decompressor = IsPressed(kb, _decompressorKey);
                 toggleCamera = WasPressedThisFrame(kb, _toggleCameraKey);
                 interact = WasPressedThisFrame(kb, _interactKey);
+                toggleGarageRide = kb.f1Key.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
+                toggleSettings = kb.f2Key.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame;
+                toggleShop = kb.f3Key.wasPressedThisFrame;
+                cyclePaint = kb.f4Key.wasPressedThisFrame;
             }
 
             Gamepad gp = Gamepad.current;
@@ -276,6 +305,8 @@ namespace MopedSim.App
                 decompressor = decompressor || gp.leftShoulder.isPressed;
                 toggleCamera = toggleCamera || gp.selectButton.wasPressedThisFrame;
                 interact = interact || gp.buttonWest.wasPressedThisFrame;
+                toggleGarageRide = toggleGarageRide || gp.buttonNorth.wasPressedThisFrame;
+                toggleSettings = toggleSettings || gp.startButton.wasPressedThisFrame;
             }
 
             return new FrameControlInputs(
@@ -288,7 +319,11 @@ namespace MopedSim.App
                 choke,
                 decompressor,
                 toggleCamera,
-                interact);
+                interact,
+                toggleGarageRide,
+                toggleSettings,
+                toggleShop,
+                cyclePaint);
         }
     }
 }

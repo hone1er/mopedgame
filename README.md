@@ -21,11 +21,12 @@ Ensure Git LFS `.glb` assets are pulled and the host toolchain is installed (see
 ### 2. Play in the Unity Editor
 1. Open **Unity Hub** → **Add → Add project from disk** → select `~/MopedGame/unity` (or the `unity/` folder in this repository).
 2. Open the project in **Unity `6000.6.10f1`** (Unity automatically resolves the local `src/MopedSim.Core` and `src/MopedSim.Data` UPM packages plus URP, Input System, `glTFast`, and `Newtonsoft.Json`).
-3. In the Unity top menu, run **`MopedSim → Scenes → Rebuild All Scaffold Scenes`** (`SceneScaffoldBuilder.BuildAllScenes`) to generate `Bootstrap.unity`, `Garage.unity`, `UI_Overlay.unity`, and the four Bay Area `Zone_*.unity` scenes (`Zone_WestOakland`, `Zone_OaklandHills`, `Zone_BayCrossing`, `Zone_SF_Mission`) and register them in `EditorBuildSettings`.
-4. Open `unity/Assets/Scenes/Bootstrap.unity` and press **Play** (`⌘P`).
+3. The generated scenes are committed. After changing a scene populator, run **`MopedSim → Scenes → Rebuild All Scaffold Scenes`** (`SceneScaffoldBuilder.BuildAllScenes`). It first makes sure URP is the active pipeline (`MopedSim → Rendering → Ensure URP Pipeline Assets`, ADR-007), then regenerates `Bootstrap.unity`, `Garage.unity`, `UI_Overlay.unity`, and the four Bay Area `Zone_*.unity` scenes, and registers them in `EditorBuildSettings`.
+4. Open `unity/Assets/Scenes/Bootstrap.unity` and press **Play** (`⌘P`). You start in the Garage with the assembled `.glb` moped on the workstand. Press **`F1`/`Tab`** to ride that same bike, paint and all, on West Oakland's Maritime straight, and press it again to go back to the workstand.
+5. **Asset showcase**: open `unity/Assets/Scenes/AssetGallery.unity` (regenerate it with **`MopedSim → Scenes → Build Asset Gallery Scene`**) and press Play. It lays out all **69** `.glb` models in a labelled grid grouped into **Bike Parts**, **Garage Stations**, **Bay Area World Kit**, and **Test**. Fly with `WASD` (`Q`/`E` down/up, `Shift` for speed) and hold the right mouse button to look around. It is a showcase only and is not part of the player build.
 
 ### 3. Build & Launch Standalone macOS (`arm64`) App
-- **From Unity Editor**: Run **`MopedSim → Build → macOS arm64 (Dev)`** (`CliBuild.BuildMacOSDev`).
+- **From Unity Editor**: Run **`MopedSim → Build → macOS arm64 (Dev)`** (`CliBuild.BuildMacOSDev`). The build stages the catalogs plus the bike-part `.glb` models into `StreamingAssets` (git-ignored), so the player assembles and rides the real 3D moped.
 - **From Terminal (CLI)**:
   ```bash
   ./scripts/verify.sh --full
@@ -47,14 +48,21 @@ Ensure Git LFS `.glb` assets are pulled and the host toolchain is installed (see
 | **Decompressor** | `Q` | `Left Shoulder` |
 | **Interact (Garage / Roadside)** | `E` | `West Button` (`X` / `Square`) |
 | **Toggle Camera** | `V` | `Select / Share` |
+| **Garage ↔ Ride** | `F1` / `Tab` | `North Button` (`Y` / `Triangle`) |
+| **Settings Menu** | `F2` / `Escape` | `Start / Options` |
+| **Parts Shop** | `F3` | — |
+| **Cycle Paint Swatch (live on the bike)** | `F4` | — |
+
+The HUD changes with the mode. The **Garage** shows the wrench HUD, plug chop chart, and tool roll. **Ride** shows the speed/RPM/CHT HUD, the job board, and diagnostic hints. **Roadside repair** shows the tool roll, the wrench HUD, and hints. A cheat-sheet banner across the top of the screen lists the hotkeys.
 
 ### 5. Headless Tests, Validators & Asset Generation (No Unity Needed)
 ```bash
 # Run Gate 1 (dotnet test on Core + Data) and Gate 2 (boundary, schema, and .glb socket checks)
 ./scripts/verify.sh
 
-# Regenerate all 51 procedural .glb moped & garage models into unity/Assets/Art/Models/
-blender --background --python tools/blender/generate_all.py
+# Regenerate all 69 procedural .glb models (46 bike parts, 4 garage stations, 18 Bay Area world modules, 1 test cube).
+# Output is byte-reproducible: two back-to-back runs produce identical SHA-256 hashes for every file.
+blender --background --python tools/blender/generate_all.py -- --out unity/Assets/Art/Models
 ```
 
 ---
@@ -63,7 +71,7 @@ blender --background --python tools/blender/generate_all.py
 
 - **[AGENTS.md](AGENTS.md)** — Mandatory engineering rules, repo structure, 5-gate verification commands, and multi-agent coordination lanes. **Read first.**
 - **[docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md)** — Master specification covering the 2-stroke simulation model, assembly dependency DAG, fault matrix, riding physics, Bay Area zones, Blender `SOCKET_*` asset contracts, and M0–M7 milestones with verifiable outcomes.
-- **[docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)** — Settled Architectural Decision Records (`ADR-001`–`ADR-006`), including engine selection, engine-agnostic core kernel, asset validation, and build-output/catalog staging isolation.
+- **[docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)** — Settled Architectural Decision Records (`ADR-001`–`ADR-007`), covering engine selection, the engine-agnostic core kernel, asset validation, build-output/catalog staging isolation, and URP activation with runtime part-model staging.
 - **[docs/REFERENCES_VINTAGE_MOPEDS.md](docs/REFERENCES_VINTAGE_MOPEDS.md)** — Curated vintage moped visual, proportion, and homage naming reference sheet from `pedalcodearmy.com/stable`.
 - **[docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md)** — Host prerequisites checklist, current milestone status, and verification log.
 

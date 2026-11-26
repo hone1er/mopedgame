@@ -199,6 +199,21 @@ namespace MopedSim.Tests.PlayMode
             Assert.AreEqual(4, crate.Slots);
             Assert.IsTrue(crate.IsSecured);
 
+            // 2b. The mounted crate now carries the 3-slot burrito gig: accept it, then abandon it with no payout or reputation.
+            JobAcceptResult burrito = app.AcceptJob(BurritoGigId);
+            Assert.IsTrue(burrito.Accepted, burrito.Message);
+            Assert.AreEqual(JobSessionStatus.Active, courier.Status);
+            Assert.AreEqual(BurritoGigId, courier.ActiveJob.Id);
+            JobAcceptResult concurrent = app.AcceptJob(MissionGigId);
+            Assert.IsFalse(concurrent.Accepted, "Only one courier job may be active at a time.");
+            Assert.AreEqual(JobRejectReason.JobAlreadyActive, concurrent.Reason);
+            Assert.IsTrue(app.AbandonJob());
+            Assert.AreEqual(JobSessionStatus.Abandoned, courier.Status);
+            Assert.IsFalse(app.AbandonJob(), "An abandoned job cannot be abandoned twice.");
+            Assert.IsFalse(app.CollectJobReward(), "Abandoned gigs pay nothing.");
+            Assert.AreEqual(0m, world.CashUsd);
+            Assert.AreEqual(0, world.Reputation);
+
             // 3. Stream into the Mission and ride the real 2-crate gig through its catalog checkpoints.
             Task<bool> toMission = zones.TransitionToZoneAsync("Zone_SF_Mission", false);
             yield return WaitForTask(toMission, null);
@@ -374,10 +389,9 @@ namespace MopedSim.Tests.PlayMode
         // ------------------------------------------------------------------ Per-frame economy fan-out stays allocation-free
 
         /// <summary>
-        /// The per-frame App fan-out for jobs (CourierGigController.StepJob, JobSessionSnapshot + JobBoardHudView.Render) and the
-        /// rally marker mirror (RallyPackController.SyncMarkers) allocate zero GC memory once warmed. Rally pack stepping itself is
-        /// warmed outside the measured blocks: Core RallyPackSimulator.UpdatePackGap calls Array.Sort, which allocates under Unity's
-        /// Mono runtime (Core-lane handoff recorded in docs/ROADMAP_STATUS.md).
+        /// The per-frame App fan-out for jobs (CourierGigController.StepJob, JobSessionSnapshot + JobBoardHudView.Render), active
+        /// Bay Swarm pack stepping (RallyPackSimulator via CourierGigController.StepJob; the pack-gap median uses an allocation-free
+        /// insertion sort since M7), and the rally marker mirror (RallyPackController.SyncMarkers) allocate zero GC memory once warmed.
         /// </summary>
         [UnityTest]
         public IEnumerator CourierStep_HudRender_AndRallyMirror_PerFrame_AllocateNoGcMemory()
@@ -440,15 +454,18 @@ namespace MopedSim.Tests.PlayMode
                 }
             }, Is.Not.AllocatingGCMemory(), "Courier StepJob + snapshot + JobBoardHudView.Render");
 
+            float rallyElapsedBefore = rallyDispatch.Jobs.Rally.ElapsedSeconds;
             Assert.That(() =>
             {
                 for (int i = 0; i < 240; i++)
                 {
+                    rallyDispatch.StepJob(PlayModeRig.Dt);
                     JobSessionSnapshot s = rallyDispatch.GetSnapshot();
                     rallyHud.Render(in s, rallyDispatch.ActiveJobTitle);
                     rally.SyncMarkers();
                 }
-            }, Is.Not.AllocatingGCMemory(), "Rally snapshot + HUD + RallyPackController.SyncMarkers");
+            }, Is.Not.AllocatingGCMemory(), "Rally pack Step + snapshot + HUD + RallyPackController.SyncMarkers");
+            Assert.Greater(rallyDispatch.Jobs.Rally.ElapsedSeconds, rallyElapsedBefore, "The measured block must actually step the pack.");
 
             // C. AppCompositionRoot.Update itself (input sample, weather -> ride env, HUD + hints fan-out, courier step, job board).
             SimulationWorld appWorld = new SimulationWorld(new SeededSimRandom(6u), db.GetZone("Zone_WestOakland"));
@@ -500,6 +517,92 @@ namespace MopedSim.Tests.PlayMode
             Transform lead = rally.GetMarker(0);
             Assert.IsNotNull(lead);
             Assert.Greater(Vector3.Distance(lead.position, new Vector3(start.X, start.Y, start.Z)), 1f, "Rally markers should advance along the route.");
+        }
+
+        /// <summary>
+        /// M7: a live Bay Swarm rally driven entirely by AppCompositionRoot.Update (input sample, weather -> ride env, HUD + hints
+        /// fan-out, CourierGigController.StepJob -> JobSessionManager -> RallyPackSimulator.Step incl. the pack-gap median, job board)
+        /// plus the RallyPackController marker mirror allocates 0 B under Unity Mono. Non-vacuous: the start checkpoint is reached
+        /// first (rally clock running) and the pack's elapsed time and lead rider progress must advance during the measured block.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ActiveRally_AppUpdate_AndPackStepping_AllocateNoGcMemory()
+        {
+            CatalogDatabase db = LoadCatalog();
+            SimulationWorld world = new SimulationWorld(new SeededSimRandom(8u), db.GetZone("Zone_WestOakland"));
+            world.RegisterBike(AppCompositionRoot.DefaultBikeInstanceId, new BikeSimulation(db.GetArchetype(ArchetypeIds.MaxerE50), db.Parts));
+            JobDefinition rallyJob = db.GetJob(RallyJobId);
+            JobCheckpointSpec start = rallyJob.Checkpoints[0];
+            GameObject riderGo = Spawn("RallyAllocRider");
+
+            GameObject appGo = Spawn("AppRallyAllocationRig");
+            GameSessionStateMachine session = appGo.AddComponent<GameSessionStateMachine>();
+            InputAdapter input = appGo.AddComponent<InputAdapter>();
+            BayAreaWeatherController weather = appGo.AddComponent<BayAreaWeatherController>();
+            CourierGigController courier = appGo.AddComponent<CourierGigController>();
+            JobBoardHudView board = appGo.AddComponent<JobBoardHudView>();
+            RideHudView rideHud = appGo.AddComponent<RideHudView>();
+            DiagnosticHintsPresenter hints = appGo.AddComponent<DiagnosticHintsPresenter>();
+            RallyPackController rally = Spawn("RallyPackMirror").AddComponent<RallyPackController>();
+            AppCompositionRoot app = appGo.AddComponent<AppCompositionRoot>();
+            app.BootstrapOnStart = false;
+            courier.SetRider(riderGo.transform);
+            app.AssignCoreComponents(input, session, null, null);
+            app.AssignWorldComponents(null, weather, null, null);
+            app.AssignPresentationComponents(rideHud, null, null, null, null, hints, null);
+            app.AssignEconomyComponents(null, courier, rally, null, board, null);
+            app.BootstrapWithWorld(world, db.PartList, db);
+            input.SetTestOverride(new FrameControlInputs(0.4f, 0f, 0f, 0f, false, false, false, false, false, false));
+
+            Assert.IsTrue(app.TryStartRide());
+            JobAcceptResult accepted = app.AcceptJob(RallyJobId);
+            Assert.IsTrue(accepted.Accepted, accepted.Message);
+            Assert.AreEqual(CheckpointReportResult.Reached, courier.ReportRiderPosition(new Vector3(start.X, start.Y, start.Z)));
+            // Park the rider far above the route so no further checkpoint (or finish) fires mid-measurement.
+            riderGo.transform.position = new Vector3(start.X, start.Y + 500f, start.Z);
+            yield return null;
+
+            RallyPackSimulator pack = courier.Jobs.Rally;
+            Assert.IsNotNull(pack, "Accepting the rally must start a RallyPackSimulator.");
+            MethodInfo updateMethod = typeof(AppCompositionRoot).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(updateMethod);
+            Action appUpdate = (Action)Delegate.CreateDelegate(typeof(Action), app, updateMethod);
+            for (int i = 0; i < 120; i++)
+            {
+                appUpdate();
+                rally.SyncMarkers();
+            }
+
+            float elapsedBefore = pack.ElapsedSeconds;
+            float leadBefore = LeadProgress(pack);
+            Assert.That(() =>
+            {
+                for (int i = 0; i < 240; i++)
+                {
+                    appUpdate();
+                    rally.SyncMarkers();
+                }
+            }, Is.Not.AllocatingGCMemory(), "AppCompositionRoot.Update + RallyPackSimulator stepping with an active Bay Swarm rally");
+
+            Assert.Greater(pack.ElapsedSeconds, elapsedBefore, "The rally clock must advance inside the measured block.");
+            Assert.Greater(LeadProgress(pack), leadBefore, "AI riders must advance inside the measured block.");
+            Assert.AreEqual(JobSessionStatus.Active, courier.Status);
+            Assert.IsFalse(pack.PlayerFinished);
+            Assert.IsTrue(board.IsPanelVisible);
+            Assert.AreEqual(pack.FieldSize, board.DisplayedFieldSize);
+            Assert.Greater(rally.ActiveMarkerCount, 0);
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        private static float LeadProgress(RallyPackSimulator pack)
+        {
+            float lead = 0f;
+            for (int i = 0; i < pack.Riders.Count; i++)
+            {
+                lead = Mathf.Max(lead, pack.Riders[i].ProgressMeters);
+            }
+
+            return lead;
         }
 
         // ------------------------------------------------------------------ Helpers

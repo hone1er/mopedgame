@@ -165,7 +165,8 @@ namespace MopedSim.Garage
 
         /// <summary>
         /// Loads a catalog part's `.glb` (glTFast) and mounts it onto its bound parent socket.
-        /// Falls back to a placeholder cube when the mesh is missing (data-only parts such as jets or gaskets).
+        /// Data-only parts (no meshAssetPath: jets, gaskets, fuel line, sprockets, ...) mount as an invisible container so they
+        /// never clutter the bike; the placeholder cube is drawn only when a part declares a mesh that fails to load.
         /// </summary>
         public async Task<GameObject> MountPartAsync(string slotId, PartDefinition part, string parentSlotId)
         {
@@ -199,7 +200,7 @@ namespace MopedSim.Garage
                 }
             }
 
-            if (!loaded && _useFallbackBoxWhenGlbMissing && mounted.Container != null)
+            if (!loaded && !string.IsNullOrEmpty(part.MeshAssetPath) && _useFallbackBoxWhenGlbMissing && mounted.Container != null)
             {
                 CreateFallbackVisual(mounted.Container, slotId);
                 mounted.UsedFallbackVisual = true;

@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &91059658
+--- !u!1 &49819640
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,30 +127,156 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 91059659}
+  - component: {fileID: 49819647}
+  - component: {fileID: 49819646}
+  - component: {fileID: 49819645}
+  - component: {fileID: 49819644}
+  - component: {fileID: 49819643}
+  - component: {fileID: 49819642}
+  - component: {fileID: 49819641}
   m_Layer: 0
-  m_Name: FrontWheelMount
+  m_Name: AppRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &91059659
+--- !u!114 &49819641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49819640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1920775d13304cd7a1a2f6e0b7d579b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.CourierGigController
+  _rider: {fileID: 1530733620}
+  _nextCheckpointBeacon: {fileID: 2013613178}
+--- !u!114 &49819642
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49819640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 143b2a690f6864efba89800b2d6e162a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.App::MopedSim.App.AppCompositionRoot
+  _bootstrapOnStart: 1
+  _seed: 1
+  _startingArchetypeId: arch_maxer_e50
+  _catalogDirectoryOverride: 
+  _additiveScenes:
+  - Garage
+  - UI_Overlay
+  _initialZoneScene: Zone_WestOakland
+  _input: {fileID: 49819646}
+  _session: {fileID: 49819645}
+  _ride: {fileID: 1530733624}
+  _aero: {fileID: 1530733623}
+  _cameraRig: {fileID: 890713179}
+  _assembler: {fileID: 0}
+  _workstand: {fileID: 0}
+  _wrench: {fileID: 0}
+  _carbBench: {fileID: 0}
+  _plugInspector: {fileID: 0}
+  _premix: {fileID: 0}
+  _dyno: {fileID: 0}
+  _paintBooth: {fileID: 0}
+  _zones: {fileID: 49819644}
+  _weather: {fileID: 49819643}
+  _courier: {fileID: 49819641}
+  _rally: {fileID: 2062144005}
+  _rideHud: {fileID: 0}
+  _toolRollView: {fileID: 0}
+  _wrenchHud: {fileID: 0}
+  _plugChart: {fileID: 0}
+  _shop: {fileID: 0}
+  _hints: {fileID: 0}
+  _settingsView: {fileID: 0}
+  _swapMeet: {fileID: 0}
+  _jobBoard: {fileID: 0}
+  _settingsFileName: settings.json
+  _audio: {fileID: 830282802}
+  _rideVisualLocalOffset: {x: 0, y: -0.12, z: 0}
+  _holdRideBodyKinematicOffRoad: 1
+--- !u!114 &49819643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49819640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cec5ee924a074c9c8846970cd5f3ff3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.BayAreaWeatherController
+  _karlFogAirDensity: 1.09
+  _wetFogGripMultiplier: 0.76
+  _clearHorizonColor: {r: 0.84, g: 0.89, b: 0.96, a: 1}
+  _karlFogColor: {r: 0.76, g: 0.8, b: 0.84, a: 1}
+  _maxFogDensity: 0.022
+  _driveRenderSettings: 1
+  _trackedRider: {fileID: 0}
+--- !u!114 &49819644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49819640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5db265caed8704bfbbd30a763429fd7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.ZoneStreamManager
+--- !u!114 &49819645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49819640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8a9a7e2e92904dcf95acecf9a460ad4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.App::MopedSim.App.GameSessionStateMachine
+  _initialState: 0
+--- !u!114 &49819646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49819640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2186d1eb0dea4d0fa29045f58638475, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.App::MopedSim.App.InputAdapter
+--- !u!4 &49819647
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 91059658}
+  m_GameObject: {fileID: 49819640}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.3, z: 0.58}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1710013468}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &793321999
+--- !u!1 &777705917
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -158,8 +284,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 793322001}
-  - component: {fileID: 793322000}
+  - component: {fileID: 777705919}
+  - component: {fileID: 777705918}
   m_Layer: 0
   m_Name: Sun_GoldenHour
   m_TagString: Untagged
@@ -167,13 +293,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &793322000
+--- !u!108 &777705918
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 793321999}
+  m_GameObject: {fileID: 777705917}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -232,13 +358,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &793322001
+--- !u!4 &777705919
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 793321999}
+  m_GameObject: {fileID: 777705917}
   serializedVersion: 2
   m_LocalRotation: {x: 0.31295618, y: -0.26062024, z: 0.08973874, w: 0.9088908}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -247,73 +373,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &895331576
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8771091787928289351, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_Name
-      value: NextCheckpointBeacon
-      objectReference: {fileID: 0}
-    - target: {fileID: 8771091787928289351, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: -4161369568681901532, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
---- !u!4 &895331577 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
-  m_PrefabInstance: {fileID: 895331576}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &957837700
+--- !u!1 &830282800
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -321,9 +381,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 957837701}
-  - component: {fileID: 957837703}
-  - component: {fileID: 957837702}
+  - component: {fileID: 830282801}
+  - component: {fileID: 830282803}
+  - component: {fileID: 830282802}
   m_Layer: 0
   m_Name: TwoStrokeAudio
   m_TagString: Untagged
@@ -331,28 +391,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &957837701
+--- !u!4 &830282801
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 957837700}
+  m_GameObject: {fileID: 830282800}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1710013468}
+  m_Father: {fileID: 1530733620}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &957837702
+--- !u!114 &830282802
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 957837700}
+  m_GameObject: {fileID: 830282800}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d29cd75f9caae4197a2f5dd89f1e4e16, type: 3}
@@ -362,13 +422,13 @@ MonoBehaviour:
   _idleRpm: 1700
   _mechanicDiagnosticHints: 1
   _noiseSeed: 739982445
---- !u!82 &957837703
+--- !u!82 &830282803
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 957837700}
+  m_GameObject: {fileID: 830282800}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
@@ -459,7 +519,7 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!1 &1643454514
+--- !u!1 &890713178
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -467,421 +527,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1643454515}
-  m_Layer: 0
-  m_Name: RearWheelMount
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1643454515
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643454514}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.3, z: -0.58}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1710013468}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1710013467
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1710013468}
-  - component: {fileID: 1710013474}
-  - component: {fileID: 1710013473}
-  - component: {fileID: 1710013472}
-  - component: {fileID: 1710013471}
-  - component: {fileID: 1710013470}
-  - component: {fileID: 1710013469}
-  m_Layer: 0
-  m_Name: RideMoped
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1710013468
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.6, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 91059659}
-  - {fileID: 1643454515}
-  - {fileID: 957837701}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1710013469
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b3db7a7e5f6464d639f9f076e46ed088, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.PedalInputHandler
-  _useDirectKeyboardFallback: 1
-  _pedalCrankDegreesPerSecond: 540
-  _crankVisual: {fileID: 0}
---- !u!114 &1710013470
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2cba2b6ff4881498bbe928a592107166, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.BrakeFadeController
-  _maxFrontBrakeTorqueNm: 260
-  _maxRearBrakeTorqueNm: 210
-  _ambientTempCelsius: 22
-  _fadeOnsetTempCelsius: 175
-  _fadeSevereTempCelsius: 310
-  _heatGainPerNmSec: 0.012
-  _coolingPerSecBase: 0.045
-  _airflowCoolingFactor: 0.01
-  _frontDrumRenderer: {fileID: 0}
-  _rearDrumRenderer: {fileID: 0}
-  _coolColor: {r: 0.28, g: 0.28, b: 0.3, a: 1}
-  _hotFadeColor: {r: 0.85, g: 0.28, b: 0.12, a: 1}
---- !u!114 &1710013471
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 50811fb7254124ef0bbc72f6444e19c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.AeroTuckController
-  _baseCda: 0.56
-  _tuckTransitionSpeed: 6
-  _riderVisualPivot: {fileID: 0}
-  _uprightPitchDeg: 0
-  _tuckedPitchDeg: 32
---- !u!114 &1710013472
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 04131d2d6816b4f5f8fbcc427267384f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.MopedBikeController
-  _riderMassKg: 75
-  _centerOfMassLocal: {x: 0, y: 0.45, z: 0}
-  _autoStepInFixedUpdate: 1
-  _frontWheelMount: {fileID: 91059659}
-  _rearWheelMount: {fileID: 1643454515}
-  _suspensionRestLengthM: 0.22
-  _suspensionTravelM: 0.12
-  _springStiffnessNPerM: 9000
-  _damperNsPerM: 650
-  _groundMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  _maxLeanDeg: 38
-  _leanStiffness: 360
-  _leanDamping: 60
-  _lowSpeedSteerYawRateDegPerSec: 55
-  _yawResponse: 5
-  _countersteerSpeedMps: 4.5
-  _aero: {fileID: 1710013471}
-  _referenceAirDensityKgM3: 1.225
-  _brakes: {fileID: 1710013470}
-  _pedal: {fileID: 1710013469}
---- !u!65 &1710013473
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.45, y: 0.7, z: 1.6}
-  m_Center: {x: 0, y: 0.45, z: 0}
---- !u!54 &1710013474
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1710013467}
-  serializedVersion: 5
-  m_Mass: 127
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
---- !u!1 &1744140915
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1744140922}
-  - component: {fileID: 1744140921}
-  - component: {fileID: 1744140920}
-  - component: {fileID: 1744140919}
-  - component: {fileID: 1744140918}
-  - component: {fileID: 1744140917}
-  - component: {fileID: 1744140916}
-  m_Layer: 0
-  m_Name: AppRoot
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1744140916
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1920775d13304cd7a1a2f6e0b7d579b1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.CourierGigController
-  _rider: {fileID: 1710013468}
-  _nextCheckpointBeacon: {fileID: 895331577}
---- !u!114 &1744140917
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 143b2a690f6864efba89800b2d6e162a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.App::MopedSim.App.AppCompositionRoot
-  _bootstrapOnStart: 1
-  _seed: 1
-  _startingArchetypeId: arch_maxer_e50
-  _catalogDirectoryOverride: 
-  _additiveScenes:
-  - Garage
-  - UI_Overlay
-  _initialZoneScene: Zone_WestOakland
-  _input: {fileID: 1744140921}
-  _session: {fileID: 1744140920}
-  _ride: {fileID: 1710013472}
-  _aero: {fileID: 1710013471}
-  _cameraRig: {fileID: 2091092053}
-  _assembler: {fileID: 0}
-  _workstand: {fileID: 0}
-  _wrench: {fileID: 0}
-  _carbBench: {fileID: 0}
-  _plugInspector: {fileID: 0}
-  _premix: {fileID: 0}
-  _dyno: {fileID: 0}
-  _paintBooth: {fileID: 0}
-  _zones: {fileID: 1744140919}
-  _weather: {fileID: 1744140918}
-  _courier: {fileID: 1744140916}
-  _rally: {fileID: 2031332852}
-  _rideHud: {fileID: 0}
-  _toolRollView: {fileID: 0}
-  _wrenchHud: {fileID: 0}
-  _plugChart: {fileID: 0}
-  _shop: {fileID: 0}
-  _hints: {fileID: 0}
-  _settingsView: {fileID: 0}
-  _swapMeet: {fileID: 0}
-  _jobBoard: {fileID: 0}
-  _settingsFileName: settings.json
-  _audio: {fileID: 957837702}
---- !u!114 &1744140918
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4cec5ee924a074c9c8846970cd5f3ff3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.BayAreaWeatherController
-  _karlFogAirDensity: 1.09
-  _wetFogGripMultiplier: 0.76
-  _clearHorizonColor: {r: 0.84, g: 0.89, b: 0.96, a: 1}
-  _karlFogColor: {r: 0.76, g: 0.8, b: 0.84, a: 1}
-  _maxFogDensity: 0.022
-  _driveRenderSettings: 1
-  _trackedRider: {fileID: 0}
---- !u!114 &1744140919
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5db265caed8704bfbbd30a763429fd7b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.ZoneStreamManager
---- !u!114 &1744140920
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e8a9a7e2e92904dcf95acecf9a460ad4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.App::MopedSim.App.GameSessionStateMachine
-  _initialState: 0
---- !u!114 &1744140921
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d2186d1eb0dea4d0fa29045f58638475, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.App::MopedSim.App.InputAdapter
---- !u!4 &1744140922
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1744140915}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2031332851
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2031332853}
-  - component: {fileID: 2031332852}
-  m_Layer: 0
-  m_Name: RallyPack
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2031332852
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2031332851}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 555e3bde7adf46fe8dfe7b785ea260e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.RallyPackController
-  _markerTemplate: {fileID: 0}
-  _markerRoot: {fileID: 0}
-  _laneSpacingMeters: 1.2
---- !u!4 &2031332853
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2031332851}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2091092052
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2091092056}
-  - component: {fileID: 2091092055}
-  - component: {fileID: 2091092054}
-  - component: {fileID: 2091092053}
+  - component: {fileID: 890713182}
+  - component: {fileID: 890713181}
+  - component: {fileID: 890713180}
+  - component: {fileID: 890713179}
   m_Layer: 0
   m_Name: RideCamera
   m_TagString: MainCamera
@@ -889,20 +538,20 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2091092053
+--- !u!114 &890713179
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2091092052}
+  m_GameObject: {fileID: 890713178}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4e3794cc6d94d41299c59661890b3767, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.MopedCameraRig
-  _targetBike: {fileID: 1710013468}
-  _attachedCamera: {fileID: 2091092055}
+  _targetBike: {fileID: 1530733620}
+  _attachedCamera: {fileID: 890713181}
   _mode: 0
   _chaseOffset: {x: 0, y: 1.45, z: -3.1}
   _lookAheadOffset: {x: 0, y: 0.72, z: 1.8}
@@ -914,21 +563,21 @@ MonoBehaviour:
   _maxSpeedFovBonus: 11
   _tuckFovBonus: 5
   _fovSmooth: 7
---- !u!81 &2091092054
+--- !u!81 &890713180
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2091092052}
+  m_GameObject: {fileID: 890713178}
   m_Enabled: 1
---- !u!20 &2091092055
+--- !u!20 &890713181
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2091092052}
+  m_GameObject: {fileID: 890713178}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
@@ -973,16 +622,369 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &2091092056
+--- !u!4 &890713182
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2091092052}
+  m_GameObject: {fileID: 890713178}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 1.6, z: -3.2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1468301181
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1468301182}
+  m_Layer: 0
+  m_Name: FrontWheelMount
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1468301182
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1468301181}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.3, z: 0.58}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1530733620}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1530733619
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1530733620}
+  - component: {fileID: 1530733626}
+  - component: {fileID: 1530733625}
+  - component: {fileID: 1530733624}
+  - component: {fileID: 1530733623}
+  - component: {fileID: 1530733622}
+  - component: {fileID: 1530733621}
+  m_Layer: 0
+  m_Name: RideMoped
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1530733620
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.25, z: 12}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1468301182}
+  - {fileID: 1665788131}
+  - {fileID: 830282801}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1530733621
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3db7a7e5f6464d639f9f076e46ed088, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.PedalInputHandler
+  _useDirectKeyboardFallback: 1
+  _pedalCrankDegreesPerSecond: 540
+  _crankVisual: {fileID: 0}
+--- !u!114 &1530733622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cba2b6ff4881498bbe928a592107166, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.BrakeFadeController
+  _maxFrontBrakeTorqueNm: 260
+  _maxRearBrakeTorqueNm: 210
+  _ambientTempCelsius: 22
+  _fadeOnsetTempCelsius: 175
+  _fadeSevereTempCelsius: 310
+  _heatGainPerNmSec: 0.012
+  _coolingPerSecBase: 0.045
+  _airflowCoolingFactor: 0.01
+  _frontDrumRenderer: {fileID: 0}
+  _rearDrumRenderer: {fileID: 0}
+  _coolColor: {r: 0.28, g: 0.28, b: 0.3, a: 1}
+  _hotFadeColor: {r: 0.85, g: 0.28, b: 0.12, a: 1}
+--- !u!114 &1530733623
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50811fb7254124ef0bbc72f6444e19c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.AeroTuckController
+  _baseCda: 0.56
+  _tuckTransitionSpeed: 6
+  _riderVisualPivot: {fileID: 0}
+  _uprightPitchDeg: 0
+  _tuckedPitchDeg: 32
+--- !u!114 &1530733624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04131d2d6816b4f5f8fbcc427267384f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.Ride::MopedSim.Ride.MopedBikeController
+  _riderMassKg: 75
+  _centerOfMassLocal: {x: 0, y: 0.45, z: 0}
+  _autoStepInFixedUpdate: 1
+  _frontWheelMount: {fileID: 1468301182}
+  _rearWheelMount: {fileID: 1665788131}
+  _suspensionRestLengthM: 0.22
+  _suspensionTravelM: 0.12
+  _springStiffnessNPerM: 9000
+  _damperNsPerM: 650
+  _groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _maxLeanDeg: 38
+  _leanStiffness: 360
+  _leanDamping: 60
+  _lowSpeedSteerYawRateDegPerSec: 55
+  _yawResponse: 5
+  _countersteerSpeedMps: 4.5
+  _aero: {fileID: 1530733623}
+  _referenceAirDensityKgM3: 1.225
+  _brakes: {fileID: 1530733622}
+  _pedal: {fileID: 1530733621}
+--- !u!65 &1530733625
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.45, y: 0.7, z: 1.6}
+  m_Center: {x: 0, y: 0.45, z: 0}
+--- !u!54 &1530733626
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530733619}
+  serializedVersion: 5
+  m_Mass: 127
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!1 &1665788130
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1665788131}
+  m_Layer: 0
+  m_Name: RearWheelMount
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1665788131
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1665788130}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.3, z: -0.58}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1530733620}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &2013613177
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8771091787928289351, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_Name
+      value: NextCheckpointBeacon
+      objectReference: {fileID: 0}
+    - target: {fileID: 8771091787928289351, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: -4161369568681901532, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+--- !u!4 &2013613178 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -3910990755373119420, guid: cff208259e8e34973b80de485d3eda0f, type: 3}
+  m_PrefabInstance: {fileID: 2013613177}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2062144004
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2062144006}
+  - component: {fileID: 2062144005}
+  m_Layer: 0
+  m_Name: RallyPack
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2062144005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2062144004}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 555e3bde7adf46fe8dfe7b785ea260e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MopedSim.World::MopedSim.World.RallyPackController
+  _markerTemplate: {fileID: 0}
+  _markerRoot: {fileID: 0}
+  _laneSpacingMeters: 1.2
+--- !u!4 &2062144006
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2062144004}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -992,9 +994,9 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 793322001}
-  - {fileID: 1744140922}
-  - {fileID: 1710013468}
-  - {fileID: 2091092056}
-  - {fileID: 895331576}
-  - {fileID: 2031332853}
+  - {fileID: 777705919}
+  - {fileID: 49819647}
+  - {fileID: 1530733620}
+  - {fileID: 890713182}
+  - {fileID: 2013613177}
+  - {fileID: 2062144006}

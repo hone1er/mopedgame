@@ -43,6 +43,12 @@ namespace MopedSim.Ride
             set { _mode = value; }
         }
 
+        /// <summary>Camera driven by this rig (falls back to the Camera on the same GameObject).</summary>
+        public Camera AttachedCamera
+        {
+            get { return _attachedCamera != null ? _attachedCamera : GetComponent<Camera>(); }
+        }
+
         public void SetTarget(Transform bikeTransform, Camera cam)
         {
             _targetBike = bikeTransform;

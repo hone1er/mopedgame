@@ -74,6 +74,12 @@ namespace MopedSim.App
         [Header("Audio")]
         [SerializeField] private TwoStrokeAudioDriver _audio;
 
+        [Header("Ride / Garage Presentation")]
+        [Tooltip("Local pose of the assembled .glb bike under RideMoped (wheel mounts ride ~0.42 m above the road, 0.3 m above the body origin).")]
+        [SerializeField] private Vector3 _rideVisualLocalOffset = new Vector3(0f, -0.12f, 0f);
+        [Tooltip("Keeps the ride rigidbody kinematic outside Ride / RoadsideRepair so it never falls before a zone streams in.")]
+        [SerializeField] private bool _holdRideBodyKinematicOffRoad = true;
+
         private readonly List<string> _inventory = new List<string>(32);
         private readonly List<string> _unresolvedInventory = new List<string>(4);
         private readonly List<string> _toolRollChoices = new List<string>(24);
@@ -92,6 +98,12 @@ namespace MopedSim.App
         private AudioSource _engineAudioSource;
         private float _lastAppliedAirDensity = RideInputState.StandardAirDensity;
         private float _lastAppliedGrip = 1f;
+        private Rigidbody _rideBody;
+        private Transform _bikeVisualHome;
+        private Vector3 _bikeVisualHomePosition;
+        private Quaternion _bikeVisualHomeRotation = Quaternion.identity;
+        private Vector3 _bikeVisualHomeScale = Vector3.one;
+        private bool _bikeVisualHomeCaptured;
 
         public event Action<RoadsideRepairResult> RoadsideRepairAttempted;
         public event Action<RecoveryResult> RecoveryCompleted;
@@ -236,6 +248,35 @@ namespace MopedSim.App
         public uint Seed
         {
             get { return _seed; }
+        }
+
+        /// <summary>
+        /// The assembled .glb bike hierarchy (BikeVisualAssembler.AssemblyRoot) when it is a dedicated child that can travel between
+        /// the Garage workstand and RideMoped; null otherwise.
+        /// </summary>
+        public Transform BikeVisualRoot
+        {
+            get { return _bikeVisualHomeCaptured && _assembler != null ? _assembler.AssemblyRoot : null; }
+        }
+
+        /// <summary>True while the assembled bike visual is parented under the ride controller (Ride / RoadsideRepair).</summary>
+        public bool IsBikeVisualOnRideMoped
+        {
+            get
+            {
+                Transform visual = BikeVisualRoot;
+                return visual != null && _ride != null && visual.parent == _ride.transform;
+            }
+        }
+
+        public bool IsSettingsMenuOpen
+        {
+            get { return _settingsView != null && _settingsView.gameObject.activeSelf; }
+        }
+
+        public bool IsShopOpen
+        {
+            get { return _shop != null && _shop.gameObject.activeSelf; }
         }
 
         public bool BootstrapOnStart
@@ -681,6 +722,8 @@ namespace MopedSim.App
             ApplySettingsToSystems(_settings);
 
             _garageContext.AssemblyChanged += OnAssemblyChanged;
+            _rideBody = _ride != null ? _ride.GetComponent<Rigidbody>() : null;
+            CaptureBikeVisualHome();
             _bootstrapped = true;
 
             ApplyZone(world.CurrentZone);
@@ -777,8 +820,13 @@ namespace MopedSim.App
                 return;
             }
 
-            GameSessionState state = _session != null ? _session.CurrentState : GameSessionState.Garage;
             FrameControlInputs controls = _input != null ? _input.SampleInputs() : default(FrameControlInputs);
+            if (controls.ToggleGarageRidePressed || controls.ToggleSettingsPressed || controls.ToggleShopPressed || controls.CyclePaintPressed)
+            {
+                HandleSessionHotkeys(in controls);
+            }
+
+            GameSessionState state = _session != null ? _session.CurrentState : GameSessionState.Garage;
 
             if (_weather != null && _ride != null)
             {
@@ -1048,6 +1096,107 @@ namespace MopedSim.App
             return _session != null && _session.TryTransitionTo(GameSessionState.Garage);
         }
 
+        /// <summary>
+        /// F1 / Tab: Garage -> Ride or Ride -> Garage (RoadsideRepair / Tow must be resolved through repair or recovery first).
+        /// </summary>
+        public bool ToggleGarageRide()
+        {
+            if (_session == null)
+            {
+                return false;
+            }
+
+            switch (_session.CurrentState)
+            {
+                case GameSessionState.Garage:
+                    return TryStartRide();
+                case GameSessionState.Ride:
+                    return ReturnToGarage();
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>F2 / Escape: shows or hides the settings menu; returns whether it is open afterwards.</summary>
+        public bool ToggleSettingsMenu()
+        {
+            if (_settingsView == null)
+            {
+                return false;
+            }
+
+            bool open = !_settingsView.gameObject.activeSelf;
+            SetViewVisible(_settingsView, open);
+            return IsSettingsMenuOpen;
+        }
+
+        /// <summary>F3: shows or hides the parts catalog shop (refreshing the cash readout); returns whether it is open afterwards.</summary>
+        public bool ToggleShop()
+        {
+            if (_shop == null)
+            {
+                return false;
+            }
+
+            bool open = !_shop.gameObject.activeSelf;
+            if (open && _world != null)
+            {
+                _shop.SetCash(_world.CashUsd);
+            }
+
+            SetViewVisible(_shop, open);
+            return IsShopOpen;
+        }
+
+        /// <summary>
+        /// F4: applies the next curated paint booth swatch (after the one matching the current paint) live on the bike. Returns the
+        /// applied swatch id, or null without a paint booth.
+        /// </summary>
+        public string CyclePaintSwatch()
+        {
+            IReadOnlyList<PaintSwatch> swatches = PaintBoothController.Swatches;
+            if (_paintBooth == null || swatches.Count == 0)
+            {
+                return null;
+            }
+
+            int current = -1;
+            for (int i = 0; i < swatches.Count; i++)
+            {
+                if (string.Equals(swatches[i].Hex, _paintBooth.CurrentPaintHex, StringComparison.OrdinalIgnoreCase))
+                {
+                    current = i;
+                    break;
+                }
+            }
+
+            PaintSwatch next = swatches[(current + 1) % swatches.Count];
+            return _paintBooth.ApplySwatch(next.Id) ? next.Id : null;
+        }
+
+        private void HandleSessionHotkeys(in FrameControlInputs controls)
+        {
+            if (controls.ToggleGarageRidePressed)
+            {
+                ToggleGarageRide();
+            }
+
+            if (controls.ToggleSettingsPressed)
+            {
+                ToggleSettingsMenu();
+            }
+
+            if (controls.ToggleShopPressed)
+            {
+                ToggleShop();
+            }
+
+            if (controls.CyclePaintPressed)
+            {
+                CyclePaintSwatch();
+            }
+        }
+
         public bool PullOverForRoadsideRepair()
         {
             return _session != null && _session.TryTransitionTo(GameSessionState.RoadsideRepair);
@@ -1312,6 +1461,131 @@ namespace MopedSim.App
                 {
                     _wrench.CancelTorque();
                 }
+            }
+
+            bool onRoad = state == GameSessionState.Ride || state == GameSessionState.RoadsideRepair;
+            if (_rideBody != null && _holdRideBodyKinematicOffRoad && _rideBody.isKinematic == onRoad)
+            {
+                _rideBody.isKinematic = !onRoad;
+            }
+
+            PlaceBikeVisual(onRoad);
+            ApplyCameraForState(garage);
+            ApplyHudVisibility(state);
+        }
+
+        // ---------------------------------------------------------------- Ride <-> Garage presentation (event-driven)
+
+        private void CaptureBikeVisualHome()
+        {
+            if (_bikeVisualHomeCaptured || _assembler == null)
+            {
+                return;
+            }
+
+            Transform visual = _assembler.AssemblyRoot;
+            // AssemblyRoot falls back to the assembler's own transform: never drag the WorkStand (and its controllers) around.
+            if (visual == null || visual == _assembler.transform || visual.parent == null || (_ride != null && visual.parent == _ride.transform))
+            {
+                return;
+            }
+
+            _bikeVisualHome = visual.parent;
+            _bikeVisualHomePosition = visual.localPosition;
+            _bikeVisualHomeRotation = visual.localRotation;
+            _bikeVisualHomeScale = visual.localScale;
+            _bikeVisualHomeCaptured = true;
+        }
+
+        /// <summary>
+        /// Moves the assembled bike visual onto RideMoped on the road and back onto the workstand in the Garage, restoring its
+        /// original local pose (the PaintBooth renderer root and workstand orbit pivot keep pointing at the same hierarchy).
+        /// </summary>
+        private void PlaceBikeVisual(bool onRoad)
+        {
+            Transform visual = BikeVisualRoot;
+            if (visual == null)
+            {
+                return;
+            }
+
+            if (onRoad && _ride != null)
+            {
+                if (visual.parent != _ride.transform)
+                {
+                    visual.SetParent(_ride.transform, false);
+                }
+
+                visual.localPosition = _rideVisualLocalOffset;
+                visual.localRotation = Quaternion.identity;
+                visual.localScale = _bikeVisualHomeScale;
+            }
+            else if (!onRoad && _bikeVisualHome != null)
+            {
+                if (visual.parent != _bikeVisualHome)
+                {
+                    visual.SetParent(_bikeVisualHome, false);
+                }
+
+                visual.localPosition = _bikeVisualHomePosition;
+                visual.localRotation = _bikeVisualHomeRotation;
+                visual.localScale = _bikeVisualHomeScale;
+            }
+        }
+
+        private void ApplyCameraForState(bool garage)
+        {
+            Camera rideCamera = _cameraRig != null ? _cameraRig.AttachedCamera : null;
+            if (rideCamera == null)
+            {
+                return;
+            }
+
+            // The workstand toggles the inspection camera; the chase camera renders everywhere else (or always without one).
+            Camera inspection = _workstand != null ? _workstand.InspectionCamera : null;
+            rideCamera.enabled = !garage || inspection == null;
+        }
+
+        /// <summary>
+        /// Mode-aware HUD panels: Garage shows the wrench HUD / plug chart / tool roll; Ride shows the ride HUD / job board / hints;
+        /// RoadsideRepair shows the tool roll / wrench HUD / hints; Tow shows hints only.
+        /// </summary>
+        private void ApplyHudVisibility(GameSessionState state)
+        {
+            bool garage = state == GameSessionState.Garage;
+            bool ride = state == GameSessionState.Ride;
+            bool roadside = state == GameSessionState.RoadsideRepair;
+
+            SetViewVisible(_rideHud, ride);
+            SetViewVisible(_jobBoard, ride || roadside);
+            SetViewVisible(_hints, true);
+            SetViewVisible(_wrenchHud, garage || roadside);
+            SetViewVisible(_toolRollView, garage || roadside);
+            SetViewVisible(_plugChart, garage);
+            if (!garage)
+            {
+                SetViewVisible(_shop, false);
+                SetViewVisible(_swapMeet, false);
+            }
+        }
+
+        private void SetViewVisible(Component view, bool visible)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            GameObject go = view.gameObject;
+            // Never deactivate the composition root itself (views may share its GameObject in tests and minimal rigs).
+            if (go == gameObject || transform.IsChildOf(go.transform))
+            {
+                return;
+            }
+
+            if (go.activeSelf != visible)
+            {
+                go.SetActive(visible);
             }
         }
 

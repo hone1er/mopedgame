@@ -32,6 +32,12 @@ namespace MopedSim.Editor
     /// at the catalog checkpoint coordinates (absolute metric positions) of every job checkpoint in that zone. When a model or the
     /// catalog is missing (stripped checkout), the builder falls back to empty named placeholders instead of failing.
     /// </para>
+    /// <para>
+    /// M7: every build first runs <see cref="UrpPipelineSetup.EnsureUrpPipelineAssets"/> (URP active, glTFast materials regenerated).
+    /// Garage.unity sits at <see cref="GarageOrigin"/>, far from every Zone_* road, dressed with the four Blender garage station
+    /// .glb models; UI_Overlay carries the controls cheat-sheet banner; and <see cref="BuildAssetGalleryScene"/> writes the
+    /// non-runtime AssetGallery.unity showcase of every .glb under Assets/Art/Models (not part of <see cref="SceneNames"/>).
+    /// </para>
     /// </summary>
     public static class SceneScaffoldBuilder
     {
@@ -40,6 +46,25 @@ namespace MopedSim.Editor
         public const string DeliveryBeaconModel = "SFMission/sf_delivery_beacon";
         public const string CheckpointRootName = "Courier_Checkpoints";
         public const string PortalNamePrefix = "Portal_To_";
+        public const string GarageModelsFolder = "Assets/Art/Models/Garage";
+        public const string ArtModelsFolder = "Assets/Art/Models";
+        public const string AssetGallerySceneName = "AssetGallery";
+        public const string GalleryRootName = "AssetGallery_Root";
+        public const string ControlsBannerName = "ControlsBanner";
+        public const string ControlsBannerText =
+            "[F1/Tab] Ride/Garage | [F2] Settings | [F3] Shop | [F4] Paint | [WASD] Ride | [Space] Pedal | [Ctrl] Tuck | [V] Cam";
+
+        /// <summary>Garage.unity world origin: isolated from all four Bay Area zones (West Oakland's roads start at the origin).</summary>
+        public static readonly Vector3 GarageOrigin = new Vector3(-500f, 0f, -500f);
+
+        /// <summary>RideMoped spawn on West Oakland's Maritime straight (road top y = 0.1; wheel mounts settle ~0.42 m above it).</summary>
+        public static readonly Vector3 RideMopedSpawn = new Vector3(0f, 0.25f, 12f);
+
+        /// <summary>Minimum edge-to-edge spacing between the two Oakland-end BayCrossing portals (never both triggered at once).</summary>
+        public const float MinOaklandPortalSpacingMeters = 8f;
+
+        /// <summary>Gallery category labels in display order (folder under Assets/Art/Models -> label).</summary>
+        public static readonly string[] GalleryCategories = new string[] { "Bike Parts", "Garage Stations", "Bay Area World Kit", "Test" };
 
         private static CatalogDatabase _catalog;
 
@@ -67,6 +92,7 @@ namespace MopedSim.Editor
                 AssetDatabase.CreateFolder("Assets", "Scenes");
             }
 
+            UrpPipelineSetup.EnsureUrpPipelineAssets();
             _catalog = TryLoadCatalog();
             BuildScene("Bootstrap", PopulateBootstrap);
             BuildScene("Garage", PopulateGarage);
@@ -104,6 +130,7 @@ namespace MopedSim.Editor
         /// </summary>
         public static void EnsureScenesAndBuildSettings()
         {
+            UrpPipelineSetup.EnsureUrpPipelineAssets();
             if (!AllScenesExist())
             {
                 BuildAllScenes();
@@ -158,9 +185,11 @@ namespace MopedSim.Editor
             AppCompositionRoot root = appRoot.AddComponent<AppCompositionRoot>();
 
             GameObject moped = new GameObject("RideMoped");
-            moped.transform.position = new Vector3(0f, 0.6f, 0f);
+            moped.transform.position = RideMopedSpawn;
             Rigidbody body = moped.AddComponent<Rigidbody>();
             body.mass = 127f;
+            // Held kinematic until AppCompositionRoot enters Ride (zones stream in asynchronously after bootstrap).
+            body.isKinematic = true;
             BoxCollider chassis = moped.AddComponent<BoxCollider>();
             chassis.center = new Vector3(0f, 0.45f, 0f);
             chassis.size = new Vector3(0.45f, 0.7f, 1.6f);
@@ -216,15 +245,15 @@ namespace MopedSim.Editor
             l.type = LightType.Point;
             l.range = 12f;
             l.intensity = 2.2f;
-            light.transform.position = new Vector3(0f, 3.2f, 0f);
+            light.transform.position = GarageOrigin + new Vector3(0f, 3.2f, 0f);
 
             GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "GarageFloor";
-            floor.transform.position = new Vector3(0f, 0f, 0f);
+            floor.transform.position = GarageOrigin;
             floor.transform.localScale = new Vector3(1.2f, 1f, 1.2f);
 
             GameObject garageRoot = new GameObject("GarageRoot");
-            garageRoot.transform.position = new Vector3(0f, 0f, 30f);
+            garageRoot.transform.position = GarageOrigin;
 
             GameObject stand = new GameObject("WorkStand");
             stand.transform.SetParent(garageRoot.transform, false);
@@ -236,6 +265,8 @@ namespace MopedSim.Editor
 
             GameObject camGo = new GameObject("InspectionCamera");
             camGo.transform.SetParent(garageRoot.transform, false);
+            camGo.transform.localPosition = new Vector3(2.4f, 1.6f, -2.8f);
+            camGo.transform.localRotation = Quaternion.LookRotation(new Vector3(-2.4f, -1.05f, 2.8f));
             Camera cam = camGo.AddComponent<Camera>();
             cam.enabled = false;
             GarageWorkstandController workstand = stand.AddComponent<GarageWorkstandController>();
@@ -254,6 +285,13 @@ namespace MopedSim.Editor
             stations.AddComponent<PlugChopInspector>();
             stations.AddComponent<PremixStationController>();
             stations.AddComponent<CenterStandDynoController>();
+
+            // Real Blender garage station models (collider-free visuals); empty placeholders when a model is missing.
+            Transform models = CreateChild(garageRoot.transform, "StationModels", Vector3.zero);
+            PlaceModel(models, GarageModelsFolder, "garage_workstand", Vector3.zero, 0f);
+            PlaceModel(models, GarageModelsFolder, "garage_workbench", new Vector3(-2.6f, 0f, 1.8f), 90f);
+            PlaceModel(models, GarageModelsFolder, "garage_premix_can", new Vector3(-2.6f, 0.88f, 1.3f), 20f);
+            PlaceModel(models, GarageModelsFolder, "garage_dyno_roller", new Vector3(2.4f, 0f, 0.6f), 0f);
             EditorSceneManager.MarkSceneDirty(scene);
         }
 
@@ -338,7 +376,217 @@ namespace MopedSim.Editor
             SetObjectReference(settings, "_graphicsPresetLabel", CreateText(settings.transform, "GraphicsPreset", new Vector2(0f, 120f), 22));
             SetObjectReference(settings, "_conflictStatusLabel", CreateText(settings.transform, "BindingConflict", new Vector2(0f, 80f), 18));
             settings.gameObject.SetActive(false);
+
+            // Compact controls cheat sheet pinned to the top-center of the screen.
+            GameObject banner = new GameObject(ControlsBannerName, typeof(RectTransform));
+            banner.transform.SetParent(canvasGo.transform, false);
+            RectTransform bannerRt = (RectTransform)banner.transform;
+            bannerRt.anchorMin = new Vector2(0.5f, 1f);
+            bannerRt.anchorMax = new Vector2(0.5f, 1f);
+            bannerRt.pivot = new Vector2(0.5f, 1f);
+            bannerRt.anchoredPosition = new Vector2(0f, -12f);
+            bannerRt.sizeDelta = new Vector2(1500f, 40f);
+            Image bannerBack = banner.AddComponent<Image>();
+            bannerBack.color = new Color(0f, 0f, 0f, 0.55f);
+            bannerBack.raycastTarget = false;
+            Text cheatSheet = CreateText(banner.transform, "Text", Vector2.zero, 22);
+            RectTransform textRt = (RectTransform)cheatSheet.transform;
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.sizeDelta = Vector2.zero;
+            cheatSheet.alignment = TextAnchor.MiddleCenter;
+            cheatSheet.raycastTarget = false;
+            cheatSheet.text = ControlsBannerText;
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        // ------------------------------------------------------------------ Asset gallery (showcase, not a runtime scene)
+
+        /// <summary>
+        /// Writes Assets/Scenes/AssetGallery.unity: every .glb under Assets/Art/Models instantiated in a labelled grid grouped by
+        /// category (Bike Parts, Garage Stations, Bay Area World Kit, Test) with a WASD + right-drag free-fly camera. Not added to
+        /// EditorBuildSettings and not part of <see cref="SceneNames"/>.
+        /// </summary>
+        [MenuItem("MopedSim/Scenes/Build Asset Gallery Scene")]
+        public static void BuildAssetGalleryScene()
+        {
+            if (!AssetDatabase.IsValidFolder(ScenesFolder))
+            {
+                AssetDatabase.CreateFolder("Assets", "Scenes");
+            }
+
+            UrpPipelineSetup.EnsureUrpPipelineAssets();
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            int placed = PopulateAssetGallery();
+            string path = GetScenePath(AssetGallerySceneName);
+            if (!EditorSceneManager.SaveScene(scene, path))
+            {
+                Debug.LogError("[SceneScaffoldBuilder] Failed to save " + path);
+                return;
+            }
+
+            Debug.Log("[SceneScaffoldBuilder] Built " + path + " with " + placed + " .glb models.");
+        }
+
+        /// <summary>Sorted asset paths of every .glb under Assets/Art/Models.</summary>
+        public static List<string> FindAllModelPaths()
+        {
+            List<string> paths = new List<string>(80);
+            string[] guids = AssetDatabase.FindAssets("t:GameObject", new[] { ArtModelsFolder });
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (path.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) && !paths.Contains(path))
+                {
+                    paths.Add(path);
+                }
+            }
+
+            paths.Sort(StringComparer.Ordinal);
+            return paths;
+        }
+
+        /// <summary>Gallery category label for a model asset path (index into <see cref="GalleryCategories"/>).</summary>
+        public static int GalleryCategoryIndex(string assetPath)
+        {
+            string rel = assetPath.Substring(Math.Min(assetPath.Length, ArtModelsFolder.Length + 1));
+            if (rel.StartsWith("Parts/", StringComparison.Ordinal)) { return 0; }
+            if (rel.StartsWith("Garage/", StringComparison.Ordinal)) { return 1; }
+            if (rel.StartsWith("World/", StringComparison.Ordinal)) { return 2; }
+            return 3;
+        }
+
+        private static int PopulateAssetGallery()
+        {
+            GameObject sun = new GameObject("Gallery_Sun");
+            Light light = sun.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.2f;
+            light.color = new Color(1f, 0.95f, 0.88f, 1f);
+            sun.transform.rotation = Quaternion.Euler(45f, -35f, 0f);
+
+            GameObject root = new GameObject(GalleryRootName);
+            List<string> paths = FindAllModelPaths();
+            // Row width wraps per category so small bike parts sit close together and 20 m world modules get room.
+            float[] rowWidths = { 9f, 12f, 110f, 4f };
+            float[] gaps = { 0.6f, 1.2f, 6f, 1f };
+            float[] headerSizes = { 0.09f, 0.12f, 0.5f, 0.09f };
+            float[] labelSizes = { 0.018f, 0.04f, 0.2f, 0.03f };
+            float bandZ = 0f;
+            int placed = 0;
+            for (int c = 0; c < GalleryCategories.Length; c++)
+            {
+                List<string> members = new List<string>();
+                for (int i = 0; i < paths.Count; i++)
+                {
+                    if (GalleryCategoryIndex(paths[i]) == c)
+                    {
+                        members.Add(paths[i]);
+                    }
+                }
+
+                if (members.Count == 0)
+                {
+                    continue;
+                }
+
+                Transform band = CreateChild(root.transform, "Category_" + GalleryCategories[c].Replace(" ", string.Empty), new Vector3(0f, 0f, bandZ));
+                CreateLabel(band, "Header", GalleryCategories[c] + " (" + members.Count + ")", new Vector3(0f, 0.02f, c == 2 ? -4f : -0.9f), headerSizes[c], 90f);
+
+                float cursorX = 0f;
+                float rowZ = 0f;
+                float rowDepth = 0f;
+                for (int i = 0; i < members.Count; i++)
+                {
+                    string assetPath = members[i];
+                    string modelName = Path.GetFileNameWithoutExtension(assetPath);
+                    GameObject asset = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                    GameObject item = asset != null ? PrefabUtility.InstantiatePrefab(asset) as GameObject : null;
+                    if (item == null)
+                    {
+                        item = new GameObject(modelName + "_Placeholder");
+                    }
+
+                    item.name = modelName;
+                    item.transform.SetParent(band, false);
+                    item.transform.localPosition = Vector3.zero;
+                    item.transform.localRotation = Quaternion.identity;
+                    Bounds b = ComputeLocalBounds(item.transform, band);
+                    float width = Mathf.Max(0.3f, b.size.x);
+                    float depth = Mathf.Max(0.3f, b.size.z);
+                    if (cursorX > 0f && cursorX + width > rowWidths[c])
+                    {
+                        rowZ += rowDepth + gaps[c] + 0.4f;
+                        cursorX = 0f;
+                        rowDepth = 0f;
+                    }
+
+                    item.transform.localPosition = new Vector3(cursorX - b.min.x, -b.min.y, rowZ - b.min.z);
+                    CreateLabel(band, "Label_" + modelName, modelName, new Vector3(cursorX, 0.01f, rowZ - (c == 2 ? 0.6f : 0.12f)), labelSizes[c], 90f);
+                    cursorX += width + gaps[c];
+                    rowDepth = Mathf.Max(rowDepth, depth);
+                    placed++;
+                }
+
+                bandZ += rowZ + rowDepth + (c == 2 ? 12f : 4f);
+            }
+
+            GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "Gallery_Floor";
+            floor.transform.position = new Vector3(55f, -0.01f, bandZ * 0.5f);
+            floor.transform.localScale = new Vector3(16f, 1f, Mathf.Max(4f, bandZ / 10f + 2f));
+
+            GameObject camGo = new GameObject("GalleryCamera");
+            camGo.tag = "MainCamera";
+            camGo.AddComponent<Camera>();
+            camGo.AddComponent<AudioListener>();
+            camGo.AddComponent<AssetGalleryFlyCamera>();
+            camGo.transform.position = new Vector3(4.5f, 3.2f, -5.5f);
+            camGo.transform.rotation = Quaternion.Euler(28f, 0f, 0f);
+            return placed;
+        }
+
+        private static Bounds ComputeLocalBounds(Transform item, Transform space)
+        {
+            Renderer[] renderers = item.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                return new Bounds(Vector3.zero, Vector3.one * 0.3f);
+            }
+
+            Bounds world = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                world.Encapsulate(renderers[i].bounds);
+            }
+
+            Vector3 min = space.InverseTransformPoint(world.min);
+            Vector3 max = space.InverseTransformPoint(world.max);
+            Bounds local = new Bounds((min + max) * 0.5f, Vector3.zero);
+            local.Encapsulate(min);
+            local.Encapsulate(max);
+            return local;
+        }
+
+        private static void CreateLabel(Transform parent, string name, string text, Vector3 localPosition, float characterSize, float tiltDeg)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPosition;
+            go.transform.localRotation = Quaternion.Euler(tiltDeg, 0f, 0f);
+            TextMesh mesh = go.AddComponent<TextMesh>();
+            mesh.text = text;
+            mesh.characterSize = characterSize;
+            mesh.fontSize = 48;
+            mesh.anchor = TextAnchor.UpperLeft;
+            mesh.color = new Color(0.95f, 0.95f, 0.9f, 1f);
+            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            mesh.font = font;
+            MeshRenderer renderer = go.GetComponent<MeshRenderer>();
+            if (renderer != null && font != null)
+            {
+                renderer.sharedMaterial = font.material;
+            }
         }
 
         // ------------------------------------------------------------------ Bay Area zone blockouts
@@ -423,10 +671,12 @@ namespace MopedSim.Editor
             PlaceWorldModel(kit, "BayCrossing/bc_bridge_tower", new Vector3(0f, 20.15f - 8.8f, 900f), 0f);
             PlaceWorldModel(kit, "BayCrossing/bc_ferry_terminal_dock", new Vector3(14f, 19.5f, 1210f), -90f);
 
-            // The span is the only road: the Oakland approaches split into lanes (left lane West Oakland, right lane Oakland Hills).
+            // The span is the only road: the Oakland approaches split into lanes (left lane West Oakland, right lane Oakland Hills)
+            // AND are staggered along the deck (Oakland Hills exit first, MinOaklandPortalSpacingMeters before the West Oakland end),
+            // so a rider straddling the centerline can never be inside both triggers at once.
             CreatePortals(root.transform, "Zone_BayCrossing",
                 new PortalAnchor("Zone_WestOakland", new Vector3(-2f, 22f, 4f), new Vector3(3.8f, 6f, 4f)),
-                new PortalAnchor("Zone_OaklandHills", new Vector3(2f, 22f, 4f), new Vector3(3.8f, 6f, 4f)),
+                new PortalAnchor("Zone_OaklandHills", new Vector3(2f, 22f, 4f + 4f + MinOaklandPortalSpacingMeters), new Vector3(3.8f, 6f, 4f)),
                 new PortalAnchor("Zone_SF_Mission", new Vector3(0f, 22f, 1196f), new Vector3(8f, 6f, 4f)));
             CreateCheckpointBeacons(scene, "Zone_BayCrossing");
             EditorSceneManager.MarkSceneDirty(scene);
@@ -501,7 +751,15 @@ namespace MopedSim.Editor
         /// </summary>
         private static GameObject PlaceWorldModel(Transform parent, string relativePath, Vector3 localPosition, float yawDeg)
         {
-            string assetPath = WorldModelsFolder + "/" + relativePath + ".glb";
+            return PlaceModel(parent, WorldModelsFolder, relativePath, localPosition, yawDeg);
+        }
+
+        /// <summary>
+        /// Instantiates <c>{folder}/{relativePath}.glb</c> as a prefab instance (empty named placeholder when the model is missing).
+        /// </summary>
+        private static GameObject PlaceModel(Transform parent, string folder, string relativePath, Vector3 localPosition, float yawDeg)
+        {
+            string assetPath = folder + "/" + relativePath + ".glb";
             string modelName = Path.GetFileNameWithoutExtension(relativePath);
             GameObject asset = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
             GameObject instance = null;

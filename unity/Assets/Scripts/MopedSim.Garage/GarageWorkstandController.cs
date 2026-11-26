@@ -124,6 +124,12 @@ namespace MopedSim.Garage
         /// <summary>
         /// Enables the inspection camera and mouse orbit/pick while the Garage session state is active.
         /// </summary>
+        /// <summary>Orbit inspection camera enabled while the session is in the Garage (may be null).</summary>
+        public Camera InspectionCamera
+        {
+            get { return _inspectionCamera; }
+        }
+
         public void SetInspectionActive(bool active)
         {
             _readMouseInput = active;

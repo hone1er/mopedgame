@@ -41,6 +41,11 @@ namespace MopedSim.Garage
         public static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
         public static readonly int SmoothnessPropertyId = Shader.PropertyToID("_Smoothness");
 
+        // glTFast URP shader graphs (glTF-pbrMetallicRoughness) expose glTF-named properties instead of _BaseColor.
+        public static readonly int GltfBaseColorFactorPropertyId = Shader.PropertyToID("baseColorFactor");
+        public static readonly int GltfMetallicFactorPropertyId = Shader.PropertyToID("metallicFactor");
+        public static readonly int GltfRoughnessFactorPropertyId = Shader.PropertyToID("roughnessFactor");
+
         private static readonly Color RustOxideTint = new Color(0.45f, 0.26f, 0.16f, 1f);
         private const float MaxPatinaDesaturation = 0.45f;
         private const float MaxPatinaRustBlend = 0.35f;
@@ -410,6 +415,9 @@ namespace MopedSim.Garage
                 _propertyBlock.SetColor(ColorPropertyId, effectiveColor);
                 _propertyBlock.SetFloat(MetallicPropertyId, _metallicFlake);
                 _propertyBlock.SetFloat(SmoothnessPropertyId, effectiveSmoothness);
+                _propertyBlock.SetColor(GltfBaseColorFactorPropertyId, effectiveColor);
+                _propertyBlock.SetFloat(GltfMetallicFactorPropertyId, _metallicFlake);
+                _propertyBlock.SetFloat(GltfRoughnessFactorPropertyId, 1f - effectiveSmoothness);
                 rend.SetPropertyBlock(_propertyBlock);
                 updated++;
             }

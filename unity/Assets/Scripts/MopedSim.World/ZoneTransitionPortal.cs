@@ -30,12 +30,34 @@ namespace MopedSim.World
         [Tooltip("Optional explicit rider; otherwise the rigidbody tracked by BayAreaWeatherController.Active.")]
         [SerializeField] private Rigidbody _rider;
 
+        [SerializeField] private bool _hasArrivalPose;
+        [SerializeField] private Vector3 _arrivalWorldPosition;
+        [SerializeField] private float _arrivalYawDeg;
+
         private float _lastTriggerTime = float.NegativeInfinity;
         private bool _inFlight;
         private int _transitionCount;
 
+        /// <summary>Raised on the main thread after any portal completes a zone transition (arguments: portal, target zone).</summary>
+        public static event Action<ZoneTransitionPortal, string> RiderPortalTransitionCompleted;
+
         /// <summary>Raised on the main thread after the stream manager accepted the transition (argument: target zone).</summary>
         public event Action<string> TransitionCompleted;
+
+        public bool HasArrivalPose
+        {
+            get { return _hasArrivalPose; }
+        }
+
+        public Vector3 ArrivalWorldPosition
+        {
+            get { return _arrivalWorldPosition; }
+        }
+
+        public float ArrivalYawDeg
+        {
+            get { return _arrivalYawDeg; }
+        }
 
         public string TargetZoneScene
         {
@@ -69,6 +91,13 @@ namespace MopedSim.World
             _targetZoneScene = targetZoneScene ?? string.Empty;
             _unloadOtherZones = unloadOtherZones;
             _debounceSeconds = Mathf.Max(0f, debounceSeconds);
+        }
+
+        public void ConfigureArrivalPose(Vector3 worldPosition, float yawDeg)
+        {
+            _hasArrivalPose = true;
+            _arrivalWorldPosition = worldPosition;
+            _arrivalYawDeg = yawDeg;
         }
 
         public void BindStreamManager(ZoneStreamManager zones)
@@ -148,6 +177,12 @@ namespace MopedSim.World
                 if (handler != null)
                 {
                     handler.Invoke(target);
+                }
+
+                Action<ZoneTransitionPortal, string> riderHandler = RiderPortalTransitionCompleted;
+                if (riderHandler != null)
+                {
+                    riderHandler.Invoke(this, target);
                 }
             }
 

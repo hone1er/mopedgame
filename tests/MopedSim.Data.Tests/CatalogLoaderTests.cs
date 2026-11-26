@@ -404,7 +404,7 @@ namespace MopedSim.Data.Tests
             Assert.Equal(25m, westOakland.TowFeeUsd);
             Assert.False(westOakland.HasMuniRails);
             Assert.Equal("lm_west_oakland_garage", westOakland.Landmarks[0].Id);
-            Assert.Equal(180f, westOakland.Landmarks[1].Position.X);
+            Assert.Equal(4f, westOakland.Landmarks[1].Position.X);
 
             JobDefinition coffee = db.GetJob("gig_west_oakland_coffee");
             JobMetadata coffeeMeta = db.JobMeta[coffee.Id];
@@ -436,6 +436,80 @@ namespace MopedSim.Data.Tests
             Assert.True(maxer.GetSlot(SlotIds.Piston)!.RequiresOrientationCheck);
             Assert.True(maxer.GetSlot(SlotIds.MainJet)!.RequiresCarbBowlOpen);
             Assert.Equal("Wrench15mm", maxer.GetFastener(FastenerIds.StemNut)!.RequiredToolId);
+        }
+
+        [Fact]
+        public void ZoneLandmarks_AlignToDrivableRoadBounds()
+        {
+            CatalogDatabase db = TestCatalog.Real;
+
+            foreach (ZoneMetadata zone in db.ZoneMeta.Values)
+            {
+                Assert.NotEmpty(zone.Landmarks);
+                foreach (ZoneLandmark lm in zone.Landmarks)
+                {
+                    float x = lm.Position.X;
+                    float y = lm.Position.Y;
+                    float z = lm.Position.Z;
+                    string tag = zone.ZoneId + "/" + lm.Id;
+
+                    switch (zone.ZoneId)
+                    {
+                        case "Zone_WestOakland":
+                            Assert.InRange(x, -6f, 6f);
+                            Assert.Equal(0f, y, 3);
+                            Assert.InRange(z, 0f, 400f);
+                            break;
+
+                        case "Zone_OaklandHills":
+                            Assert.Equal(1000f, x, 3);
+                            if (z >= 20f && z <= 95f)
+                            {
+                                Assert.Equal(0f, y, 3);
+                            }
+                            else if (z >= 105f && z <= 195f)
+                            {
+                                Assert.InRange(System.Math.Abs(y - ((z - 100f) * 0.10f)), 0f, 0.05f);
+                            }
+                            else if (z >= 205f && z <= 290f)
+                            {
+                                Assert.InRange(System.Math.Abs(y - (10f + ((z - 200f) * 0.18f))), 0f, 0.05f);
+                            }
+                            else
+                            {
+                                Assert.Fail(tag + ": Z=" + z + " is outside Oakland Hills road segments.");
+                            }
+                            break;
+
+                        case "Zone_BayCrossing":
+                            Assert.InRange(x, -3f, 3f);
+                            Assert.InRange(System.Math.Abs(y - 20.2f), 0f, 0.05f);
+                            Assert.InRange(z, 1050f, 2190f);
+                            break;
+
+                        case "Zone_SF_Mission":
+                            if (z >= 2530f && z <= 2790f)
+                            {
+                                Assert.InRange(x, -4f, 4f);
+                                Assert.Equal(0f, y, 3);
+                            }
+                            else if (z >= 2810f && z <= 2890f)
+                            {
+                                Assert.Equal(0f, x, 3);
+                                Assert.InRange(System.Math.Abs(y - ((z - 2800f) * 0.22f)), 0f, 0.05f);
+                            }
+                            else
+                            {
+                                Assert.Fail(tag + ": Z=" + z + " is outside SF Mission road segments.");
+                            }
+                            break;
+
+                        default:
+                            Assert.Fail(tag + ": unhandled zone id.");
+                            break;
+                    }
+                }
+            }
         }
     }
 }

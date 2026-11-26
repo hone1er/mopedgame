@@ -23,18 +23,18 @@
           "displayName": "Mandela Pkwy Roaster",
           "zoneId": "Zone_WestOakland",
           "order": 1,
-          "position": { "x": -110.0, "y": 0.0, "z": 65.0 },
+          "position": { "x": -2.0, "y": 0.0, "z": 45.0 },
           "radiusMeters": 8.0,
-          "gradePercent": 0.5
+          "gradePercent": 0.0
         },
         {
           "id": "cp_wo_parts_alley",
           "displayName": "Parts Alley Dropoff",
           "zoneId": "Zone_WestOakland",
           "order": 2,
-          "position": { "x": 180.0, "y": 0.0, "z": 120.0 },
+          "position": { "x": 3.0, "y": 0.0, "z": 120.0 },
           "radiusMeters": 8.0,
-          "gradePercent": 1.0
+          "gradePercent": 0.0
         }
       ]
     },
@@ -60,27 +60,27 @@
           "displayName": "Grand Ave Kitchen Pickup",
           "zoneId": "Zone_WestOakland",
           "order": 1,
-          "position": { "x": 140.0, "y": 1.0, "z": -60.0 },
+          "position": { "x": 2.0, "y": 0.0, "z": 90.0 },
           "radiusMeters": 8.0,
-          "gradePercent": 1.5
+          "gradePercent": 0.0
         },
         {
           "id": "cp_lake_merritt_turn",
           "displayName": "Lake Merritt Pergola Pass",
           "zoneId": "Zone_OaklandHills",
           "order": 2,
-          "position": { "x": 450.0, "y": 4.0, "z": -180.0 },
+          "position": { "x": 1000.0, "y": 0.0, "z": 60.0 },
           "radiusMeters": 10.0,
-          "gradePercent": 4.0
+          "gradePercent": 0.0
         },
         {
           "id": "cp_tunnel_crew_drop",
           "displayName": "Tunnel Road Gate Dropoff",
           "zoneId": "Zone_OaklandHills",
           "order": 3,
-          "position": { "x": 860.0, "y": 45.0, "z": 110.0 },
+          "position": { "x": 1000.0, "y": 8.0, "z": 180.0 },
           "radiusMeters": 10.0,
-          "gradePercent": 12.0
+          "gradePercent": 10.0
         }
       ]
     },
@@ -106,27 +106,27 @@
           "displayName": "East Span Bike Ramp",
           "zoneId": "Zone_BayCrossing",
           "order": 1,
-          "position": { "x": -780.0, "y": 8.0, "z": 150.0 },
+          "position": { "x": 0.0, "y": 20.2, "z": 1080.0 },
           "radiusMeters": 10.0,
-          "gradePercent": 3.5
+          "gradePercent": 0.0
         },
         {
           "id": "cp_midspan_deck",
           "displayName": "Mid-Span Gust Deck",
           "zoneId": "Zone_BayCrossing",
           "order": 2,
-          "position": { "x": -1450.0, "y": 38.0, "z": 150.0 },
+          "position": { "x": 0.0, "y": 20.2, "z": 1600.0 },
           "radiusMeters": 12.0,
-          "gradePercent": 4.5
+          "gradePercent": 0.0
         },
         {
           "id": "cp_sf_dispatch",
           "displayName": "Valencia St. Studio Dropoff",
           "zoneId": "Zone_SF_Mission",
           "order": 3,
-          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 },
+          "position": { "x": 3.0, "y": 0.0, "z": 2620.0 },
           "radiusMeters": 9.0,
-          "gradePercent": 2.0
+          "gradePercent": 0.0
         }
       ]
     },
@@ -152,27 +152,27 @@
           "displayName": "24th St. Dispatch",
           "zoneId": "Zone_SF_Mission",
           "order": 1,
-          "position": { "x": -2620.0, "y": 18.0, "z": -560.0 },
+          "position": { "x": -3.0, "y": 0.0, "z": 2550.0 },
           "radiusMeters": 8.0,
-          "gradePercent": 5.0
+          "gradePercent": 0.0
         },
         {
           "id": "cp_valencia_tracks",
           "displayName": "Valencia Muni Rail Chicane",
           "zoneId": "Zone_SF_Mission",
           "order": 2,
-          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 2680.0 },
           "radiusMeters": 9.0,
-          "gradePercent": 2.5
+          "gradePercent": 0.0
         },
         {
           "id": "cp_noe_climb_drop",
           "displayName": "Upper Mission Garage Drop",
           "zoneId": "Zone_SF_Mission",
           "order": 3,
-          "position": { "x": -2840.0, "y": 98.0, "z": -640.0 },
+          "position": { "x": 0.0, "y": 6.6, "z": 2830.0 },
           "radiusMeters": 9.0,
-          "gradePercent": 15.0
+          "gradePercent": 22.0
         }
       ]
     },
@@ -198,7 +198,7 @@
           "displayName": "Maritime Start Cones",
           "zoneId": "Zone_WestOakland",
           "order": 1,
-          "position": { "x": -220.0, "y": 0.0, "z": 310.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 40.0 },
           "radiusMeters": 8.0,
           "gradePercent": 0.0
         },
@@ -207,7 +207,7 @@
           "displayName": "Quarter-Mile Radar Gate",
           "zoneId": "Zone_WestOakland",
           "order": 2,
-          "position": { "x": -622.0, "y": 0.0, "z": 310.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 350.0 },
           "radiusMeters": 8.0,
           "gradePercent": 0.0
         }
@@ -235,27 +235,27 @@
           "displayName": "Tunnel Road Gate",
           "zoneId": "Zone_OaklandHills",
           "order": 1,
-          "position": { "x": 860.0, "y": 45.0, "z": 110.0 },
+          "position": { "x": 1000.0, "y": 1.0, "z": 110.0 },
           "radiusMeters": 10.0,
-          "gradePercent": 9.0
+          "gradePercent": 10.0
         },
         {
           "id": "cp_redwood_hairpin",
           "displayName": "Redwood Hairpin Midpoint",
           "zoneId": "Zone_OaklandHills",
           "order": 2,
-          "position": { "x": 1080.0, "y": 175.0, "z": 260.0 },
+          "position": { "x": 1000.0, "y": 15.4, "z": 230.0 },
           "radiusMeters": 10.0,
-          "gradePercent": 16.5
+          "gradePercent": 18.0
         },
         {
           "id": "cp_grizzly_finish",
           "displayName": "Grizzly Peak Summit",
           "zoneId": "Zone_OaklandHills",
           "order": 3,
-          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 },
+          "position": { "x": 1000.0, "y": 25.3, "z": 285.0 },
           "radiusMeters": 12.0,
-          "gradePercent": 11.0
+          "gradePercent": 18.0
         }
       ]
     },
@@ -281,16 +281,16 @@
           "displayName": "Market & Portola Ascent Base",
           "zoneId": "Zone_SF_Mission",
           "order": 1,
-          "position": { "x": -2750.0, "y": 60.0, "z": -610.0 },
+          "position": { "x": 0.0, "y": 3.3, "z": 2815.0 },
           "radiusMeters": 10.0,
-          "gradePercent": 14.0
+          "gradePercent": 22.0
         },
         {
           "id": "cp_twin_peaks_wall",
           "displayName": "22% Fog Hairpin",
           "zoneId": "Zone_SF_Mission",
           "order": 2,
-          "position": { "x": -2920.0, "y": 180.0, "z": -690.0 },
+          "position": { "x": 0.0, "y": 11.0, "z": 2850.0 },
           "radiusMeters": 10.0,
           "gradePercent": 22.0
         },
@@ -299,9 +299,9 @@
           "displayName": "Twin Peaks Fog Lookout",
           "zoneId": "Zone_SF_Mission",
           "order": 3,
-          "position": { "x": -3050.0, "y": 270.0, "z": -740.0 },
+          "position": { "x": 0.0, "y": 18.7, "z": 2885.0 },
           "radiusMeters": 12.0,
-          "gradePercent": 8.0
+          "gradePercent": 22.0
         }
       ]
     },
@@ -327,7 +327,7 @@
           "displayName": "West Oakland Garage Pack Rollout",
           "zoneId": "Zone_WestOakland",
           "order": 1,
-          "position": { "x": 15.0, "y": 0.0, "z": 20.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 30.0 },
           "radiusMeters": 12.0,
           "gradePercent": 0.0
         },
@@ -336,18 +336,18 @@
           "displayName": "Lake Merritt Regroup",
           "zoneId": "Zone_OaklandHills",
           "order": 2,
-          "position": { "x": 450.0, "y": 4.0, "z": -180.0 },
+          "position": { "x": 1000.0, "y": 0.0, "z": 60.0 },
           "radiusMeters": 12.0,
-          "gradePercent": 2.0
+          "gradePercent": 0.0
         },
         {
           "id": "cp_eb_rally_summit",
           "displayName": "Grizzly Peak Two-Stroke Smoke Break",
           "zoneId": "Zone_OaklandHills",
           "order": 3,
-          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 },
+          "position": { "x": 1000.0, "y": 25.3, "z": 285.0 },
           "radiusMeters": 15.0,
-          "gradePercent": 10.0
+          "gradePercent": 18.0
         }
       ]
     },
@@ -373,7 +373,7 @@
           "displayName": "West Oakland Staging Lot",
           "zoneId": "Zone_WestOakland",
           "order": 1,
-          "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 30.0 },
           "radiusMeters": 15.0,
           "gradePercent": 0.0
         },
@@ -382,43 +382,43 @@
           "displayName": "Grizzly Peak Overlook",
           "zoneId": "Zone_OaklandHills",
           "order": 2,
-          "position": { "x": 1280.0, "y": 295.0, "z": 380.0 },
+          "position": { "x": 1000.0, "y": 25.3, "z": 285.0 },
           "radiusMeters": 15.0,
-          "gradePercent": 14.0
+          "gradePercent": 18.0
         },
         {
           "id": "cp_swarm_03_span",
           "displayName": "Bay Crossing Mid-Span",
           "zoneId": "Zone_BayCrossing",
           "order": 3,
-          "position": { "x": -1450.0, "y": 38.0, "z": 150.0 },
+          "position": { "x": 0.0, "y": 20.2, "z": 1600.0 },
           "radiusMeters": 15.0,
-          "gradePercent": 4.0
+          "gradePercent": 0.0
         },
         {
           "id": "cp_swarm_04_mission",
           "displayName": "Valencia Muni Rail Regroup",
           "zoneId": "Zone_SF_Mission",
           "order": 4,
-          "position": { "x": -2480.0, "y": 14.0, "z": -320.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 2680.0 },
           "radiusMeters": 15.0,
-          "gradePercent": 3.0
+          "gradePercent": 0.0
         },
         {
           "id": "cp_swarm_05_peaks",
           "displayName": "Twin Peaks Summit Checkpoint",
           "zoneId": "Zone_SF_Mission",
           "order": 5,
-          "position": { "x": -3050.0, "y": 270.0, "z": -740.0 },
+          "position": { "x": 0.0, "y": 18.7, "z": 2885.0 },
           "radiusMeters": 15.0,
-          "gradePercent": 18.0
+          "gradePercent": 22.0
         },
         {
           "id": "cp_swarm_06_finish",
           "displayName": "West Oakland Garage Finish Arch",
           "zoneId": "Zone_WestOakland",
           "order": 6,
-          "position": { "x": 20.0, "y": 0.0, "z": 0.0 },
+          "position": { "x": 0.0, "y": 0.0, "z": 50.0 },
           "radiusMeters": 15.0,
           "gradePercent": 0.0
         }

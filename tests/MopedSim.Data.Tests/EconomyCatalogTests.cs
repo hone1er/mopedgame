@@ -46,8 +46,8 @@ namespace MopedSim.Data.Tests
             Assert.Equal(25, gig.ReputationReward);
             Assert.Equal(240f, gig.TimeLimitSeconds);
             Assert.Equal(new[] { "cp_burrito_pickup", "cp_lake_merritt_turn", "cp_tunnel_crew_drop" }, gig.Checkpoints.Select(c => c.Id));
-            Assert.Equal(860f, gig.Checkpoints[2].X);
-            Assert.Equal(12f, gig.Checkpoints[2].GradePercent);
+            Assert.Equal(1000f, gig.Checkpoints[2].X);
+            Assert.Equal(10f, gig.Checkpoints[2].GradePercent);
             Assert.Equal("Zone_OaklandHills", gig.Checkpoints[2].ZoneId);
 
             JobMetadata meta = db.JobMeta[BurritoGigId];
@@ -65,6 +65,94 @@ namespace MopedSim.Data.Tests
                 Assert.NotEmpty(job.Checkpoints);
                 Assert.Equal(job.Checkpoints.Select(c => c.Order).OrderBy(o => o), job.Checkpoints.Select(c => c.Order));
                 Assert.Equal(db.JobMeta[job.Id].ParsedJobType, job.JobType);
+            }
+        }
+
+        [Fact]
+        public void Catalog_AllJobCheckpoints_ReferenceValidZones_AndAlignToDrivableRoadBounds()
+        {
+            CatalogDatabase db = TestCatalog.Real;
+
+            foreach (JobDefinition job in db.JobList)
+            {
+                Assert.True(db.Zones.ContainsKey(job.ZoneId), job.Id + ": unknown startZoneId " + job.ZoneId);
+                Assert.True(db.Zones.ContainsKey(job.TargetZoneId), job.Id + ": unknown targetZoneId " + job.TargetZoneId);
+
+                foreach (JobCheckpointSpec cp in job.Checkpoints)
+                {
+                    Assert.True(db.Zones.ContainsKey(cp.ZoneId), job.Id + "/" + cp.Id + ": unknown zoneId " + cp.ZoneId);
+                    AssertCheckpointOnZoneRoad(job.Id, cp);
+                }
+            }
+        }
+
+        private static void AssertCheckpointOnZoneRoad(string jobId, JobCheckpointSpec cp)
+        {
+            string tag = jobId + "/" + cp.Id + " (" + cp.ZoneId + ")";
+            switch (cp.ZoneId)
+            {
+                case "Zone_WestOakland":
+                    Assert.InRange(cp.X, -3f, 3f);
+                    Assert.Equal(0f, cp.Y, 3);
+                    Assert.InRange(cp.Z, 30f, 360f);
+                    Assert.Equal(0f, cp.GradePercent, 3);
+                    break;
+
+                case "Zone_OaklandHills":
+                    Assert.Equal(1000f, cp.X, 3);
+                    if (cp.Z >= 20f && cp.Z <= 95f)
+                    {
+                        Assert.Equal(0f, cp.Y, 3);
+                        Assert.Equal(0f, cp.GradePercent, 3);
+                    }
+                    else if (cp.Z >= 105f && cp.Z <= 195f)
+                    {
+                        float expectedY = (cp.Z - 100f) * 0.10f;
+                        Assert.InRange(Math.Abs(cp.Y - expectedY), 0f, 0.05f);
+                        Assert.Equal(10f, cp.GradePercent, 3);
+                    }
+                    else if (cp.Z >= 205f && cp.Z <= 290f)
+                    {
+                        float expectedY = 10f + (cp.Z - 200f) * 0.18f;
+                        Assert.InRange(Math.Abs(cp.Y - expectedY), 0f, 0.05f);
+                        Assert.Equal(18f, cp.GradePercent, 3);
+                    }
+                    else
+                    {
+                        Assert.Fail(tag + ": Z=" + cp.Z + " is outside Oakland Hills road segments.");
+                    }
+                    break;
+
+                case "Zone_BayCrossing":
+                    Assert.InRange(cp.X, -3f, 3f);
+                    Assert.InRange(Math.Abs(cp.Y - 20.2f), 0f, 0.05f);
+                    Assert.InRange(cp.Z, 1050f, 2160f);
+                    Assert.Equal(0f, cp.GradePercent, 3);
+                    break;
+
+                case "Zone_SF_Mission":
+                    if (cp.Z >= 2530f && cp.Z <= 2790f)
+                    {
+                        Assert.InRange(cp.X, -4f, 4f);
+                        Assert.Equal(0f, cp.Y, 3);
+                        Assert.Equal(0f, cp.GradePercent, 3);
+                    }
+                    else if (cp.Z >= 2810f && cp.Z <= 2890f)
+                    {
+                        Assert.Equal(0f, cp.X, 3);
+                        float expectedY = (cp.Z - 2800f) * 0.22f;
+                        Assert.InRange(Math.Abs(cp.Y - expectedY), 0f, 0.05f);
+                        Assert.Equal(22f, cp.GradePercent, 3);
+                    }
+                    else
+                    {
+                        Assert.Fail(tag + ": Z=" + cp.Z + " is outside SF Mission road segments.");
+                    }
+                    break;
+
+                default:
+                    Assert.Fail(tag + ": unhandled zone id.");
+                    break;
             }
         }
 

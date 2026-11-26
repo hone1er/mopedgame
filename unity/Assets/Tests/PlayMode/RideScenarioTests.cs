@@ -164,5 +164,131 @@ namespace MopedSim.Tests.PlayMode
             Assert.Less(perpendicularLateralVel, 0.05f);
             Assert.Greater(shallowLateralVel, perpendicularLateralVel + 0.2f);
         }
+
+        [UnityTest]
+        public IEnumerator PositiveSteer_TurnsRightTowardPositiveX_AtLowAndCruisingSpeed()
+        {
+            float[] initialSpeeds = { 2f, 10f };
+            float[] throttles = { 0.6f, 0.9f };
+
+            for (int pass = 0; pass < initialSpeeds.Length; pass++)
+            {
+                float initialSpeed = initialSpeeds[pass];
+                GameObject ground = PlayModeRig.CreateGround("Ground_SteerRight_" + pass, new Vector3(0f, -0.5f, 150f), Quaternion.identity, new Vector3(400f, 1f, 500f));
+                BikeSimulation sim = MopedScenarioFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+                sim.Thermal.ChtCelsius = 140f;
+
+                MopedBikeController bike = PlayModeRig.CreateRideRig("SteerRightBike_" + pass, sim, 301u + (uint)pass, Vector3.zero, Quaternion.identity);
+                bike.Body.constraints = RigidbodyConstraints.None;
+                Track(ground, bike.gameObject);
+                yield return null;
+
+                bike.Body.linearVelocity = new Vector3(0f, 0f, initialSpeed);
+                bike.SetControls(throttles[pass], 0f, 0f, 1f, false, false, false, false);
+
+                for (int i = 0; i < 60; i++)
+                {
+                    PlayModeRig.Step(bike, null);
+                }
+
+                Vector3 flatForward = new Vector3(bike.transform.forward.x, 0f, bike.transform.forward.z).normalized;
+                float yawDeg = Vector3.SignedAngle(Vector3.forward, flatForward, Vector3.up);
+                Assert.Greater(yawDeg, 5f, "Positive steer at " + initialSpeed + " m/s should yaw right (+Y); yawDeg=" + yawDeg);
+                Assert.Greater(flatForward.x, 0.08f, "Positive steer at " + initialSpeed + " m/s should rotate forward toward +X.");
+                Assert.Greater(bike.transform.position.x, 0.05f, "Positive steer at " + initialSpeed + " m/s should move bike toward +X.");
+
+                Object.Destroy(bike.gameObject);
+                Object.Destroy(ground);
+                _spawned = new GameObject[0];
+                yield return null;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator NegativeSteer_TurnsLeftTowardNegativeX_AtLowAndCruisingSpeed()
+        {
+            float[] initialSpeeds = { 2f, 10f };
+            float[] throttles = { 0.6f, 0.9f };
+
+            for (int pass = 0; pass < initialSpeeds.Length; pass++)
+            {
+                float initialSpeed = initialSpeeds[pass];
+                GameObject ground = PlayModeRig.CreateGround("Ground_SteerLeft_" + pass, new Vector3(0f, -0.5f, 150f), Quaternion.identity, new Vector3(400f, 1f, 500f));
+                BikeSimulation sim = MopedScenarioFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+                sim.Thermal.ChtCelsius = 140f;
+
+                MopedBikeController bike = PlayModeRig.CreateRideRig("SteerLeftBike_" + pass, sim, 401u + (uint)pass, Vector3.zero, Quaternion.identity);
+                bike.Body.constraints = RigidbodyConstraints.None;
+                Track(ground, bike.gameObject);
+                yield return null;
+
+                bike.Body.linearVelocity = new Vector3(0f, 0f, initialSpeed);
+                bike.SetControls(throttles[pass], 0f, 0f, -1f, false, false, false, false);
+
+                for (int i = 0; i < 60; i++)
+                {
+                    PlayModeRig.Step(bike, null);
+                }
+
+                Vector3 flatForward = new Vector3(bike.transform.forward.x, 0f, bike.transform.forward.z).normalized;
+                float yawDeg = Vector3.SignedAngle(Vector3.forward, flatForward, Vector3.up);
+                Assert.Less(yawDeg, -5f, "Negative steer at " + initialSpeed + " m/s should yaw left (-Y); yawDeg=" + yawDeg);
+                Assert.Less(flatForward.x, -0.08f, "Negative steer at " + initialSpeed + " m/s should rotate forward toward -X.");
+                Assert.Less(bike.transform.position.x, -0.05f, "Negative steer at " + initialSpeed + " m/s should move bike toward -X.");
+
+                Object.Destroy(bike.gameObject);
+                Object.Destroy(ground);
+                _spawned = new GameObject[0];
+                yield return null;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ResetUprightAt_PlacesBikeUprightAtTargetPose_ZeroesVelocities_AndClearsLeanSteerState()
+        {
+            GameObject ground = PlayModeRig.CreateGround("Ground_ResetUpright", new Vector3(0f, -0.5f, 100f), Quaternion.identity, new Vector3(400f, 1f, 500f));
+            BikeSimulation sim = MopedScenarioFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+            sim.Thermal.ChtCelsius = 140f;
+
+            MopedBikeController bike = PlayModeRig.CreateRideRig("ResetUprightBike", sim, 501u, Vector3.zero, Quaternion.identity);
+            bike.Body.constraints = RigidbodyConstraints.None;
+            Track(ground, bike.gameObject);
+            yield return null;
+
+            bike.Body.linearVelocity = new Vector3(2f, 0f, 8f);
+            bike.SetControls(0.8f, 0f, 0f, 1f, false, false, false, false);
+            for (int i = 0; i < 45; i++)
+            {
+                PlayModeRig.Step(bike, null);
+            }
+
+            Assert.Greater(Mathf.Abs(bike.LeanAngleDeg), 1f, "Bike should have built up lean before ResetUprightAt.");
+            Assert.Greater(bike.Body.linearVelocity.sqrMagnitude, 1f, "Bike should be moving before ResetUprightAt.");
+
+            Vector3 targetPos = new Vector3(12f, PlayModeRig.RideHeightM, 42f);
+            float targetYawDeg = 90f;
+            bike.ResetUprightAt(targetPos, targetYawDeg);
+
+            Quaternion expectedRot = Quaternion.Euler(0f, targetYawDeg, 0f);
+            Assert.Less(Vector3.Distance(bike.transform.position, targetPos), 1e-4f);
+            Assert.Less(Vector3.Distance(bike.Body.position, targetPos), 1e-4f);
+            Assert.Less(Quaternion.Angle(bike.transform.rotation, expectedRot), 0.01f);
+            Assert.Less(Quaternion.Angle(bike.Body.rotation, expectedRot), 0.01f);
+            Assert.Greater(Vector3.Dot(bike.transform.up, Vector3.up), 0.9999f, "Bike must be upright after ResetUprightAt.");
+            Assert.Less(bike.Body.linearVelocity.sqrMagnitude, 1e-6f, "Linear velocity must be zeroed.");
+            Assert.Less(bike.Body.angularVelocity.sqrMagnitude, 1e-6f, "Angular velocity must be zeroed.");
+            Assert.AreEqual(0f, bike.LeanAngleDeg, 1e-5f, "Residual lean angle must be cleared.");
+            Assert.AreEqual(0f, bike.SpeedMps, 1e-5f);
+            Assert.AreEqual(0f, bike.ForwardSpeedMps, 1e-5f);
+
+            // Step a few ticks without calling SetControls again: cleared steer state must keep the bike upright and aligned.
+            for (int i = 0; i < 15; i++)
+            {
+                PlayModeRig.Step(bike, null);
+            }
+
+            Assert.Less(Mathf.Abs(bike.LeanAngleDeg), 1.5f, "Cleared steer state must not re-lean the bike.");
+            Assert.Less(Quaternion.Angle(bike.transform.rotation, expectedRot), 2.5f, "Cleared steer state must not keep yawing the bike.");
+        }
     }
 }

@@ -227,6 +227,70 @@ namespace MopedSim.Tests.EditMode
         }
 
         [Test]
+        public void IsPaintableBodySlot_MatchesOnlyFrameFuelTankAndFrontFender()
+        {
+            Assert.IsTrue(PaintBoothController.IsPaintableBodySlot(SlotIds.Frame));
+            Assert.IsTrue(PaintBoothController.IsPaintableBodySlot(SlotIds.FuelTank));
+            Assert.IsTrue(PaintBoothController.IsPaintableBodySlot(SlotIds.FrontFender));
+
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(null));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(string.Empty));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(SlotIds.RearWheel));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(SlotIds.FrontWheel));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(SlotIds.Exhaust));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(SlotIds.CylinderHead));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(SlotIds.Carburetor));
+            Assert.IsFalse(PaintBoothController.IsPaintableBodySlot(SlotIds.Handlebars));
+        }
+
+        [Test]
+        public void BindAssembler_PaintsOnlyBodySlots_AndLeavesRearWheelAndExhaustUntinted()
+        {
+            GameObject assemblerGo = new GameObject("AssemblerBodyFilter");
+            assemblerGo.transform.SetParent(_root.transform, false);
+            BikeVisualAssembler assembler = assemblerGo.AddComponent<BikeVisualAssembler>();
+
+            MeshRenderer frameRenderer = CreateTempPaintedRenderer("FrameVisual");
+            frameRenderer.transform.SetParent(null, false);
+            MeshRenderer tankRenderer = CreateTempPaintedRenderer("TankVisual");
+            tankRenderer.transform.SetParent(null, false);
+            MeshRenderer fenderRenderer = CreateTempPaintedRenderer("FrontFenderVisual");
+            fenderRenderer.transform.SetParent(null, false);
+            MeshRenderer rearWheelRenderer = CreateTempPaintedRenderer("RearWheelVisual");
+            rearWheelRenderer.transform.SetParent(null, false);
+            MeshRenderer exhaustRenderer = CreateTempPaintedRenderer("ExhaustVisual");
+            exhaustRenderer.transform.SetParent(null, false);
+
+            assembler.MountPartImmediate(SlotIds.Frame, "frame_maxer_e50", string.Empty, frameRenderer.gameObject);
+            assembler.MountPartImmediate(SlotIds.FuelTank, "tank_stock", SlotIds.Frame, tankRenderer.gameObject);
+            assembler.MountPartImmediate(SlotIds.FrontFender, "fender_front_stock", SlotIds.Frame, fenderRenderer.gameObject);
+            assembler.MountPartImmediate(SlotIds.RearWheel, "wheel_rear_16", SlotIds.Frame, rearWheelRenderer.gameObject);
+            assembler.MountPartImmediate(SlotIds.Exhaust, "exhaust_stock", SlotIds.Frame, exhaustRenderer.gameObject);
+
+            _booth.Bind(assembler);
+            Assert.IsTrue(_booth.ApplySwatch("bay_teal"));
+
+            MaterialPropertyBlock readBack = new MaterialPropertyBlock();
+            frameRenderer.GetPropertyBlock(readBack);
+            AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
+
+            tankRenderer.GetPropertyBlock(readBack);
+            AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
+
+            fenderRenderer.GetPropertyBlock(readBack);
+            AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
+
+            Assert.IsFalse(rearWheelRenderer.HasPropertyBlock(), "RearWheel must not receive frame paint tint.");
+            Assert.IsFalse(exhaustRenderer.HasPropertyBlock(), "Exhaust must not receive frame paint tint.");
+
+            // Newly mounted non-body parts after binding must also remain untinted.
+            MeshRenderer barsRenderer = CreateTempPaintedRenderer("HandlebarsVisual");
+            barsRenderer.transform.SetParent(null, false);
+            assembler.MountPartImmediate(SlotIds.Handlebars, "bars_stock", SlotIds.Frame, barsRenderer.gameObject);
+            Assert.IsFalse(barsRenderer.HasPropertyBlock(), "Handlebars mounted after bind must not receive frame paint tint.");
+        }
+
+        [Test]
         public void ApplyToSave_AndPaintChangedEvent_ReportNormalizedValues()
         {
             string lastHex = string.Empty;

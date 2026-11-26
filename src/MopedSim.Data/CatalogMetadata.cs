@@ -275,6 +275,9 @@ namespace MopedSim.Data
         public IReadOnlyList<string> ConnectedZones { get; }
         public IReadOnlyList<ZoneLandmark> Landmarks { get; }
 
+        /// <summary>Zone display name exactly as authored (same as ZoneEnvironmentSpec.DisplayName).</summary>
+        public string DisplayName { get; }
+
         internal ZoneMetadata(
             string zoneId,
             string sceneName,
@@ -285,9 +288,11 @@ namespace MopedSim.Data
             IReadOnlyList<string> primarySurfaces,
             bool hasMuniRails,
             IReadOnlyList<string> connectedZones,
-            IReadOnlyList<ZoneLandmark> landmarks)
+            IReadOnlyList<ZoneLandmark> landmarks,
+            string displayName = "")
         {
             ZoneId = zoneId;
+            DisplayName = displayName ?? string.Empty;
             SceneName = sceneName;
             Description = description;
             TowFeeUsd = towFeeUsd;
@@ -297,6 +302,32 @@ namespace MopedSim.Data
             HasMuniRails = hasMuniRails;
             ConnectedZones = connectedZones;
             Landmarks = landmarks;
+        }
+
+        /// <summary>Landmarks whose landmarkType matches exactly (e.g. "Shop", "Garage", "PlugChopStrip"), in catalog order.</summary>
+        public IReadOnlyList<ZoneLandmark> GetLandmarksOfType(string landmarkType)
+        {
+            var result = new List<ZoneLandmark>();
+            for (int i = 0; i < Landmarks.Count; i++)
+            {
+                if (string.Equals(Landmarks[i].LandmarkType, landmarkType, StringComparison.Ordinal))
+                {
+                    result.Add(Landmarks[i]);
+                }
+            }
+            return result;
+        }
+
+        public bool IsConnectedTo(string zoneId)
+        {
+            for (int i = 0; i < ConnectedZones.Count; i++)
+            {
+                if (string.Equals(ConnectedZones[i], zoneId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -343,6 +374,18 @@ namespace MopedSim.Data
         public int ReputationReward { get; }
         public IReadOnlyList<JobCheckpoint> Checkpoints { get; }
 
+        /// <summary>Display name exactly as authored (same as JobDefinition.DisplayName).</summary>
+        public string DisplayName { get; }
+
+        /// <summary>Catalog timeLimitSeconds (same as JobDefinition.TimeLimitSeconds).</summary>
+        public float TimeLimitSeconds { get; }
+
+        /// <summary>Catalog basePayoutUsd (same as JobDefinition.RewardUsd).</summary>
+        public decimal BasePayoutUsd { get; }
+
+        /// <summary>The jobType string parsed to MopedSim.Core's enum (same as JobDefinition.JobType).</summary>
+        public MopedSim.Core.JobType ParsedJobType { get; }
+
         internal JobMetadata(
             string jobId,
             string jobType,
@@ -355,9 +398,17 @@ namespace MopedSim.Data
             IReadOnlyList<string> recommendedPartIds,
             decimal bonusPayoutUsd,
             int reputationReward,
-            IReadOnlyList<JobCheckpoint> checkpoints)
+            IReadOnlyList<JobCheckpoint> checkpoints,
+            string displayName = "",
+            float timeLimitSeconds = 0f,
+            decimal basePayoutUsd = 0m,
+            MopedSim.Core.JobType parsedJobType = MopedSim.Core.JobType.CourierGig)
         {
             JobId = jobId;
+            DisplayName = displayName ?? string.Empty;
+            TimeLimitSeconds = timeLimitSeconds;
+            BasePayoutUsd = basePayoutUsd;
+            ParsedJobType = parsedJobType;
             JobType = jobType;
             Difficulty = difficulty;
             Description = description;

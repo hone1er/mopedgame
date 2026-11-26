@@ -385,6 +385,7 @@ namespace MopedSim.Data
             // Chassis / accessories
             SetFloat(stats, "aeroTuckBonusMultiplier", ctx, v => s.TuckDragBonusMultiplier = v);
             SetInt(stats, "cargoSlots", ctx, v => s.CargoSlots = v);
+            SetFloat(stats, "maxCargoKg", ctx, v => s.CargoMaxKg = v);
             SetFloat(stats, "wheelRadiusM", ctx, v => s.WheelRadiusM = v);
 
             // Tool roll

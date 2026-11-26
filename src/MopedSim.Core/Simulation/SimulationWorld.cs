@@ -23,6 +23,12 @@ namespace MopedSim.Core
         public BikeSimulation? ActiveBike { get; private set; }
         public ZoneEnvironmentSpec CurrentZone { get; private set; }
         public decimal CashUsd { get; set; } = 250m;
+
+        /// <summary>Courier / rally reputation earned through <see cref="ApplyJobReward"/>.</summary>
+        public int Reputation { get; set; }
+
+        /// <summary>Loose parts owned by the player (swap-meet buys, aftermarket orders, removed parts).</summary>
+        public GarageInventory Inventory { get; } = new GarageInventory();
         public float TotalElapsedSeconds { get; private set; }
 
         public IReadOnlyList<string> ActiveToolRoll
@@ -143,6 +149,42 @@ namespace MopedSim.Core
                 part.PriceUsd,
                 CashUsd,
                 "Bought " + part.DisplayName + " for $" + part.PriceUsd.ToString("0.00") + ".");
+        }
+
+        /// <summary>
+        /// Buys a catalog part (same rules as <see cref="TryPurchasePart"/>) and, on success, adds a fresh
+        /// <see cref="PartInstance"/> to <see cref="Inventory"/>, returned through <paramref name="instance"/>.
+        /// </summary>
+        public PurchaseResult TryPurchasePartIntoInventory(PartDefinition part, out PartInstance? instance)
+        {
+            instance = null;
+            PurchaseResult result = TryPurchasePart(part);
+            if (result.Succeeded)
+            {
+                instance = new PartInstance(part, Inventory.NextInstanceId(part.Id));
+                Inventory.Add(instance);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Credits a completed job's payout and reputation. Prefer <see cref="JobSessionManager.TryCollectReward"/>,
+        /// which guarantees each record is credited exactly once.
+        /// </summary>
+        public void ApplyJobReward(CompletedGigRecord record)
+        {
+            if (record == null)
+            {
+                throw new ArgumentNullException(nameof(record));
+            }
+            if (record.TotalPayoutUsd > 0m)
+            {
+                CashUsd += record.TotalPayoutUsd;
+            }
+            if (record.ReputationEarned > 0)
+            {
+                Reputation += record.ReputationEarned;
+            }
         }
 
         public EngineTelemetrySnapshot Step(float dt, in RideInputState input)

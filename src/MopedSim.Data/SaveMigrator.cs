@@ -601,6 +601,10 @@ namespace MopedSim.Data
             }
             CheckPattern(errors, ctx + ".paintHex", bike.PaintHex, PaintHexPattern);
             CheckUnit(errors, ctx + ".patinaLevel", bike.PatinaLevel);
+            if (bike.DecalStyle != null && !BikeCustomizationState.IsValidDecalStyle(bike.DecalStyle))
+            {
+                errors.Add(ctx + ".decalStyle must be at most " + BikeCustomizationState.MaxDecalStyleLength + " characters.");
+            }
 
             FuelTankSaveState? tank = bike.FuelTank;
             if (tank == null)
@@ -913,6 +917,7 @@ namespace MopedSim.Data
                 .Add("odometerKm", Kind.Number)
                 .Add("paintHex", Kind.String)
                 .Add("patinaLevel", Kind.Number)
+                .Add("decalStyle", Kind.String)
                 .Add("fuelTank", Kind.Object, fuelTank)
                 .Add("installedParts", Kind.ArrayOfObjects, installedPart)
                 .Add("fasteners", Kind.ArrayOfObjects, fastener)

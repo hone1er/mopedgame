@@ -64,7 +64,6 @@
           "nickname",
           "odometerKm",
           "paintHex",
-          "patinaLevel",
           "fuelTank",
           "installedParts",
           "fasteners",
@@ -92,9 +91,15 @@
             "pattern": "^#[0-9A-Fa-f]{6}$"
           },
           "patinaLevel": {
+            "description": "Optional weathered patina 0..1 (omitted in early v1 saves; defaults to 0).",
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "decalStyle": {
+            "description": "Optional paint booth decal/style tag; omitted when the bike has no decal.",
+            "type": "string",
+            "maxLength": 64
           },
           "fuelTank": {
             "type": "object",

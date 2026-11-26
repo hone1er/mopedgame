@@ -77,8 +77,13 @@ namespace MopedSim.Data
         [JsonProperty("paintHex", Required = Required.Always)]
         public string PaintHex { get; set; } = string.Empty;
 
-        [JsonProperty("patinaLevel", Required = Required.Always)]
+        /// <summary>Weathered patina 0..1. Optional in JSON (saves written before it existed load as 0); always written.</summary>
+        [JsonProperty("patinaLevel", Required = Required.DisallowNull)]
         public float PatinaLevel { get; set; }
+
+        /// <summary>Optional decal / style tag (max 64 chars). Omitted from JSON when null.</summary>
+        [JsonProperty("decalStyle", Required = Required.DisallowNull, NullValueHandling = NullValueHandling.Ignore)]
+        public string? DecalStyle { get; set; }
 
         [JsonProperty("fuelTank", Required = Required.Always)]
         public FuelTankSaveState FuelTank { get; set; } = new FuelTankSaveState();
@@ -91,6 +96,31 @@ namespace MopedSim.Data
 
         [JsonProperty("activeFaultIds", Required = Required.Always)]
         public List<string> ActiveFaultIds { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Paint booth state of this bike as a Core <see cref="BikeCustomizationState"/>. An invalid stored paint hex falls back to
+        /// <see cref="BikeCustomizationState.DefaultPaintHex"/>; patina is clamped and an over-long decal is dropped.
+        /// </summary>
+        public BikeCustomizationState ToCustomizationState()
+        {
+            var state = new BikeCustomizationState();
+            state.TrySetPaintHex(PaintHex);
+            state.SetPatinaLevel(PatinaLevel);
+            state.TrySetDecalStyle(DecalStyle);
+            return state;
+        }
+
+        /// <summary>Copies paint, patina, and decal from <paramref name="customization"/> into this save record.</summary>
+        public void ApplyCustomization(BikeCustomizationState customization)
+        {
+            if (customization == null)
+            {
+                throw new System.ArgumentNullException(nameof(customization));
+            }
+            PaintHex = customization.PaintHex;
+            PatinaLevel = customization.PatinaLevel;
+            DecalStyle = customization.DecalStyle;
+        }
     }
 
     /// <summary>

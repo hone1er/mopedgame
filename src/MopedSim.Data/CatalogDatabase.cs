@@ -275,6 +275,20 @@ namespace MopedSim.Data
             return result;
         }
 
+        /// <summary>Jobs of one <see cref="JobType"/> (e.g. every Bay Swarm rally), in catalog order.</summary>
+        public IReadOnlyList<JobDefinition> GetJobsOfType(JobType jobType)
+        {
+            var result = new List<JobDefinition>();
+            for (int i = 0; i < _jobList.Count; i++)
+            {
+                if (_jobList[i].JobType == jobType)
+                {
+                    result.Add(_jobList[i]);
+                }
+            }
+            return result;
+        }
+
         private static T Require<T>(Dictionary<string, T> map, string id, string kind)
         {
             if (id != null && map.TryGetValue(id, out var value))

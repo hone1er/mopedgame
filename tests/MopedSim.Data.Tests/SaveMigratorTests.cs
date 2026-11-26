@@ -368,7 +368,7 @@ namespace MopedSim.Data.Tests
             string[] required = ((JArray)schemaNode["required"]!).Select(t => (string)t!).OrderBy(n => n, StringComparer.Ordinal).ToArray();
             string[] keys = actual.Properties().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal).ToArray();
             Assert.Equal(expected, keys);
-            Assert.Equal(required, keys);
+            Assert.All(required, r => Assert.Contains(r, keys));
         }
 
         private static SaveState BuildRichState()
@@ -384,6 +384,7 @@ namespace MopedSim.Data.Tests
             BikeSaveState bike = state.Bikes[0];
             bike.OdometerKm = 1532.25;
             bike.PatinaLevel = 0.3f;
+            bike.DecalStyle = "checker_stripe";
             bike.FuelTank.PetcockMode = PetcockMode.Reserve;
             bike.FuelTank.FuelLiters = 0.4f;
             bike.InstalledParts[0].Wear = 0.42f;

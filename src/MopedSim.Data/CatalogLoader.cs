@@ -578,11 +578,12 @@ namespace MopedSim.Data
                 ctx = ZonesFileName + ": zones[" + i + "] (" + id + ")";
                 CheckUnique(seen, id, ctx);
 
+                string zoneDisplayName = JsonRead.RequireString(entry, "displayName", ctx);
                 zones.Add(new ZoneEnvironmentSpec
                 {
                     SchemaVersion = ReadEntrySchemaVersion(entry, ctx),
                     Id = id,
-                    DisplayName = JsonRead.RequireString(entry, "displayName", ctx),
+                    DisplayName = zoneDisplayName,
                     AmbientTemperatureC = (float)JsonRead.RequireNumber(entry, "ambientTempCelsius", ctx),
                     AmbientAirDensity = (float)JsonRead.RequireNumber(entry, "ambientAirDensity", ctx),
                     MaxGradePercent = (float)JsonRead.RequireNumber(entry, "maxGradePercent", ctx),
@@ -614,7 +615,8 @@ namespace MopedSim.Data
                     JsonRead.OptionalStringList(entry, "primarySurfaces", ctx).AsReadOnly(),
                     JsonRead.OptionalBool(entry, "hasMuniRails", ctx, false),
                     JsonRead.OptionalStringList(entry, "connectedZones", ctx).AsReadOnly(),
-                    landmarks.AsReadOnly()));
+                    landmarks.AsReadOnly(),
+                    zoneDisplayName));
             }
         }
 
@@ -633,18 +635,16 @@ namespace MopedSim.Data
                 CheckUnique(seen, id, ctx);
 
                 string startZone = JsonRead.RequireString(entry, "startZoneId", ctx);
+                string targetZone = JsonRead.RequireString(entry, "targetZoneId", ctx);
+                string displayName = JsonRead.RequireString(entry, "displayName", ctx);
                 int cargoSlots = JsonRead.OptionalInt(entry, "requiredCargoSlots", ctx, 0);
-
-                jobs.Add(new JobDefinition
-                {
-                    SchemaVersion = ReadEntrySchemaVersion(entry, ctx),
-                    Id = id,
-                    DisplayName = JsonRead.RequireString(entry, "displayName", ctx),
-                    ZoneId = startZone,
-                    RequiredCargoSlots = cargoSlots,
-                    RewardUsd = (decimal)JsonRead.RequireNumber(entry, "basePayoutUsd", ctx),
-                    TimeLimitSeconds = (float)JsonRead.OptionalNumber(entry, "timeLimitSeconds", ctx, 0.0),
-                });
+                float cargoKg = (float)JsonRead.OptionalNumber(entry, "requiredCargoKg", ctx, 0.0);
+                decimal basePayout = (decimal)JsonRead.RequireNumber(entry, "basePayoutUsd", ctx);
+                decimal bonusPayout = (decimal)JsonRead.OptionalNumber(entry, "bonusPayoutUsd", ctx, 0.0);
+                int reputation = JsonRead.OptionalInt(entry, "reputationReward", ctx, 0);
+                float timeLimit = (float)JsonRead.OptionalNumber(entry, "timeLimitSeconds", ctx, 0.0);
+                string jobTypeRaw = JsonRead.OptionalString(entry, "jobType", ctx) ?? string.Empty;
+                JobType jobType = ParseJobType(jobTypeRaw, ctx);
 
                 var checkpoints = new List<JobCheckpoint>();
                 JArray? cpArr = entry["checkpoints"] as JArray;
@@ -665,19 +665,84 @@ namespace MopedSim.Data
                     }
                 }
 
+                // Core route checkpoints are ordered by 'order' (stable for ties, keeping file order).
+                var coreCheckpoints = new List<JobCheckpointSpec>(checkpoints.Count);
+                for (int c = 0; c < checkpoints.Count; c++)
+                {
+                    JobCheckpoint cp = checkpoints[c];
+                    coreCheckpoints.Add(new JobCheckpointSpec(
+                        cp.Id, cp.Order, cp.Position.X, cp.Position.Y, cp.Position.Z, cp.RadiusMeters, cp.GradePercent, cp.ZoneId, cp.DisplayName));
+                }
+                StableSortByOrder(coreCheckpoints);
+
+                jobs.Add(new JobDefinition
+                {
+                    SchemaVersion = ReadEntrySchemaVersion(entry, ctx),
+                    Id = id,
+                    DisplayName = displayName,
+                    ZoneId = startZone,
+                    RequiredCargoSlots = cargoSlots,
+                    RewardUsd = basePayout,
+                    TimeLimitSeconds = timeLimit,
+                    JobType = jobType,
+                    TargetZoneId = targetZone,
+                    RequiredCargoKg = cargoKg,
+                    BonusRewardUsd = bonusPayout,
+                    ReputationReward = reputation,
+                    Checkpoints = coreCheckpoints,
+                });
+
                 meta.Add(new JobMetadata(
                     id,
-                    JsonRead.OptionalString(entry, "jobType", ctx) ?? string.Empty,
+                    jobTypeRaw,
                     JsonRead.OptionalString(entry, "difficulty", ctx) ?? string.Empty,
                     JsonRead.OptionalString(entry, "description", ctx) ?? string.Empty,
                     startZone,
-                    JsonRead.RequireString(entry, "targetZoneId", ctx),
+                    targetZone,
                     cargoSlots,
-                    (float)JsonRead.OptionalNumber(entry, "requiredCargoKg", ctx, 0.0),
+                    cargoKg,
                     JsonRead.OptionalStringList(entry, "recommendedPartIds", ctx).AsReadOnly(),
-                    (decimal)JsonRead.OptionalNumber(entry, "bonusPayoutUsd", ctx, 0.0),
-                    JsonRead.OptionalInt(entry, "reputationReward", ctx, 0),
-                    checkpoints.AsReadOnly()));
+                    bonusPayout,
+                    reputation,
+                    checkpoints.AsReadOnly(),
+                    displayName,
+                    timeLimit,
+                    basePayout,
+                    jobType));
+            }
+        }
+
+        private static JobType ParseJobType(string raw, string ctx)
+        {
+            switch (raw)
+            {
+                case "":
+                case "CourierGig":
+                    return JobType.CourierGig;
+                case "HillClimb":
+                    return JobType.HillClimb;
+                case "SpeedTrap":
+                    return JobType.SpeedTrap;
+                case "BaySwarmRally":
+                    return JobType.BaySwarmRally;
+                default:
+                    throw JsonRead.Fail(ctx, "unknown jobType '" + raw + "' (expected CourierGig, HillClimb, SpeedTrap, or BaySwarmRally).");
+            }
+        }
+
+        private static void StableSortByOrder(List<JobCheckpointSpec> list)
+        {
+            // Insertion sort: stable and allocation-free for the handful of checkpoints per job.
+            for (int i = 1; i < list.Count; i++)
+            {
+                JobCheckpointSpec item = list[i];
+                int j = i - 1;
+                while (j >= 0 && list[j].Order > item.Order)
+                {
+                    list[j + 1] = list[j];
+                    j--;
+                }
+                list[j + 1] = item;
             }
         }
     }

@@ -85,6 +85,9 @@ namespace MopedSim.Core
         public float AeroDragMultiplier { get; set; } = 1.0f;
         public float TuckDragBonusMultiplier { get; set; } = 1.0f;
         public int CargoSlots { get; set; }
+
+        /// <summary>Maximum cargo payload in kg carried by a cargo rack (catalog stat <c>maxCargoKg</c>; 0 = no payload).</summary>
+        public float CargoMaxKg { get; set; }
         public float HeadlightMaxOutput { get; set; } = 0.75f;
         public float WheelRadiusM { get; set; } = 0.27f;
 
@@ -305,16 +308,72 @@ namespace MopedSim.Core
     }
 
     /// <summary>
-    /// Courier gig, hill climb, or rally job catalog entry.
+    /// Ordered route checkpoint of a job (metric position, 1 unit = 1 m; catalog jobs.json checkpoints[]).
+    /// </summary>
+    public sealed class JobCheckpointSpec
+    {
+        public string Id { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string ZoneId { get; set; } = string.Empty;
+        public int Order { get; set; }
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float Z { get; set; }
+        public float RadiusMeters { get; set; } = 8f;
+        public float GradePercent { get; set; }
+
+        public JobCheckpointSpec()
+        {
+        }
+
+        public JobCheckpointSpec(string id, int order, float x, float y, float z, float radiusMeters = 8f, float gradePercent = 0f, string zoneId = "", string displayName = "")
+        {
+            Id = id ?? string.Empty;
+            Order = order;
+            X = x;
+            Y = y;
+            Z = z;
+            RadiusMeters = radiusMeters;
+            GradePercent = gradePercent;
+            ZoneId = zoneId ?? string.Empty;
+            DisplayName = displayName ?? string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Courier gig, hill climb, speed trap, or Bay Swarm rally job catalog entry.
     /// </summary>
     public sealed class JobDefinition
     {
         public int SchemaVersion { get; set; } = 1;
         public string Id { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
+
+        /// <summary>Start zone id (catalog <c>startZoneId</c>).</summary>
         public string ZoneId { get; set; } = string.Empty;
+
         public int RequiredCargoSlots { get; set; }
+
+        /// <summary>Base payout in USD (catalog <c>basePayoutUsd</c>).</summary>
         public decimal RewardUsd { get; set; }
+
         public float TimeLimitSeconds { get; set; }
+
+        public JobType JobType { get; set; } = JobType.CourierGig;
+
+        /// <summary>Destination zone id (catalog <c>targetZoneId</c>); empty when unknown.</summary>
+        public string TargetZoneId { get; set; } = string.Empty;
+
+        /// <summary>Cargo payload the bike's rack must carry (catalog <c>requiredCargoKg</c>).</summary>
+        public float RequiredCargoKg { get; set; }
+
+        /// <summary>On-time / placement bonus in USD (catalog <c>bonusPayoutUsd</c>).</summary>
+        public decimal BonusRewardUsd { get; set; }
+
+        /// <summary>Reputation granted for a clean completion (catalog <c>reputationReward</c>).</summary>
+        public int ReputationReward { get; set; }
+
+        /// <summary>Route checkpoints sorted by <see cref="JobCheckpointSpec.Order"/>.</summary>
+        public List<JobCheckpointSpec> Checkpoints { get; set; } = new List<JobCheckpointSpec>();
     }
 }

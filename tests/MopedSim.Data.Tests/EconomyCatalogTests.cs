@@ -81,6 +81,34 @@ namespace MopedSim.Data.Tests
         }
 
         [Fact]
+        public void SwapMeet_OverRealCatalog_DiscountsEveryOfferAndReachesEveryDefect()
+        {
+            CatalogDatabase db = TestCatalog.Real;
+            var market = new SwapMeetMarket(db.PartList, 2026u);
+            var seen = new HashSet<SwapMeetDefect>();
+            for (int rotation = 0; rotation < 60; rotation++)
+            {
+                market.Rotate(rotation);
+                Assert.Equal(market.Config.OffersPerRotation, market.Offers.Count);
+                Assert.Equal(market.Offers.Count, market.Offers.Select(o => o.OfferId).Distinct().Count());
+                foreach (SwapMeetOffer offer in market.Offers)
+                {
+                    Assert.True(offer.AskingPriceUsd > 0m && offer.AskingPriceUsd < offer.ListPriceUsd, offer.OfferId);
+                    Assert.NotEqual(PartCategory.ToolRollItem, offer.Part.Category);
+                    seen.Add(market.InspectOffer(offer.OfferId).Defect);
+                }
+            }
+            foreach (SwapMeetDefect defect in Enum.GetValues(typeof(SwapMeetDefect)))
+            {
+                Assert.Contains(defect, seen);
+            }
+
+            var again = new SwapMeetMarket(db.PartList, 2026u);
+            again.Rotate(59);
+            Assert.Equal(market.Offers.Select(o => o.OfferId + o.AskingPriceUsd), again.Offers.Select(o => o.OfferId + o.AskingPriceUsd));
+        }
+
+        [Fact]
         public void Catalog_UnknownJobType_FailsToLoad()
         {
             Assert.Throws<CatalogLoadException>(() => TestCatalog.LoadWithMutation(CatalogLoader.JobsFileName,

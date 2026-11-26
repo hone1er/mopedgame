@@ -179,6 +179,10 @@ namespace MopedSim.Core.Tests
         {
             var overtime = new JobSessionManager();
             overtime.TryAcceptJob(CourierJob(timeLimit: 30f), BikeWithRack(Crate));
+            overtime.Step(100f);
+            Assert.Equal(JobSessionStatus.Active, overtime.Status); // clock waits for the start checkpoint
+            Assert.Equal(0f, overtime.ElapsedSeconds);
+            overtime.ReportCheckpointReached("cp_a");
             overtime.Step(46f);
             Assert.Equal(JobSessionStatus.Failed, overtime.Status);
             Assert.Equal(JobFailReason.TimeExpired, overtime.FailReason);
@@ -186,6 +190,9 @@ namespace MopedSim.Core.Tests
 
             var crash = new JobSessionManager();
             crash.TryAcceptJob(CourierJob(), BikeWithRack(Crate));
+            crash.ReportCrash();
+            Assert.Equal(1f, crash.CargoIntegrity); // cargo not picked up yet
+            crash.ReportCheckpointReached("cp_a");
             crash.ReportCrash();
             crash.ReportCrash();
             Assert.Equal(JobSessionStatus.Active, crash.Status);
@@ -297,8 +304,20 @@ namespace MopedSim.Core.Tests
             Assert.NotNull(mgr.Rally);
             Assert.Equal(8, mgr.GetSnapshot().RallyFieldSize);
 
-            mgr.ReportCheckpointReached("cp_start");
             EngineTelemetrySnapshot fast = CargoAndJobSessionTests.Telemetry(16f);
+
+            // Riding to the start line: the pack and clock hold.
+            for (int i = 0; i < 60; i++)
+            {
+                mgr.Step(0.5f, fast);
+            }
+            Assert.False(mgr.IsRouteStarted);
+            Assert.Equal(0f, mgr.ElapsedSeconds);
+            Assert.Equal(0f, mgr.Rally!.ElapsedSeconds);
+            Assert.All(mgr.Rally.Riders, r => Assert.Equal(0f, r.ProgressMeters));
+
+            mgr.ReportCheckpointReached("cp_start");
+            Assert.True(mgr.IsRouteStarted);
             while (mgr.RouteProgressMeters < 1200f)
             {
                 mgr.Step(0.5f, fast);
@@ -308,7 +327,8 @@ namespace MopedSim.Core.Tests
             {
                 mgr.Step(0.5f, fast);
             }
-            Assert.False(mgr.Rally!.PlayerFinished);
+            Assert.False(mgr.Rally.PlayerFinished);
+            Assert.Equal(mgr.ElapsedSeconds, mgr.Rally.ElapsedSeconds);
             Assert.Equal(CheckpointReportResult.JobCompleted, mgr.ReportCheckpointReached("cp_finish"));
 
             CompletedGigRecord rec = mgr.LastCompletedRecord!;

@@ -8,6 +8,8 @@ namespace MopedSim.Core
     /// <summary>
     /// Runs one courier gig, hill climb, speed trap, or Bay Swarm rally at a time: acceptance gating (cargo capacity,
     /// hard seize), elapsed time, ordered checkpoint progression, cargo integrity, rally pack placement, and payout.
+    /// The job clock, overtime check, cargo wear, and rally pack start when the first checkpoint (start line / pickup) is
+    /// reached, so the player may accept a job anywhere and ride to the start.
     /// Deterministic: advanced only by explicit dt; rally randomness comes from an injected <see cref="ISimRandom"/>.
     /// </summary>
     public sealed class JobSessionManager
@@ -49,6 +51,12 @@ namespace MopedSim.Core
         public float RouteLengthMeters
         {
             get { return _cumulative.Length > 0 ? _cumulative[_cumulative.Length - 1] : 0f; }
+        }
+
+        /// <summary>True once the first checkpoint has been reached and the job clock is running.</summary>
+        public bool IsRouteStarted
+        {
+            get { return Status == JobSessionStatus.Active && CheckpointsReached > 0; }
         }
 
         public bool IsCargoJob
@@ -131,8 +139,9 @@ namespace MopedSim.Core
         }
 
         /// <summary>
-        /// Advances the active job by dt using the latest ride telemetry: route progress from vehicle speed (capped at the next
-        /// unreached checkpoint), rough-road cargo wear, seize tracking (a hard seize fails the job), rally pack, and overtime failure.
+        /// Advances the active job by dt using the latest ride telemetry: seize tracking (a hard seize fails the job) and, once the
+        /// first checkpoint is reached, the clock, route progress from vehicle speed (capped at the next unreached checkpoint),
+        /// rough-road cargo wear, rally pack, and overtime failure.
         /// </summary>
         public void Step(float dt, in EngineTelemetrySnapshot telemetry, float surfaceRoughness = 0f)
         {
@@ -150,6 +159,21 @@ namespace MopedSim.Core
                 dt = 0f;
             }
 
+            if (isSeized)
+            {
+                HasSeizedDuringJob = true;
+            }
+            if (isHardSeized)
+            {
+                Fail(JobFailReason.BikeHardSeized);
+                return;
+            }
+            if (CheckpointsReached == 0)
+            {
+                // Riding to the start line / pickup: the clock, cargo, and rally pack wait.
+                return;
+            }
+
             ElapsedSeconds += dt;
             float speed = speedMps > 0f ? speedMps : 0f;
 
@@ -157,11 +181,6 @@ namespace MopedSim.Core
             {
                 float cap = _cumulative[CheckpointsReached];
                 RouteProgressMeters = SimMath.Min(cap, SimMath.Max(RouteProgressMeters, RouteProgressMeters + speed * dt));
-            }
-
-            if (isSeized)
-            {
-                HasSeizedDuringJob = true;
             }
 
             if (Rally != null)
@@ -177,12 +196,6 @@ namespace MopedSim.Core
                 {
                     return;
                 }
-            }
-
-            if (isHardSeized)
-            {
-                Fail(JobFailReason.BikeHardSeized);
-                return;
             }
 
             float limit = ActiveJob.TimeLimitSeconds;
@@ -236,22 +249,22 @@ namespace MopedSim.Core
         }
 
         /// <summary>
-        /// Pothole hit with severity 0..1 (cargo jobs only).
+        /// Pothole hit with severity 0..1 (cargo jobs only, after the pickup checkpoint).
         /// </summary>
         public void ReportPothole(float severity)
         {
-            if (Status == JobSessionStatus.Active && ActiveJob != null && IsCargoJobDefinition(ActiveJob))
+            if (IsRouteStarted && ActiveJob != null && IsCargoJobDefinition(ActiveJob))
             {
                 DegradeCargo(SimMath.Clamp01(severity) * SimMath.Max(0f, Config.PotholeIntegrityLoss));
             }
         }
 
         /// <summary>
-        /// Crash / dropped bike (cargo jobs only).
+        /// Crash / dropped bike (cargo jobs only, after the pickup checkpoint).
         /// </summary>
         public void ReportCrash()
         {
-            if (Status == JobSessionStatus.Active && ActiveJob != null && IsCargoJobDefinition(ActiveJob))
+            if (IsRouteStarted && ActiveJob != null && IsCargoJobDefinition(ActiveJob))
             {
                 DegradeCargo(SimMath.Max(0f, Config.CrashIntegrityLoss));
             }

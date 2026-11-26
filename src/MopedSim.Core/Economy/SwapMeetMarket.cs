@@ -241,9 +241,9 @@ namespace MopedSim.Core
 
                 float discount = minDiscount + (maxDiscount - minDiscount) * (float)discountRoll;
                 decimal asking = Math.Round(part.PriceUsd * (1m - (decimal)discount), 2, MidpointRounding.AwayFromZero);
-                if (asking < 1m)
+                if (asking < 0.01m)
                 {
-                    asking = 1m;
+                    asking = 0.01m;
                 }
                 float condition = minCond + (maxCond - minCond) * (float)conditionRoll;
 

@@ -14,6 +14,7 @@ if SCRIPT_DIR not in sys.path:
 from garage import garage_props  # noqa: E402
 from parts import chassis, engine, exhaust, frames_forks, fuel, ignition_drivetrain  # noqa: E402
 from smoke_test_cube import build_smoke_test_cube  # noqa: E402
+import world  # noqa: E402
 
 
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
@@ -30,6 +31,7 @@ def generate_all(out_dir: str = DEFAULT_OUT_DIR) -> List[Dict[str, object]]:
     results.extend(ignition_drivetrain.generate_all(out_dir))
     results.extend(chassis.generate_all(out_dir))
     results.extend(garage_props.generate_all(out_dir))
+    results.extend(world.generate_all(out_dir))
     return results
 
 

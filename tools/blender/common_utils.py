@@ -42,6 +42,39 @@ MATERIAL_PALETTE: Dict[str, Tuple[Tuple[float, float, float, float], float, floa
     "mat_copper": ((0.82, 0.44, 0.24, 1.0), 0.92, 0.30),
     "mat_brass": ((0.82, 0.68, 0.26, 1.0), 0.92, 0.26),
     "mat_foam_filter": ((0.16, 0.14, 0.13, 1.0), 0.00, 0.92),
+    # --- Bay Area world module palette (tools/blender/world/) ---
+    "mat_asphalt": ((0.075, 0.075, 0.08, 1.0), 0.00, 0.90),
+    "mat_asphalt_patch": ((0.035, 0.035, 0.04, 1.0), 0.00, 0.80),
+    "mat_concrete": ((0.52, 0.51, 0.48, 1.0), 0.00, 0.82),
+    "mat_concrete_dark": ((0.32, 0.32, 0.31, 1.0), 0.00, 0.86),
+    "mat_brick_red": ((0.36, 0.11, 0.06, 1.0), 0.00, 0.84),
+    "mat_brick_dark": ((0.22, 0.07, 0.05, 1.0), 0.00, 0.86),
+    "mat_road_paint_white": ((0.86, 0.86, 0.82, 1.0), 0.00, 0.60),
+    "mat_road_paint_yellow": ((0.86, 0.60, 0.04, 1.0), 0.00, 0.58),
+    "mat_road_paint_green": ((0.10, 0.46, 0.22, 1.0), 0.00, 0.62),
+    "mat_window_glass": ((0.10, 0.16, 0.20, 1.0), 0.30, 0.08),
+    "mat_corrugated_steel": ((0.46, 0.48, 0.50, 1.0), 0.70, 0.46),
+    "mat_bark_eucalyptus": ((0.55, 0.47, 0.38, 1.0), 0.00, 0.78),
+    "mat_foliage_eucalyptus": ((0.20, 0.32, 0.22, 1.0), 0.00, 0.72),
+    "mat_foliage_sage": ((0.36, 0.44, 0.30, 1.0), 0.00, 0.76),
+    "mat_dry_grass": ((0.58, 0.46, 0.22, 1.0), 0.00, 0.90),
+    "mat_wood_weathered": ((0.40, 0.31, 0.22, 1.0), 0.00, 0.80),
+    "mat_sign_brown": ((0.24, 0.14, 0.07, 1.0), 0.00, 0.60),
+    "mat_bridge_grey": ((0.50, 0.55, 0.58, 1.0), 0.55, 0.42),
+    "mat_galvanized": ((0.62, 0.64, 0.64, 1.0), 0.80, 0.40),
+    "mat_paint_victorian_blue": ((0.30, 0.46, 0.62, 1.0), 0.00, 0.56),
+    "mat_paint_victorian_lilac": ((0.56, 0.44, 0.62, 1.0), 0.00, 0.56),
+    "mat_paint_trim_white": ((0.90, 0.88, 0.82, 1.0), 0.00, 0.50),
+    "mat_paint_mission_pink": ((0.86, 0.30, 0.46, 1.0), 0.00, 0.58),
+    "mat_paint_mission_turquoise": ((0.08, 0.60, 0.62, 1.0), 0.00, 0.58),
+    "mat_paint_mission_marigold": ((0.94, 0.58, 0.08, 1.0), 0.00, 0.56),
+    "mat_awning_green": ((0.06, 0.36, 0.20, 1.0), 0.00, 0.70),
+    "mat_beacon_glow": ((0.10, 0.90, 0.70, 1.0), 0.00, 0.30),
+}
+
+# Optional emissive overrides (RGB, strength) for palette materials; only applied when listed.
+EMISSIVE_PALETTE: Dict[str, Tuple[Tuple[float, float, float], float]] = {
+    "mat_beacon_glow": ((0.10, 0.90, 0.70), 2.0),
 }
 
 
@@ -89,6 +122,13 @@ def get_material(name: str) -> bpy.types.Material:
         bsdf.inputs["Metallic"].default_value = metallic
     if "Roughness" in bsdf.inputs:
         bsdf.inputs["Roughness"].default_value = roughness
+    emissive = EMISSIVE_PALETTE.get(name)
+    if emissive is not None:
+        rgb, strength = emissive
+        if "Emission Color" in bsdf.inputs:
+            bsdf.inputs["Emission Color"].default_value = (rgb[0], rgb[1], rgb[2], 1.0)
+        if "Emission Strength" in bsdf.inputs:
+            bsdf.inputs["Emission Strength"].default_value = strength
     return mat
 
 
@@ -489,9 +529,14 @@ class MeshPartBuilder:
                 smooth=False,
             )
 
-    def build_object(self, triangulate: bool = False) -> bpy.types.Object:
-        """Finalize BMesh into a Blender Mesh object with UV0 and unit scale."""
-        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
+    def build_object(self, triangulate: bool = False, recalc_normals: bool = True) -> bpy.types.Object:
+        """Finalize BMesh into a Blender Mesh object with UV0 and unit scale.
+
+        Pass recalc_normals=False for open surfaces (road ribbons) whose winding is
+        authored explicitly, since recalc_face_normals is only reliable on closed volumes.
+        """
+        if recalc_normals:
+            bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
         if triangulate:
             bmesh.ops.triangulate(self.bm, faces=self.bm.faces)
         ensure_uv0(self.bm)

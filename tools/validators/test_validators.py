@@ -545,5 +545,73 @@ class AssetValidatorTests(unittest.TestCase):
             self.assertIn("SOCKET_MISSING", joined)
 
 
+class WorldAssetValidatorTests(unittest.TestCase):
+    """Bay Area world modules under Models/World/ route to the 3,500-tri / 30 m contract."""
+
+    def _write_repo(self, root: Path, world_glbs: dict) -> None:
+        models = root / "unity/Assets/Art/Models"
+        smoke = models / "Test/smoke_test_cube.glb"
+        smoke.parent.mkdir(parents=True, exist_ok=True)
+        smoke.write_bytes(_build_minimal_glb(num_tris=12, extra_node_names=["SOCKET_TEST_ANCHOR"]))
+        for rel, data in world_glbs.items():
+            path = models / "World" / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+
+    @staticmethod
+    def _world_messages(messages: Sequence[str]) -> List[str]:
+        return [m for m in messages if "Models/World/" in m]
+
+    def test_world_path_routing(self) -> None:
+        rel = "Models/World/SFMission/sf_muni_rail_road_20m.glb"
+        self.assertTrue(validate_assets.is_world_asset(rel))
+        self.assertEqual(validate_assets.infer_budget_for_asset(rel), validate_assets.BUDGET_WORLD)
+        self.assertEqual(validate_assets.BUDGET_WORLD, 3500)
+        self.assertEqual(validate_assets.infer_extent_for_asset(rel), 30.0)
+        self.assertFalse(validate_assets.is_world_asset("Models/Garage/garage_workbench.glb"))
+        self.assertEqual(validate_assets.infer_extent_for_asset("Models/Garage/garage_workbench.glb"), 25.0)
+
+    def test_valid_world_glb_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # 3,500 tris exactly and a 26 m span (over the 25 m part limit, under the 30 m world limit)
+            self._write_repo(
+                root,
+                {"WestOakland/wo_road_ok_20m.glb": _build_minimal_glb(num_tris=3500, bbox_max=(15.0, 2.0, 26.0))},
+            )
+            rep = validate_assets.run_validation(root)
+            self.assertEqual(self._world_messages(rep.errors), [])
+            passes = self._world_messages(rep.passes)
+            self.assertEqual(len(passes), 1)
+            self.assertIn("3500/3500 tris", passes[0])
+            self.assertIn("bbox < 30m", passes[0])
+
+    def test_over_budget_world_glb_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_repo(
+                root,
+                {"SFMission/sf_too_dense.glb": _build_minimal_glb(num_tris=3501, bbox_max=(8.0, 4.0, 8.0))},
+            )
+            rep = validate_assets.run_validation(root)
+            errors = self._world_messages(rep.errors)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("Models/World/SFMission/sf_too_dense.glb", errors[0])
+            self.assertIn("triangle count 3501 exceeds budget 3500", errors[0])
+            self.assertEqual(self._world_messages(rep.passes), [])
+
+    def test_world_glb_over_30m_and_missing_uv0_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_repo(
+                root,
+                {"BayCrossing/bc_huge.glb": _build_minimal_glb(num_tris=100, include_uv0=False, bbox_max=(2.0, 31.0, 2.0))},
+            )
+            rep = validate_assets.run_validation(root)
+            joined = "\n".join(self._world_messages(rep.errors))
+            self.assertIn("exceeds 30.0m limit", joined)
+            self.assertIn("TEXCOORD_0", joined)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -5,11 +5,14 @@ Enforces PROJECT_GUIDE.md §5.1-5.4 & ADR-005:
 - Parses glTF 2.0 binary header ('glTF', version 2, length) & JSON/BIN chunks.
 - Checks every .glb referenced in data/catalogs/parts.json (when meshAssetPath is set),
   plus unity/Assets/Art/Models/Test/smoke_test_cube.glb (SOCKET_TEST_ANCHOR),
-  plus Models/Garage/*.glb and any other .glb under unity/Assets/Art/Models/.
+  plus Models/Garage/*.glb, Bay Area world modules under Models/World/**/*.glb,
+  and any other .glb under unity/Assets/Art/Models/.
 - Verifies non-empty mesh primitives, triangle count <= category budget
-  (Small <= 1500, Major <= 6500, Garage <= 4000), TEXCOORD_0 (UV0) on every primitive,
-  unit node scale [1, 1, 1] (or default), metric bounding box < 25m per axis,
-  and 1:1 presence of all requiredSockets / BOLT_* nodes in the active glTF scene.
+  (Small <= 1500, Major <= 6500, Garage <= 4000, World module <= 3500),
+  TEXCOORD_0 (UV0) on every primitive, unit node scale [1, 1, 1] (or default),
+  metric bounding box < 25m per axis (< 30m for World modules: 20m road tiles,
+  warehouse blocks, bridge towers), and 1:1 presence of all requiredSockets /
+  BOLT_* nodes in the active glTF scene.
 """
 
 import argparse
@@ -29,7 +32,9 @@ CHUNK_TYPE_BIN = 0x004E4942   # "BIN\0"
 BUDGET_SMALL = 1500
 BUDGET_MAJOR = 6500
 BUDGET_GARAGE = 4000
+BUDGET_WORLD = 3500
 MAX_PART_EXTENT_METERS = 25.0
+MAX_WORLD_EXTENT_METERS = 30.0
 
 MAJOR_CATEGORIES = {
     "Frame",
@@ -532,6 +537,17 @@ def _extract_catalog_entries(raw: object) -> Optional[List[dict]]:
     return None
 
 
+def is_world_asset(rel_mesh_path: str) -> bool:
+    """True for Bay Area modular world kit assets under Models/World/."""
+    norm = rel_mesh_path.replace("\\", "/")
+    return "/World/" in norm or norm.startswith("Models/World/") or norm.startswith("World/")
+
+
+def infer_extent_for_asset(rel_mesh_path: str) -> float:
+    """Resolve the metric bounding-box limit (meters per axis) for an asset path."""
+    return MAX_WORLD_EXTENT_METERS if is_world_asset(rel_mesh_path) else MAX_PART_EXTENT_METERS
+
+
 def infer_budget_for_asset(rel_mesh_path: str, part: Optional[dict] = None) -> int:
     """Resolve triangle budget from explicit part metadata, category, or canonical path."""
     if isinstance(part, dict):
@@ -545,10 +561,14 @@ def infer_budget_for_asset(rel_mesh_path: str, part: Optional[dict] = None) -> i
             return BUDGET_MAJOR
         if asset_class == "garage":
             return BUDGET_GARAGE
+        if asset_class == "world":
+            return BUDGET_WORLD
 
     norm = rel_mesh_path.replace("\\", "/")
     if norm in CANONICAL_FALLBACK_SOCKETS:
         return CANONICAL_FALLBACK_SOCKETS[norm][0]
+    if is_world_asset(norm):
+        return BUDGET_WORLD
     if "/Garage/" in norm or norm.startswith("Models/Garage/"):
         return BUDGET_GARAGE
     if "/Test/" in norm or norm.startswith("Models/Test/"):
@@ -683,11 +703,13 @@ def run_validation(
         if not abs_path.is_file():
             report.error(f"{abs_path}: missing required .glb asset referenced by manifest/catalog")
             continue
+        max_extent = infer_extent_for_asset(rel_path)
         errs, tris, found_nodes = inspect_glb_contract(
             abs_path,
             rel_label=rel_path,
             max_tris=budget,
             required_nodes=sorted(sockets),
+            max_extent_m=max_extent,
         )
         if errs:
             for e in errs:
@@ -695,6 +717,7 @@ def run_validation(
         else:
             report.passed(
                 f"{rel_path}: valid .glb ({tris}/{budget} tris, UV0 ok, unit scale, "
+                f"bbox < {max_extent:g}m, "
                 f"{len(sockets)} required sockets verified, {len(found_nodes)} nodes)"
             )
 

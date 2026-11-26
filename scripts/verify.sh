@@ -14,7 +14,9 @@ Usage: ./scripts/verify.sh [--full] [--skip-missing-unity]
 Modes:
   (default)             Run Gate 1 (dotnet test) and Gate 2 (Python static validators).
   --full                Run Gates 1-2 strictly, plus Unity Gates 3-5 (EditMode, PlayMode,
-                        and macOS arm64 player build). Exits non-zero if Unity 6 LTS is not installed.
+                        macOS arm64 player build, and a headless player boot smoke that scans
+                        logs/player_boot.log for unhandled exceptions). Exits non-zero if Unity 6 LTS
+                        is not installed. PLAYER_BOOT_SMOKE_SECONDS (default 6) sets the boot window.
   --skip-missing-unity  Pass --skip-missing-unity to Gate 2 (only valid without --full).
 EOF
 }
@@ -122,6 +124,130 @@ if total == 0 or passed == 0:
     sys.exit(1)
 ' "$xml_path" "$label"
 }
+
+# >>> player_boot_smoke
+# Gate 5 boot smoke: launches a built macOS player headlessly (-batchmode -nographics, so no window server, display, or
+# GPU is required; stdin is /dev/null so it never grabs the terminal), lets it run for a bounded smoke window, then stops
+# it if it is still alive in its main loop. Fails on: missing/non-arm64 executable, an early non-zero exit (crash), a
+# missing/empty player log, or any unhandled exception / native crash marker in the log.
+# Usage: player_boot_smoke <App.app> <player_log_path> [smoke_seconds]
+PLAYER_BOOT_FATAL_REGEX='(^|[^A-Za-z0-9_])(NullReferenceException|MissingReferenceException|CatalogLoadException)([^A-Za-z0-9_]|$)|^[A-Za-z0-9_.`]*Exception(:|$)|Unhandled [Ee]xception|Crash!!!|Received signal SIG(SEGV|BUS|ABRT|ILL|FPE)|Segmentation fault'
+PLAYER_BOOT_PID=""
+
+player_boot_cleanup() {
+    if [[ -n "${PLAYER_BOOT_PID:-}" ]] && kill -0 "$PLAYER_BOOT_PID" 2>/dev/null; then
+        kill -KILL "$PLAYER_BOOT_PID" 2>/dev/null || true
+    fi
+    PLAYER_BOOT_PID=""
+}
+
+player_boot_smoke() {
+    local app="$1"
+    local log_path="$2"
+    local smoke_seconds="${3:-6}"
+    if [[ ! "$smoke_seconds" =~ ^[0-9]+$ ]] || (( smoke_seconds < 1 )); then
+        smoke_seconds=6
+    fi
+    local plist="$app/Contents/Info.plist"
+    local exe_name=""
+    local exe=""
+
+    if [[ -f "$plist" && -x /usr/libexec/PlistBuddy ]]; then
+        exe_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist" 2>/dev/null || true)"
+    fi
+    if [[ -z "$exe_name" && -d "$app/Contents/MacOS" ]]; then
+        exe_name="$(ls -1 "$app/Contents/MacOS" 2>/dev/null | head -n 1 || true)"
+    fi
+    exe="$app/Contents/MacOS/$exe_name"
+    if [[ -z "$exe_name" || ! -f "$exe" || ! -x "$exe" ]]; then
+        echo "[FAIL] Gate 5 boot smoke: player executable missing under $app/Contents/MacOS" >&2
+        return 1
+    fi
+
+    if command -v lipo >/dev/null 2>&1; then
+        local archs
+        archs="$(lipo -archs "$exe" 2>/dev/null || true)"
+        if [[ " $archs " != *" arm64 "* ]]; then
+            echo "[FAIL] Gate 5 boot smoke: $exe is not an arm64 binary (lipo archs: '${archs:-unknown}')" >&2
+            return 1
+        fi
+        echo "  Player executable: $exe (archs: $archs)"
+    fi
+
+    local stdout_log="${log_path%.log}.stdout.log"
+    rm -f "$log_path" "$stdout_log"
+    trap player_boot_cleanup EXIT
+    trap 'player_boot_cleanup; exit 130' INT TERM
+
+    "$exe" -batchmode -nographics -logFile "$log_path" </dev/null >"$stdout_log" 2>&1 &
+    PLAYER_BOOT_PID=$!
+    echo "  Launched player pid $PLAYER_BOOT_PID headless for a ${smoke_seconds}s boot smoke window (log: $log_path)"
+
+    local ticks=$((smoke_seconds * 4))
+    local waited=0
+    while (( waited < ticks )) && kill -0 "$PLAYER_BOOT_PID" 2>/dev/null; do
+        sleep 0.25
+        waited=$((waited + 1))
+    done
+
+    local stopped_by_gate=0
+    local boot_window_lines=""
+    if kill -0 "$PLAYER_BOOT_PID" 2>/dev/null; then
+        stopped_by_gate=1
+        # Only judge what the player logged during the boot window, not shutdown noise caused by our own SIGTERM.
+        boot_window_lines="$(awk 'END { print NR }' "$log_path" 2>/dev/null || true)"
+        kill -TERM "$PLAYER_BOOT_PID" 2>/dev/null || true
+        local grace=0
+        while (( grace < 20 )) && kill -0 "$PLAYER_BOOT_PID" 2>/dev/null; do
+            sleep 0.25
+            grace=$((grace + 1))
+        done
+        if kill -0 "$PLAYER_BOOT_PID" 2>/dev/null; then
+            kill -KILL "$PLAYER_BOOT_PID" 2>/dev/null || true
+        fi
+    fi
+
+    local status=0
+    wait "$PLAYER_BOOT_PID" 2>/dev/null || status=$?
+    PLAYER_BOOT_PID=""
+    trap - EXIT INT TERM
+
+    if [[ "$stopped_by_gate" -eq 1 ]]; then
+        echo "  Player still alive in main loop after ${smoke_seconds}s; stopped by gate (exit $status, expected)."
+    elif [[ "$status" -ne 0 ]]; then
+        echo "[FAIL] Gate 5 boot smoke: player exited early with code $status (crash on boot). See $log_path / $stdout_log" >&2
+        [[ -f "$log_path" ]] && tail -n 40 "$log_path" >&2
+        return 1
+    else
+        echo "  Player exited cleanly (code 0) within the smoke window."
+    fi
+
+    if [[ ! -s "$log_path" ]]; then
+        echo "[FAIL] Gate 5 boot smoke: player log $log_path is missing or empty; cannot prove a clean boot." >&2
+        return 1
+    fi
+
+    local scan_lines
+    scan_lines="$(awk 'END { print NR }' "$log_path")"
+    if [[ "$stopped_by_gate" -eq 1 && "$boot_window_lines" =~ ^[0-9]+$ ]]; then
+        scan_lines="$boot_window_lines"
+    fi
+    if [[ "$scan_lines" -eq 0 ]]; then
+        echo "[FAIL] Gate 5 boot smoke: player wrote nothing to $log_path during the ${smoke_seconds}s boot window." >&2
+        return 1
+    fi
+
+    local hits
+    hits="$(head -n "$scan_lines" "$log_path" | grep -nE "$PLAYER_BOOT_FATAL_REGEX" 2>/dev/null | head -n 20 || true)"
+    if [[ -n "$hits" ]]; then
+        echo "[FAIL] Gate 5 boot smoke: unhandled exception / crash markers in $log_path:" >&2
+        echo "$hits" >&2
+        return 1
+    fi
+
+    echo "  Boot log clean: scanned $scan_lines boot-window lines, zero unhandled exceptions or crash markers."
+}
+# <<< player_boot_smoke
 
 echo "=== Gate 1: Headless .NET Core & Data Tests ==="
 DOTNET_BIN="$(find_dotnet || true)"
@@ -251,6 +377,10 @@ if [[ ! -d "$BUILD_APP" ]]; then
     exit 1
 fi
 echo "  Built: $BUILD_APP ($(du -sh "$BUILD_APP" | cut -f1))"
+
+echo ""
+echo "=== Gate 5b: Headless Standalone Player Boot Smoke ==="
+player_boot_smoke "$BUILD_APP" "$LOG_DIR/player_boot.log" "${PLAYER_BOOT_SMOKE_SECONDS:-6}" || exit 1
 
 echo ""
 echo "[PASS] All 5 verification gates passed."

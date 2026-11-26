@@ -283,15 +283,41 @@ class MeshPartBuilder:
         mat: str = "mat_anodized_alu",
         smooth: bool = True,
     ) -> None:
+        """Deterministic lat/long UV sphere (closed volume, pole triangle fans).
+
+        Built vertex-by-vertex instead of via ``bmesh.ops.create_uvsphere``, which emits faces in a
+        run-to-run varying order and makes exported .glb index buffers non-reproducible. Topology
+        matches the old primitive (2*u pole tris + u*(v-2) quads), so triangle budgets are unchanged.
+        ``scale`` is applied first, then ``rotation`` (Euler XYZ), then ``location``.
+        """
         xform = _make_transform(location, rotation, scale)
-        res = bmesh.ops.create_uvsphere(
-            self.bm,
-            u_segments=max(6, u_segments),
-            v_segments=max(4, v_segments),
-            radius=radius,
-            matrix=xform,
-        )
-        self._tag_new_faces(res["verts"], mat, smooth)
+        bm = self.bm
+        u_n = max(6, u_segments)
+        v_n = max(4, v_segments)
+
+        def vert(theta: float, phi: float) -> bmesh.types.BMVert:
+            local = Vector((
+                radius * math.sin(theta) * math.cos(phi),
+                radius * math.sin(theta) * math.sin(phi),
+                radius * math.cos(theta),
+            ))
+            return bm.verts.new(xform @ local)
+
+        top = bm.verts.new(xform @ Vector((0.0, 0.0, radius)))
+        bottom = bm.verts.new(xform @ Vector((0.0, 0.0, -radius)))
+        rings = [
+            [vert(math.pi * r / v_n, 2.0 * math.pi * k / u_n) for k in range(u_n)]
+            for r in range(1, v_n)
+        ]
+        m_idx = self.mat_index(mat)
+        faces = []
+        for k in range(u_n):
+            k1 = (k + 1) % u_n
+            faces.append(bm.faces.new((top, rings[0][k], rings[0][k1])))
+            for r in range(len(rings) - 1):
+                faces.append(bm.faces.new((rings[r][k], rings[r + 1][k], rings[r + 1][k1], rings[r][k1])))
+            faces.append(bm.faces.new((bottom, rings[-1][k1], rings[-1][k])))
+        _set_faces_material_and_smooth(faces, m_idx, smooth)
 
     def add_tube_between(
         self,

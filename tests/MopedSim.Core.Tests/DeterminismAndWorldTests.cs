@@ -182,5 +182,27 @@ namespace MopedSim.Core.Tests
             Assert.Equal(0.05f, bike.Fuel.RustContamination, 5);
             Assert.Equal(0.05f, bike.Assembly.GetInstalledPart(SlotIds.FuelTank)!.RustContamination, 5);
         }
+
+        [Fact]
+        public void RestoreOdometer_AcceptsSavedDistance_RejectsInvalidValues_AndKeepsAccumulating()
+        {
+            BikeSimulation bike = TestFixtures.CreateStockBike();
+            Assert.True(bike.RestoreOdometer(1532250f));
+            Assert.Equal(1532250f, bike.OdometerMeters);
+            Assert.False(bike.RestoreOdometer(-1f));
+            Assert.False(bike.RestoreOdometer(float.NaN));
+            Assert.False(bike.RestoreOdometer(float.PositiveInfinity));
+            Assert.Equal(1532250f, bike.OdometerMeters);
+
+            var cruise = new RideInputState(0.8f, pedalAssist: true);
+            for (int i = 0; i < 600; i++)
+            {
+                bike.Step(0.02f, in cruise, new SeededSimRandom(3u));
+            }
+
+            Assert.True(bike.OdometerMeters > 1532250f, "Riding keeps adding distance on top of the restored odometer.");
+            Assert.True(bike.RestoreOdometer(0f));
+            Assert.Equal(0f, bike.OdometerMeters);
+        }
 }
 }

@@ -295,6 +295,77 @@ namespace MopedSim.Core.Tests
             Assert.False(fast.IsPackSurvivalBonusEarned);
         }
 
+        private static float ExpectedGap(RallyPackSimulator sim)
+        {
+            float[] active = sim.Riders.Where(r => !r.IsDnf).Select(r => r.ProgressMeters).OrderBy(p => p).ToArray();
+            if (active.Length == 0)
+            {
+                return 0f;
+            }
+            int n = active.Length;
+            float median = (n & 1) == 1 ? active[n / 2] : 0.5f * (active[n / 2 - 1] + active[n / 2]);
+            return Math.Max(0f, median - sim.PlayerProgressMeters);
+        }
+
+        [Theory]
+        [InlineData(1, 0f)]
+        [InlineData(2, 0f)]
+        [InlineData(3, 0f)]
+        [InlineData(4, 0f)]
+        [InlineData(7, 0f)]
+        [InlineData(8, 0f)]
+        [InlineData(7, 30f)]
+        [InlineData(8, 30f)]
+        public void PackGapMedian_MatchesSortedReference_ForOddEvenCountsAndDnfs(int aiRiders, float breakdownPerMinute)
+        {
+            var config = new RallyPackConfig { AiRiderCount = aiRiders, BreakdownChancePerMinute = breakdownPerMinute };
+            var sim = new RallyPackSimulator(RallyJob(), new SeededSimRandom(31u + (uint)aiRiders), config);
+            var activeCountsSeen = new HashSet<int>();
+            float player = 0f;
+            for (int tick = 0; tick < 600 && !sim.PlayerFinished; tick++)
+            {
+                player += 4f * 0.25f;
+                sim.Step(0.25f, player, false);
+                activeCountsSeen.Add(sim.Riders.Count(r => !r.IsDnf));
+                Assert.Equal(ExpectedGap(sim), sim.GapBehindPackMeters, 4);
+            }
+
+            if (breakdownPerMinute > 0f)
+            {
+                // DNFs shrink the active field through both odd and even counts while parity holds.
+                Assert.Contains(sim.Riders, r => r.IsDnf);
+                Assert.Contains(activeCountsSeen, c => (c & 1) == 0);
+                Assert.Contains(activeCountsSeen, c => (c & 1) == 1);
+            }
+            else
+            {
+                Assert.All(sim.Riders, r => Assert.False(r.IsDnf));
+            }
+        }
+
+        [Fact]
+        public void InsertionSort_IsInPlaceAscending_AndOnlyTouchesPrefix()
+        {
+            var rng = new SeededSimRandom(5u);
+            for (int n = 0; n <= 8; n++)
+            {
+                var values = new float[10];
+                for (int i = 0; i < values.Length; i++)
+                {
+                    values[i] = (float)(rng.NextDouble() * 1000.0 - 100.0);
+                }
+                float[] expectedPrefix = values.Take(n).OrderBy(v => v).ToArray();
+                float[] untouchedTail = values.Skip(n).ToArray();
+                RallyPackSimulator.InsertionSort(values, n);
+                Assert.Equal(expectedPrefix, values.Take(n).ToArray());
+                Assert.Equal(untouchedTail, values.Skip(n).ToArray());
+            }
+
+            var dupes = new[] { 3f, 1f, 3f, 2f, 1f };
+            RallyPackSimulator.InsertionSort(dupes, dupes.Length);
+            Assert.Equal(new[] { 1f, 1f, 2f, 3f, 3f }, dupes);
+        }
+
         [Fact]
         public void RallyJob_ThroughSessionManager_RecordsPlacementAndSurvivalBonus()
         {

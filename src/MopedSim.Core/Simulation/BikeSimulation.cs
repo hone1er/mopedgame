@@ -508,6 +508,20 @@ namespace MopedSim.Core
         }
 
         /// <summary>
+        /// Restores the odometer from a save (meters). Negative, NaN, or infinite values are rejected (returns false, unchanged).
+        /// </summary>
+        public bool RestoreOdometer(float meters)
+        {
+            if (!(meters >= 0f) || float.IsInfinity(meters))
+            {
+                return false;
+            }
+
+            OdometerMeters = meters;
+            return true;
+        }
+
+        /// <summary>
         /// Refuels with <paramref name="premixRatio"/> as an oil fraction (use ThermalModel.PremixFromRatio for X:1).
         /// A non-negative rust value is stored on the installed tank part, which SyncSubsystemConfigFromAssembly reads every step.
         /// </summary>

@@ -329,7 +329,7 @@ namespace MopedSim.Core
                 GapBehindPackMeters = 0f;
                 return;
             }
-            Array.Sort(_medianScratch, 0, n);
+            InsertionSort(_medianScratch, n);
             float median = (n & 1) == 1 ? _medianScratch[n / 2] : 0.5f * (_medianScratch[n / 2 - 1] + _medianScratch[n / 2]);
             GapBehindPackMeters = SimMath.Max(0f, median - PlayerProgressMeters);
             if (GapBehindPackMeters > MaxGapBehindPackMeters)
@@ -339,6 +339,26 @@ namespace MopedSim.Core
             if (GapBehindPackMeters > Config.FallOffBackGapMeters)
             {
                 SecondsOffTheBack += dt;
+            }
+        }
+
+        /// <summary>
+        /// Allocation-free in-place ascending insertion sort over <paramref name="values"/>[0..<paramref name="count"/>).
+        /// The rally field is tiny (at most a handful of AI riders), so O(n^2) is cheaper than <c>Array.Sort</c>, which
+        /// can allocate a comparer under Unity Mono during an active rally tick.
+        /// </summary>
+        public static void InsertionSort(float[] values, int count)
+        {
+            for (int i = 1; i < count; i++)
+            {
+                float key = values[i];
+                int j = i - 1;
+                while (j >= 0 && values[j] > key)
+                {
+                    values[j + 1] = values[j];
+                    j--;
+                }
+                values[j + 1] = key;
             }
         }
 

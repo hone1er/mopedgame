@@ -1,3 +1,4 @@
+using System;
 using MopedSim.Core;
 using UnityEngine;
 using UnityEngine.UI;
@@ -62,9 +63,11 @@ namespace MopedSim.UI
         [SerializeField] private Text _placementText;
         [SerializeField] private Text _fieldSizeText;
         [SerializeField] private Text _statusText;
+        [SerializeField] private Text _waypointLabel;
         [SerializeField] private GameObject _rewardBanner;
         [SerializeField] private Image _integrityFill;
 
+        private readonly char[] _waypointBuffer = new char[128];
         private string _title;
         private string _status;
         private int _clock = -1;
@@ -78,6 +81,12 @@ namespace MopedSim.UI
         private int _banner = -1;
         private int _renderCount;
         private int _textWriteCount;
+        private string _waypointCheckpointLabel;
+        private float _waypointDistanceMeters;
+        private float _waypointBearingDegrees;
+        private int _waypointDistanceRounded = int.MinValue;
+        private int _waypointBearingRounded = int.MinValue;
+        private string _waypointFormatted = string.Empty;
 
         public string DisplayedTitle { get { return _title ?? string.Empty; } }
         public string DisplayedStatus { get { return _status ?? string.Empty; } }
@@ -94,6 +103,72 @@ namespace MopedSim.UI
 
         /// <summary>Number of Text / GameObject writes performed (unchanged frames add none).</summary>
         public int TextWriteCount { get { return _textWriteCount; } }
+
+        /// <summary>Last checkpoint label supplied to <see cref="RenderWaypoint"/>.</summary>
+        public string DisplayedWaypointLabel { get { return _waypointCheckpointLabel ?? string.Empty; } }
+
+        /// <summary>Last distance in meters supplied to <see cref="RenderWaypoint"/>.</summary>
+        public float DisplayedWaypointDistanceMeters { get { return _waypointDistanceMeters; } }
+
+        /// <summary>Last bearing in degrees supplied to <see cref="RenderWaypoint"/>.</summary>
+        public float DisplayedWaypointBearingDegrees { get { return _waypointBearingDegrees; } }
+
+        /// <summary>Assigns the optional waypoint Text label at runtime.</summary>
+        public void ConfigureWaypointLabel(Text label)
+        {
+            _waypointLabel = label;
+            if (_waypointLabel != null && !string.IsNullOrEmpty(_waypointFormatted))
+            {
+                SetText(_waypointLabel, _waypointFormatted);
+            }
+        }
+
+        /// <summary>
+        /// Renders the active checkpoint waypoint readout. Steady-state calls with unchanged label and rounded
+        /// distance/bearing perform zero Text writes and allocate zero bytes of GC memory.
+        /// </summary>
+        public void RenderWaypoint(string checkpointLabel, float distanceMeters, float bearingDegrees)
+        {
+            string safeLabel = checkpointLabel ?? string.Empty;
+            float safeDist = (float.IsNaN(distanceMeters) || float.IsInfinity(distanceMeters) || distanceMeters < 0f)
+                ? 0f
+                : distanceMeters;
+            float safeBearing = (float.IsNaN(bearingDegrees) || float.IsInfinity(bearingDegrees))
+                ? 0f
+                : bearingDegrees;
+
+            _waypointDistanceMeters = safeDist;
+            _waypointBearingDegrees = safeBearing;
+
+            int distRounded = Mathf.RoundToInt(safeDist);
+            int bearingRounded = Mathf.RoundToInt(safeBearing);
+
+            bool sameLabel = ReferenceEquals(safeLabel, _waypointCheckpointLabel)
+                || string.Equals(safeLabel, _waypointCheckpointLabel, StringComparison.Ordinal);
+            if (sameLabel && distRounded == _waypointDistanceRounded && bearingRounded == _waypointBearingRounded)
+            {
+                return;
+            }
+
+            _waypointCheckpointLabel = safeLabel;
+            _waypointDistanceRounded = distRounded;
+            _waypointBearingRounded = bearingRounded;
+
+            int len = 0;
+            if (safeLabel.Length > 0)
+            {
+                len = AppendString(_waypointBuffer, len, safeLabel);
+                len = AppendString(_waypointBuffer, len, " — ");
+            }
+
+            len = AppendInt(_waypointBuffer, len, distRounded);
+            len = AppendString(_waypointBuffer, len, " m (");
+            len = AppendInt(_waypointBuffer, len, bearingRounded);
+            len = AppendString(_waypointBuffer, len, "°)");
+
+            _waypointFormatted = new string(_waypointBuffer, 0, len);
+            SetText(_waypointLabel, _waypointFormatted);
+        }
 
         public static string FormatClock(int seconds)
         {
@@ -226,6 +301,67 @@ namespace MopedSim.UI
                 _textWriteCount++;
                 target.text = value;
             }
+        }
+
+        private static int AppendString(char[] buffer, int offset, string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return offset;
+            }
+
+            int max = buffer.Length;
+            for (int i = 0; i < value.Length && offset < max; i++)
+            {
+                buffer[offset++] = value[i];
+            }
+
+            return offset;
+        }
+
+        private static int AppendInt(char[] buffer, int offset, int value)
+        {
+            if (offset >= buffer.Length)
+            {
+                return offset;
+            }
+
+            long v = value;
+            if (v < 0)
+            {
+                buffer[offset++] = '-';
+                v = -v;
+            }
+
+            if (v == 0)
+            {
+                if (offset < buffer.Length)
+                {
+                    buffer[offset++] = '0';
+                }
+
+                return offset;
+            }
+
+            int start = offset;
+            while (v > 0 && offset < buffer.Length)
+            {
+                buffer[offset++] = (char)('0' + (v % 10));
+                v /= 10;
+            }
+
+            int left = start;
+            int right = offset - 1;
+            while (left < right)
+            {
+                char tmp = buffer[left];
+                buffer[left] = buffer[right];
+                buffer[right] = tmp;
+                left++;
+                right--;
+            }
+
+            return offset;
         }
     }
 }

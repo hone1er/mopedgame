@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MopedSim.Core;
 using MopedSim.Data;
 using UnityEngine;
 
@@ -73,6 +74,8 @@ namespace MopedSim.Garage
         [SerializeField, Range(0f, 1f)] private float _baseSmoothness = 0.80f;
 
         private readonly List<Renderer> _rendererScratch = new List<Renderer>(32);
+        private readonly HashSet<Transform> _mountedContainersScratch = new HashSet<Transform>();
+        private readonly Stack<Transform> _traversalScratch = new Stack<Transform>(32);
         private MaterialPropertyBlock _propertyBlock;
         private Color _currentBaseColor = new Color(0xC4 / 255f, 0x28 / 255f, 0x28 / 255f, 1f);
         private bool _subscribedToAssembler;
@@ -130,6 +133,23 @@ namespace MopedSim.Garage
         public BikeVisualAssembler Assembler
         {
             get { return _assembler; }
+        }
+
+        /// <summary>
+        /// Returns true only for paintable painted-body slots (Frame, FuelTank, FrontFender).
+        /// Mechanical, rubber, chrome, and control parts (wheels, tires, exhaust, cylinder head, carb, bars, etc.)
+        /// are never tinted by the paint booth.
+        /// </summary>
+        public static bool IsPaintableBodySlot(string slotId)
+        {
+            if (string.IsNullOrEmpty(slotId))
+            {
+                return false;
+            }
+
+            return string.Equals(slotId, SlotIds.Frame, StringComparison.Ordinal)
+                || string.Equals(slotId, SlotIds.FuelTank, StringComparison.Ordinal)
+                || string.Equals(slotId, SlotIds.FrontFender, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -370,17 +390,63 @@ namespace MopedSim.Garage
         }
 
         /// <summary>
-        /// Pushes the active paint finish into all Renderers under the bound hierarchy via one cached MaterialPropertyBlock.
+        /// Pushes the active paint finish into the bound assembler's paintable body slots (Frame, FuelTank, FrontFender),
+        /// or into all Renderers under the explicit renderer root when no assembler is bound.
         /// </summary>
         public int ApplyCurrentPaint()
         {
-            Transform target = ResolveTargetRoot();
-            if (target == null)
+            if (_assembler != null)
+            {
+                return ApplyToAssembler();
+            }
+
+            if (_rendererRoot != null)
+            {
+                return ApplyToHierarchy(_rendererRoot);
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Applies the active paint finish only to mounted paintable body slots on the bound assembler,
+        /// without tinting child mechanical slots attached to their SOCKET_* transforms.
+        /// </summary>
+        public int ApplyToAssembler()
+        {
+            if (_assembler == null)
             {
                 return 0;
             }
 
-            return ApplyPaintToHierarchy(target);
+            PopulateMountedContainersScratch();
+            IReadOnlyList<string> mountedSlotIds = _assembler.MountedSlotIds;
+            int updated = 0;
+            for (int i = 0; i < mountedSlotIds.Count; i++)
+            {
+                string slotId = mountedSlotIds[i];
+                if (!IsPaintableBodySlot(slotId))
+                {
+                    continue;
+                }
+
+                GameObject mounted;
+                if (_assembler.TryGetMountedPart(slotId, out mounted) && mounted != null)
+                {
+                    updated += ApplyPaintToSlotOwnRenderers(mounted.transform);
+                }
+            }
+
+            _mountedContainersScratch.Clear();
+            return updated;
+        }
+
+        /// <summary>
+        /// Pushes the active paint finish into all Renderers under <paramref name="root"/> via one cached MaterialPropertyBlock.
+        /// </summary>
+        public int ApplyToHierarchy(Transform root)
+        {
+            return ApplyPaintToHierarchy(root);
         }
 
         private int ApplyPaintToHierarchy(Transform hierarchyRoot)
@@ -390,11 +456,7 @@ namespace MopedSim.Garage
                 return 0;
             }
 
-            if (_propertyBlock == null)
-            {
-                _propertyBlock = new MaterialPropertyBlock();
-            }
-
+            EnsurePropertyBlock();
             Color effectiveColor = ComputeEffectiveColor(_currentBaseColor, _patinaLevel);
             float effectiveSmoothness = ComputeEffectiveSmoothness(_baseSmoothness, _patinaLevel);
 
@@ -410,20 +472,105 @@ namespace MopedSim.Garage
                     continue;
                 }
 
-                rend.GetPropertyBlock(_propertyBlock);
-                _propertyBlock.SetColor(BaseColorPropertyId, effectiveColor);
-                _propertyBlock.SetColor(ColorPropertyId, effectiveColor);
-                _propertyBlock.SetFloat(MetallicPropertyId, _metallicFlake);
-                _propertyBlock.SetFloat(SmoothnessPropertyId, effectiveSmoothness);
-                _propertyBlock.SetColor(GltfBaseColorFactorPropertyId, effectiveColor);
-                _propertyBlock.SetFloat(GltfMetallicFactorPropertyId, _metallicFlake);
-                _propertyBlock.SetFloat(GltfRoughnessFactorPropertyId, 1f - effectiveSmoothness);
-                rend.SetPropertyBlock(_propertyBlock);
+                ApplyPropertyBlockToRenderer(rend, effectiveColor, effectiveSmoothness);
                 updated++;
             }
 
             _rendererScratch.Clear();
             return updated;
+        }
+
+        private int ApplyPaintToSlotOwnRenderers(Transform slotRoot)
+        {
+            if (slotRoot == null)
+            {
+                return 0;
+            }
+
+            EnsurePropertyBlock();
+            Color effectiveColor = ComputeEffectiveColor(_currentBaseColor, _patinaLevel);
+            float effectiveSmoothness = ComputeEffectiveSmoothness(_baseSmoothness, _patinaLevel);
+
+            int updated = 0;
+            _traversalScratch.Clear();
+            _traversalScratch.Push(slotRoot);
+
+            while (_traversalScratch.Count > 0)
+            {
+                Transform current = _traversalScratch.Pop();
+                if (current == null)
+                {
+                    continue;
+                }
+
+                Renderer rend = current.GetComponent<Renderer>();
+                if (rend != null)
+                {
+                    ApplyPropertyBlockToRenderer(rend, effectiveColor, effectiveSmoothness);
+                    updated++;
+                }
+
+                int childCount = current.childCount;
+                for (int i = 0; i < childCount; i++)
+                {
+                    Transform child = current.GetChild(i);
+                    if (child == null)
+                    {
+                        continue;
+                    }
+
+                    // Do not descend into child mounted slots attached to this part's SOCKET_* transforms.
+                    if (child != slotRoot && _mountedContainersScratch.Contains(child))
+                    {
+                        continue;
+                    }
+
+                    _traversalScratch.Push(child);
+                }
+            }
+
+            _traversalScratch.Clear();
+            return updated;
+        }
+
+        private void PopulateMountedContainersScratch()
+        {
+            _mountedContainersScratch.Clear();
+            if (_assembler == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<string> mountedSlotIds = _assembler.MountedSlotIds;
+            for (int i = 0; i < mountedSlotIds.Count; i++)
+            {
+                GameObject mounted;
+                if (_assembler.TryGetMountedPart(mountedSlotIds[i], out mounted) && mounted != null)
+                {
+                    _mountedContainersScratch.Add(mounted.transform);
+                }
+            }
+        }
+
+        private void EnsurePropertyBlock()
+        {
+            if (_propertyBlock == null)
+            {
+                _propertyBlock = new MaterialPropertyBlock();
+            }
+        }
+
+        private void ApplyPropertyBlockToRenderer(Renderer rend, Color effectiveColor, float effectiveSmoothness)
+        {
+            rend.GetPropertyBlock(_propertyBlock);
+            _propertyBlock.SetColor(BaseColorPropertyId, effectiveColor);
+            _propertyBlock.SetColor(ColorPropertyId, effectiveColor);
+            _propertyBlock.SetFloat(MetallicPropertyId, _metallicFlake);
+            _propertyBlock.SetFloat(SmoothnessPropertyId, effectiveSmoothness);
+            _propertyBlock.SetColor(GltfBaseColorFactorPropertyId, effectiveColor);
+            _propertyBlock.SetFloat(GltfMetallicFactorPropertyId, _metallicFlake);
+            _propertyBlock.SetFloat(GltfRoughnessFactorPropertyId, 1f - effectiveSmoothness);
+            rend.SetPropertyBlock(_propertyBlock);
         }
 
         private Transform ResolveTargetRoot()
@@ -457,7 +604,7 @@ namespace MopedSim.Garage
 
         private void OnAssemblerPartMounted(string slotId)
         {
-            if (_assembler == null)
+            if (_assembler == null || !IsPaintableBodySlot(slotId))
             {
                 return;
             }
@@ -465,7 +612,9 @@ namespace MopedSim.Garage
             GameObject mounted;
             if (_assembler.TryGetMountedPart(slotId, out mounted) && mounted != null)
             {
-                ApplyPaintToHierarchy(mounted.transform);
+                PopulateMountedContainersScratch();
+                ApplyPaintToSlotOwnRenderers(mounted.transform);
+                _mountedContainersScratch.Clear();
             }
         }
 

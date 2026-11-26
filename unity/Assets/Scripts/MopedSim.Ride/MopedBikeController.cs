@@ -256,6 +256,36 @@ namespace MopedSim.Ride
             _decompressorInput = decompressor;
         }
 
+        /// <summary>
+        /// Places the moped upright at <paramref name="worldPosition"/> facing <paramref name="yawDeg"/>, zeroing rigid-body
+        /// velocities and clearing residual lean, steer, and wheel contact state. Zero GC allocations.
+        /// </summary>
+        public void ResetUprightAt(Vector3 worldPosition, float yawDeg)
+        {
+            EnsureInitialized();
+            Quaternion rot = Quaternion.Euler(0f, yawDeg, 0f);
+            transform.SetPositionAndRotation(worldPosition, rot);
+            if (_rb != null)
+            {
+                _rb.position = worldPosition;
+                _rb.rotation = rot;
+                if (!_rb.isKinematic)
+                {
+                    _rb.linearVelocity = Vector3.zero;
+                    _rb.angularVelocity = Vector3.zero;
+                }
+            }
+
+            _steerInput = 0f;
+            _lastLeanDeg = 0f;
+            _lastRailCrossingAngleDeg = 90f;
+            _lastRailLateralAccel = 0f;
+            SpeedMps = 0f;
+            ForwardSpeedMps = 0f;
+            _front = default(WheelState);
+            _rear = default(WheelState);
+        }
+
         private void FixedUpdate()
         {
             if (_autoStepInFixedUpdate)
@@ -554,7 +584,7 @@ namespace MopedSim.Ride
             // Yaw rate from lean (bicycle model) blended with low-speed handlebar yaw.
             float leanRad = currentLeanDeg * Mathf.Deg2Rad;
             float leanYaw = SpeedMps > 0.5f ? (9.81f * Mathf.Tan(-leanRad) / Mathf.Max(SpeedMps, 1.5f)) : 0f;
-            float lowSpeedYaw = -_steerInput * _lowSpeedSteerYawRateDegPerSec * Mathf.Deg2Rad * (1f - speedFactor);
+            float lowSpeedYaw = _steerInput * _lowSpeedSteerYawRateDegPerSec * Mathf.Deg2Rad * (1f - speedFactor);
             float desiredYawRate = Mathf.Clamp(leanYaw + lowSpeedYaw, -2.2f, 2.2f);
             if (forwardSpeed < 0f)
             {

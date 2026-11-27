@@ -157,7 +157,7 @@ namespace MopedSim.Tests.PlayMode
             Assert.IsTrue(app.SetDecalStyle("checker_stripe"));
             Assert.AreEqual(paintHex.ToUpperInvariant(), app.Customization.PaintHex.ToUpperInvariant());
             Assert.AreEqual(0.35f, app.Customization.PatinaLevel, 1e-4f);
-            AssertPaintOnRenderers(visual, app.PaintBooth.EffectiveColor);
+            AssertPaintOnRenderers(Object.FindAnyObjectByType<BikeVisualAssembler>(), app.PaintBooth.EffectiveColor);
 
             // F2 settings + F3 shop open and close through the hotkeys.
             yield return PressHotkey(input, false, true, false, false);
@@ -186,7 +186,7 @@ namespace MopedSim.Tests.PlayMode
             Assert.IsTrue(rideCamera.enabled);
             Assert.IsFalse(inspectionCamera.enabled);
             AssertHud(rideHud, true, wrenchHud, false, toolRoll, false, plugChart, false, jobBoard, true, "Ride");
-            AssertPaintOnRenderers(visual, app.PaintBooth.EffectiveColor);
+            AssertPaintOnRenderers(Object.FindAnyObjectByType<BikeVisualAssembler>(), app.PaintBooth.EffectiveColor);
 
             float odometerStart = bike.OdometerMeters;
             float chtStart = bike.LatestTelemetry.ChtCelsius;
@@ -360,22 +360,74 @@ namespace MopedSim.Tests.PlayMode
             }
         }
 
-        private static void AssertPaintOnRenderers(Transform visual, Color expected)
+        private static void AssertPaintOnRenderers(BikeVisualAssembler assembler, Color expected)
         {
-            MeshRenderer[] renderers = visual.GetComponentsInChildren<MeshRenderer>(true);
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            int checkedCount = 0;
-            for (int i = 0; i < renderers.Length; i++)
+            Assert.IsNotNull(assembler, "BikeVisualAssembler is required to verify paint.");
+            HashSet<Transform> containers = new HashSet<Transform>();
+            IReadOnlyList<string> slotIds = assembler.MountedSlotIds;
+            for (int i = 0; i < slotIds.Count; i++)
             {
-                renderers[i].GetPropertyBlock(block);
-                Color painted = block.GetColor(PaintBoothController.GltfBaseColorFactorPropertyId);
-                Assert.AreEqual(expected.r, painted.r, 1e-3f, renderers[i].name + " paint (r)");
-                Assert.AreEqual(expected.g, painted.g, 1e-3f, renderers[i].name + " paint (g)");
-                Assert.AreEqual(expected.b, painted.b, 1e-3f, renderers[i].name + " paint (b)");
-                checkedCount++;
+                GameObject mounted;
+                if (assembler.TryGetMountedPart(slotIds[i], out mounted) && mounted != null)
+                {
+                    containers.Add(mounted.transform);
+                }
             }
 
-            Assert.Greater(checkedCount, 0);
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            List<Material> materials = new List<Material>();
+            int paintedSubmeshes = 0;
+            for (int s = 0; s < slotIds.Count; s++)
+            {
+                GameObject mounted;
+                if (!assembler.TryGetMountedPart(slotIds[s], out mounted) || mounted == null)
+                {
+                    continue;
+                }
+
+                bool bodySlot = PaintBoothController.IsPaintableBodySlot(slotIds[s]);
+                Stack<Transform> stack = new Stack<Transform>();
+                stack.Push(mounted.transform);
+                while (stack.Count > 0)
+                {
+                    Transform current = stack.Pop();
+                    Renderer rend = current.GetComponent<Renderer>();
+                    if (rend != null)
+                    {
+                        rend.GetSharedMaterials(materials);
+                        for (int m = 0; m < materials.Count; m++)
+                        {
+                            string materialName = materials[m] != null ? materials[m].name : string.Empty;
+                            bool enamel = materialName.StartsWith(PaintBoothController.PaintableMaterialPrefix, System.StringComparison.Ordinal);
+                            rend.GetPropertyBlock(block, m);
+                            string label = slotIds[s] + "/" + rend.name + "[" + m + ":" + materialName + "]";
+                            if (bodySlot && enamel)
+                            {
+                                Color painted = block.GetColor(PaintBoothController.GltfBaseColorFactorPropertyId);
+                                Assert.AreEqual(expected.r, painted.r, 1e-3f, label + " paint (r)");
+                                Assert.AreEqual(expected.g, painted.g, 1e-3f, label + " paint (g)");
+                                Assert.AreEqual(expected.b, painted.b, 1e-3f, label + " paint (b)");
+                                paintedSubmeshes++;
+                            }
+                            else
+                            {
+                                Assert.IsTrue(block.isEmpty, label + " must not carry paint.");
+                            }
+                        }
+                    }
+
+                    for (int c = 0; c < current.childCount; c++)
+                    {
+                        Transform child = current.GetChild(c);
+                        if (!containers.Contains(child))
+                        {
+                            stack.Push(child);
+                        }
+                    }
+                }
+            }
+
+            Assert.Greater(paintedSubmeshes, 0, "At least one body-paint (mat_enamel_*) submesh must carry the paint colour.");
         }
 
         private static string Describe(List<InstalledPartSaveState> parts)

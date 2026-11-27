@@ -162,7 +162,7 @@ namespace MopedSim.Tests.EditMode
             Assert.IsTrue(_booth.SetPaint("e8b923", 0f, 0.42f));
 
             MaterialPropertyBlock readBack = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(readBack);
+            renderer.GetPropertyBlock(readBack, 0);
 
             Color expectedClean = PaintBoothController.ComputeEffectiveColor(_booth.CurrentBaseColor, 0f);
             Color appliedBase = readBack.GetColor(PaintBoothController.BaseColorPropertyId);
@@ -177,7 +177,7 @@ namespace MopedSim.Tests.EditMode
 
             // Increasing patina attenuates smoothness and weathers base color toward rust-oxide tint.
             Assert.IsTrue(_booth.SetPaint("#E8B923", 0.85f, 0.42f));
-            renderer.GetPropertyBlock(readBack);
+            renderer.GetPropertyBlock(readBack, 0);
             Color appliedWeathered = readBack.GetColor(PaintBoothController.BaseColorPropertyId);
             float appliedWeatheredSmoothness = readBack.GetFloat(PaintBoothController.SmoothnessPropertyId);
 
@@ -213,7 +213,7 @@ namespace MopedSim.Tests.EditMode
             Assert.IsTrue(_booth.ApplySwatch("bay_teal"));
 
             MaterialPropertyBlock readBack = new MaterialPropertyBlock();
-            frameRenderer.GetPropertyBlock(readBack);
+            frameRenderer.GetPropertyBlock(readBack, 0);
             AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
 
             // Mounting a new part after binding must automatically receive the active paint finish.
@@ -221,7 +221,7 @@ namespace MopedSim.Tests.EditMode
             tankRenderer.transform.SetParent(null, false);
             assembler.MountPartImmediate(SlotIds.FuelTank, "tank_stock", SlotIds.Frame, tankRenderer.gameObject);
 
-            tankRenderer.GetPropertyBlock(readBack);
+            tankRenderer.GetPropertyBlock(readBack, 0);
             AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
             Assert.AreSame(_sharedMaterial, tankRenderer.sharedMaterial);
         }
@@ -271,13 +271,13 @@ namespace MopedSim.Tests.EditMode
             Assert.IsTrue(_booth.ApplySwatch("bay_teal"));
 
             MaterialPropertyBlock readBack = new MaterialPropertyBlock();
-            frameRenderer.GetPropertyBlock(readBack);
+            frameRenderer.GetPropertyBlock(readBack, 0);
             AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
 
-            tankRenderer.GetPropertyBlock(readBack);
+            tankRenderer.GetPropertyBlock(readBack, 0);
             AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
 
-            fenderRenderer.GetPropertyBlock(readBack);
+            fenderRenderer.GetPropertyBlock(readBack, 0);
             AssertColorApprox(_booth.EffectiveColor, readBack.GetColor(PaintBoothController.BaseColorPropertyId));
 
             Assert.IsFalse(rearWheelRenderer.HasPropertyBlock(), "RearWheel must not receive frame paint tint.");
@@ -325,6 +325,56 @@ namespace MopedSim.Tests.EditMode
             Assert.Throws<ArgumentNullException>(delegate { _booth.ApplyToSave(null); });
         }
 
+        [Test]
+        public void MultiMaterialRenderer_PaintsOnlyEnamelSubmesh()
+        {
+            MeshRenderer renderer = CreateTempPaintedRenderer("TwoMaterialFrame");
+            Material chrome = new Material(_sharedMaterial);
+            chrome.name = "mat_chrome";
+            renderer.sharedMaterials = new[] { chrome, _sharedMaterial };
+
+            try
+            {
+                _booth.SetRendererRoot(renderer.transform);
+                Assert.IsTrue(_booth.ApplySwatch("bay_teal"));
+
+                MaterialPropertyBlock chromeBlock = new MaterialPropertyBlock();
+                MaterialPropertyBlock enamelBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(chromeBlock, 0);
+                renderer.GetPropertyBlock(enamelBlock, 1);
+
+                Assert.IsTrue(enamelBlock.GetColor(PaintBoothController.GltfBaseColorFactorPropertyId).a > 0.5f, "Enamel submesh must be painted.");
+                AssertColorApprox(_booth.EffectiveColor, enamelBlock.GetColor(PaintBoothController.BaseColorPropertyId));
+                Assert.IsTrue(chromeBlock.isEmpty, "Chrome submesh must keep its own colour (no property block).");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(chrome);
+            }
+        }
+
+        [Test]
+        public void ApplyToHierarchy_SkipsNonEnamelRenderers()
+        {
+            MeshRenderer enamel = CreateTempPaintedRenderer("EnamelPart");
+            MeshRenderer rubber = CreateTempPaintedRenderer("RubberPart");
+            Material rubberMaterial = new Material(_sharedMaterial);
+            rubberMaterial.name = "mat_rubber";
+            rubber.sharedMaterial = rubberMaterial;
+
+            try
+            {
+                int updated = _booth.ApplyToHierarchy(_root.transform);
+                Assert.AreEqual(1, updated);
+                Assert.IsTrue(enamel.HasPropertyBlock());
+                Assert.IsFalse(rubber.HasPropertyBlock(), "Non-enamel renderer must not receive paint.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rubberMaterial);
+            }
+        }
+
         private MeshRenderer CreateTempPaintedRenderer(string name)
         {
             if (_sharedMaterial == null)
@@ -342,6 +392,7 @@ namespace MopedSim.Tests.EditMode
 
                 Assert.IsNotNull(shader, "Expected at least one built-in or URP shader to be available in EditMode.");
                 _sharedMaterial = new Material(shader);
+                _sharedMaterial.name = "mat_enamel_red";
                 if (_sharedMaterial.HasProperty(PaintBoothController.BaseColorPropertyId))
                 {
                     _sharedMaterial.SetColor(PaintBoothController.BaseColorPropertyId, Color.white);

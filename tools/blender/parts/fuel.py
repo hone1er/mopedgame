@@ -114,7 +114,7 @@ def _build_carb(out_dir: str, variant: str) -> Dict[str, object]:
     elif variant == "sha_15":
         # Milano/Dellorto SHA-15 boxy body + side spring choke lever + wider 59mm rear filter collar
         mb.add_box(size=(0.034, 0.038, 0.044), location=(0.0, 0.034, -0.004), mat="mat_cast_alu")
-        mb.add_cylinder(radius=0.016, depth=0.010, segments=14, location=(0.0, 0.034, 0.024), mat="mat_enamel_red")
+        mb.add_cylinder(radius=0.016, depth=0.010, segments=14, location=(0.0, 0.034, 0.024), mat="mat_trim_red")
         mb.add_box(size=(0.036, 0.036, 0.026), location=(0.0, 0.034, -0.030), mat="mat_steel_dark")
         mb.add_cylinder(radius=0.003, depth=0.020, segments=8, location=(-0.020, 0.028, 0.010), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_brass")
         mb.add_box(size=(0.006, 0.016, 0.018), location=(-0.026, 0.030, 0.006), mat="mat_chrome")
@@ -252,15 +252,15 @@ def build_tank_stock(out_dir: str) -> Dict[str, object]:
     mb.add_profile_sweep(tank_pts, superellipse_profile(18, 2.5), scales=tank_wh, mat="mat_enamel_yellow")
     # Two-tone side stripes (Magnum II style) on both flanks
     for side in (-1.0, 1.0):
-        mb.add_box(size=(0.004, 0.230, 0.010), location=(side * 0.0575, -0.005, 0.002), mat="mat_enamel_black")
-        mb.add_box(size=(0.004, 0.200, 0.006), location=(side * 0.0570, -0.010, -0.012), mat="mat_enamel_stripe_green")
+        mb.add_box(size=(0.004, 0.230, 0.010), location=(side * 0.0575, -0.005, 0.002), mat="mat_trim_black")
+        mb.add_box(size=(0.004, 0.200, 0.006), location=(side * 0.0570, -0.010, -0.012), mat="mat_trim_stripe_green")
     # Chrome flip-up gas cap with rubber seal, front-top
     mb.add_cylinder(radius=0.020, depth=0.010, segments=16, location=(0.0, -0.120, 0.050), mat="mat_rubber")
     mb.add_cylinder(radius=0.022, depth=0.012, segments=16, location=(0.0, -0.120, 0.060), mat="mat_chrome")
     mb.add_box(size=(0.010, 0.016, 0.006), location=(0.0, -0.100, 0.064), mat="mat_chrome")
     # Brass petcock bung + lever underneath on the right
     mb.add_cylinder(radius=0.008, depth=0.022, segments=10, location=(-0.026, 0.080, -0.044), mat="mat_brass")
-    mb.add_box(size=(0.022, 0.006, 0.006), location=(-0.036, 0.080, -0.052), mat="mat_enamel_red")
+    mb.add_box(size=(0.022, 0.006, 0.006), location=(-0.036, 0.080, -0.052), mat="mat_trim_red")
 
     mb.build_object()
     add_socket("SOCKET_PETCOCK", location=(-0.026, 0.080, -0.056))

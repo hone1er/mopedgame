@@ -236,7 +236,7 @@ def build_frame_bramble_pa50(out_dir: str) -> Dict[str, object]:
     # White front cowl over the down section (Hobbit/Camino style legshield cover)
     cowl_pts = spine_pts[:5]
     cowl_wh = [(0.040, 0.044), (0.044, 0.048), (0.046, 0.050), (0.046, 0.050), (0.044, 0.048)]
-    mb.add_profile_sweep(cowl_pts, SPINE_PROFILE, scales=cowl_wh, mat="mat_enamel_white")
+    mb.add_profile_sweep(cowl_pts, SPINE_PROFILE, scales=cowl_wh, mat="mat_trim_white")
 
     # Rear frame: twin tubes from the top of the riser back over the wheel
     for side in (-1.0, 1.0):
@@ -250,7 +250,7 @@ def build_frame_bramble_pa50(out_dir: str) -> Dict[str, object]:
     body_wh = [(0.046, 0.090), (0.078, 0.104), (0.084, 0.106), (0.084, 0.102), (0.074, 0.084), (0.048, 0.058)]
     mb.add_profile_sweep(body_pts, SPINE_PROFILE, scales=body_wh, mat=paint)
     for side in (-1.0, 1.0):
-        mb.add_box(size=(0.004, 0.200, 0.090), location=(side * 0.085, 0.290, 0.545), mat="mat_enamel_white")
+        mb.add_box(size=(0.004, 0.200, 0.090), location=(side * 0.085, 0.290, 0.545), mat="mat_trim_white")
         mb.add_cylinder(radius=0.010, depth=0.006, segments=10, location=(side * 0.087, 0.400, 0.620),
                         rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_chrome")
 
@@ -275,7 +275,7 @@ def build_frame_targa_a35(out_dir: str) -> Dict[str, object]:
     """Puch Magnum II / Tomos Targa homage: black tube backbone, top tank, seat rails, side covers."""
     clear_scene()
     mb = MeshPartBuilder("frame_targa_a35")
-    frame = "mat_enamel_black"
+    frame = "mat_frame_black"
     accent = "mat_enamel_yellow"
 
     _add_head_tube(mb, frame, radius=0.026)
@@ -320,7 +320,7 @@ def build_frame_targa_a35(out_dir: str) -> Dict[str, object]:
         mb.add_profile_sweep(cover_pts, cover_profile, scales=cover_wh, mat=accent)
         mb.add_cylinder(radius=0.008, depth=0.010, segments=10, location=(side * 0.090, 0.300, 0.590),
                         rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_charcoal_abs")
-        mb.add_box(size=(0.004, 0.120, 0.012), location=(side * 0.089, 0.225, 0.540), mat="mat_enamel_stripe_green")
+        mb.add_box(size=(0.004, 0.120, 0.012), location=(side * 0.089, 0.225, 0.540), mat="mat_trim_stripe_green")
 
     _add_shock_mounts(mb, frame, from_z=0.632, from_half_x=0.062)
     tail = _add_rear_fender(mb, "mat_chrome", deg_from=-26.0, deg_to=104.0, half_width=0.046, crown=0.018)

@@ -51,6 +51,7 @@ namespace MopedSim.UI
         };
 
         [SerializeField] private Text _hintLabel;
+        [SerializeField] private GameObject _backdrop;
 
         private bool _hintsEnabled = true;
         private string _currentHint = string.Empty;
@@ -153,6 +154,11 @@ namespace MopedSim.UI
             if (_hintLabel != null)
             {
                 _hintLabel.text = hint;
+            }
+            if (_backdrop != null)
+            {
+                bool show = hint.Length > 0;
+                if (_backdrop.activeSelf != show) { _backdrop.SetActive(show); }
             }
         }
     }

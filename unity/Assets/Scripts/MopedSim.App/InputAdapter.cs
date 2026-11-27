@@ -25,7 +25,7 @@ namespace MopedSim.App
         /// <summary>F1 / Tab: toggle between the Garage workstand and riding.</summary>
         public readonly bool ToggleGarageRidePressed;
 
-        /// <summary>F2 / Escape: open or close the settings menu.</summary>
+        /// <summary>F2: open or close the settings menu.</summary>
         public readonly bool ToggleSettingsPressed;
 
         /// <summary>F3: open or close the parts catalog shop.</summary>
@@ -34,6 +34,8 @@ namespace MopedSim.App
         /// <summary>F4: cycle the paint booth's curated swatches on the bike.</summary>
         public readonly bool CyclePaintPressed;
 
+        /// <summary>Escape / gamepad Start: close the top-most panel, otherwise toggle the pause menu.</summary>
+        public readonly bool PausePressed;
         /// <summary>R / gamepad D-pad Down (both reserved session hotkeys): stand a fallen bike back up ("pick up bike").</summary>
         public readonly bool PickUpBikePressed;
 
@@ -52,7 +54,8 @@ namespace MopedSim.App
             bool toggleSettingsPressed = false,
             bool toggleShopPressed = false,
             bool cyclePaintPressed = false,
-            bool pickUpBikePressed = false)
+            bool pickUpBikePressed = false,
+            bool pausePressed = false)
         {
             Throttle = throttle;
             FrontBrake = frontBrake;
@@ -68,6 +71,7 @@ namespace MopedSim.App
             ToggleSettingsPressed = toggleSettingsPressed;
             ToggleShopPressed = toggleShopPressed;
             CyclePaintPressed = cyclePaintPressed;
+            PausePressed = pausePressed;
             PickUpBikePressed = pickUpBikePressed;
         }
     }
@@ -79,7 +83,7 @@ namespace MopedSim.App
     /// allocation-free. Arrow keys and Z remain fixed secondary bindings. Gamepad buttons come from <see cref="GameSettingsData.GamepadBindings"/>
     /// (cached <see cref="GamepadButton"/> values; steering stays on the left stick, Start stays the settings hotkey).
     /// While the Settings Controls section is capturing a rebind, <see cref="SampleInputs"/> consumes the next key/button press and returns neutral inputs.
-    /// Session hotkeys are fixed (not rebindable): F1/Tab Garage-Ride toggle, F2/Escape settings, F3 shop, F4 paint swatch.
+    /// Session hotkeys are fixed (not rebindable): F1/Tab Garage-Ride toggle, F2 settings, Escape/Start pause, F3 shop, F4 paint swatch.
     /// </summary>
     public sealed class InputAdapter : MonoBehaviour
     {
@@ -445,6 +449,7 @@ namespace MopedSim.App
             bool toggleSettings = false;
             bool toggleShop = false;
             bool cyclePaint = false;
+            bool pause = false;
             bool pickUpBike = false;
 
             Keyboard kb = Keyboard.current;
@@ -482,7 +487,8 @@ namespace MopedSim.App
                 toggleCamera = WasPressedThisFrame(kb, _toggleCameraKey);
                 interact = WasPressedThisFrame(kb, _interactKey);
                 toggleGarageRide = kb.f1Key.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
-                toggleSettings = kb.f2Key.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame;
+                toggleSettings = kb.f2Key.wasPressedThisFrame;
+                pause = kb.escapeKey.wasPressedThisFrame;
                 toggleShop = kb.f3Key.wasPressedThisFrame;
                 cyclePaint = kb.f4Key.wasPressedThisFrame;
                 pickUpBike = kb.rKey.wasPressedThisFrame;
@@ -507,7 +513,7 @@ namespace MopedSim.App
                 toggleCamera = toggleCamera || gp[_padToggleCamera].wasPressedThisFrame;
                 interact = interact || gp[_padInteract].wasPressedThisFrame;
                 toggleGarageRide = toggleGarageRide || gp.buttonNorth.wasPressedThisFrame;
-                toggleSettings = toggleSettings || gp.startButton.wasPressedThisFrame;
+                pause = pause || gp.startButton.wasPressedThisFrame;
                 pickUpBike = pickUpBike || gp.dpad.down.wasPressedThisFrame;
             }
 
@@ -526,7 +532,8 @@ namespace MopedSim.App
                 toggleSettings,
                 toggleShop,
                 cyclePaint,
-                pickUpBike);
+                pickUpBike,
+                pause);
         }
     }
 }

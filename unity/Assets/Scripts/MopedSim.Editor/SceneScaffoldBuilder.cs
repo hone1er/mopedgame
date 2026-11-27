@@ -238,41 +238,57 @@ namespace MopedSim.Editor
 
         // ------------------------------------------------------------------ Garage
 
+        /// <summary>Frame underside height above the frame origin (ground contact plane); all three frame archetypes share it.</summary>
+        private const float FrameUndersideY = 0.12f;
+        /// <summary>Fallback cradle pad height when the workstand model's SOCKET_BIKE_MOUNT cannot be resolved.</summary>
+        private const float FallbackCradlePadY = 0.26f;
+        /// <summary>The frames' SOCKET_CENTER_STAND sits 0.06 m behind the frame origin (+Y Blender = -Z Unity).</summary>
+        private const float CenterStandZ = -0.06f;
+        public const string GarageMaterialsFolder = "Assets/Art/Materials/Garage";
+
         private static void PopulateGarage(Scene scene)
         {
-            GameObject light = new GameObject("GarageWorkLight");
-            Light l = light.AddComponent<Light>();
-            l.type = LightType.Point;
-            l.range = 12f;
-            l.intensity = 2.2f;
-            light.transform.position = GarageOrigin + new Vector3(0f, 3.2f, 0f);
-
             GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "GarageFloor";
             floor.transform.position = GarageOrigin;
-            floor.transform.localScale = new Vector3(1.2f, 1f, 1.2f);
+            floor.transform.localScale = new Vector3(1.0f, 1f, 0.9f);
+            floor.GetComponent<Renderer>().sharedMaterial = GarageMaterial("Garage_Concrete", new Color(0.36f, 0.35f, 0.33f), 0.15f, Color.black);
 
             GameObject garageRoot = new GameObject("GarageRoot");
             garageRoot.transform.position = GarageOrigin;
+            BuildGarageRoom(garageRoot.transform);
 
             GameObject stand = new GameObject("WorkStand");
             stand.transform.SetParent(garageRoot.transform, false);
             GameObject bikeRoot = new GameObject("WorkStandBikeRoot");
             bikeRoot.transform.SetParent(stand.transform, false);
-            bikeRoot.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+
+            // Station models first: the stand's SOCKET_BIKE_MOUNT (cradle pad top) decides how high the bike sits.
+            Transform models = CreateChild(garageRoot.transform, "StationModels", Vector3.zero);
+            GameObject standModel = PlaceModel(models, GarageModelsFolder, "garage_workstand", new Vector3(0f, 0f, CenterStandZ), 0f);
+            float padY = FallbackCradlePadY;
+            Transform mountSocket = FindDeepChild(standModel.transform, "SOCKET_BIKE_MOUNT");
+            if (mountSocket != null)
+            {
+                padY = mountSocket.position.y - garageRoot.transform.position.y;
+            }
+
+            // Frame underside rests on the cradle pad, centre-stand socket directly above it; wheels hang just off the floor.
+            bikeRoot.transform.localPosition = new Vector3(0f, padY - FrameUndersideY, 0f);
+            Transform focus = CreateChild(bikeRoot.transform, "WorkStandFocus", new Vector3(0f, 0.42f, 0f));
             BikeVisualAssembler assembler = stand.AddComponent<BikeVisualAssembler>();
             assembler.AssemblyRoot = bikeRoot.transform;
 
             GameObject camGo = new GameObject("InspectionCamera");
             camGo.transform.SetParent(garageRoot.transform, false);
-            camGo.transform.localPosition = new Vector3(2.4f, 1.6f, -2.8f);
-            camGo.transform.localRotation = Quaternion.LookRotation(new Vector3(-2.4f, -1.05f, 2.8f));
+            camGo.transform.localPosition = new Vector3(-1.6f, 1.2f, 2.5f);
+            camGo.transform.localRotation = Quaternion.LookRotation(new Vector3(1.6f, -0.75f, -2.5f));
             Camera cam = camGo.AddComponent<Camera>();
             cam.enabled = false;
             GarageWorkstandController workstand = stand.AddComponent<GarageWorkstandController>();
             workstand.Assembler = assembler;
             SetObjectReference(workstand, "_inspectionCamera", cam);
-            SetObjectReference(workstand, "_orbitPivot", bikeRoot.transform);
+            SetObjectReference(workstand, "_orbitPivot", focus);
 
             PaintBoothController paintBooth = stand.AddComponent<PaintBoothController>();
             SetObjectReference(paintBooth, "_assembler", assembler);
@@ -286,13 +302,193 @@ namespace MopedSim.Editor
             stations.AddComponent<PremixStationController>();
             stations.AddComponent<CenterStandDynoController>();
 
-            // Real Blender garage station models (collider-free visuals); empty placeholders when a model is missing.
-            Transform models = CreateChild(garageRoot.transform, "StationModels", Vector3.zero);
-            PlaceModel(models, GarageModelsFolder, "garage_workstand", Vector3.zero, 0f);
-            PlaceModel(models, GarageModelsFolder, "garage_workbench", new Vector3(-2.6f, 0f, 1.8f), 90f);
-            PlaceModel(models, GarageModelsFolder, "garage_premix_can", new Vector3(-2.6f, 0.88f, 1.3f), 20f);
-            PlaceModel(models, GarageModelsFolder, "garage_dyno_roller", new Vector3(2.4f, 0f, 0.6f), 0f);
+            // Remaining Blender station models, arranged against the walls with clear floor around the bike.
+            PlaceModel(models, GarageModelsFolder, "garage_workbench", new Vector3(4.55f, 0f, -1.0f), -90f);
+            PlaceModel(models, GarageModelsFolder, "garage_premix_can", new Vector3(4.55f, 0.88f, -0.5f), 20f);
+            PlaceModel(models, GarageModelsFolder, "garage_dyno_roller", new Vector3(-3.9f, 0f, 0.8f), 0f);
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        // ------------------------------------------------------------------ Garage room dressing
+
+        private const float RoomHalfX = 5f;
+        private const float RoomHalfZ = 4.5f;
+        private const float RoomHeight = 3.4f;
+
+        private static void BuildGarageRoom(Transform garageRoot)
+        {
+            Transform room = CreateChild(garageRoot, "GarageRoom", Vector3.zero);
+            Material brick = GarageMaterial("Garage_Brick", new Color(0.50f, 0.27f, 0.20f), 0.1f, Color.black);
+            Material plaster = GarageMaterial("Garage_Plaster", new Color(0.78f, 0.72f, 0.60f), 0.1f, Color.black);
+            Material ceiling = GarageMaterial("Garage_Ceiling", new Color(0.55f, 0.50f, 0.43f), 0.05f, Color.black);
+            Material wood = GarageMaterial("Garage_Wood", new Color(0.40f, 0.26f, 0.15f), 0.2f, Color.black);
+            Material door = GarageMaterial("Garage_RollerDoor", new Color(0.55f, 0.58f, 0.58f), 0.45f, Color.black);
+            Material doorDark = GarageMaterial("Garage_RollerDoorSlat", new Color(0.30f, 0.32f, 0.33f), 0.4f, Color.black);
+            Material peg = GarageMaterial("Garage_Pegboard", new Color(0.62f, 0.46f, 0.28f), 0.1f, Color.black);
+            Material mat = GarageMaterial("Garage_RubberMat", new Color(0.11f, 0.11f, 0.12f), 0.1f, Color.black);
+            Material tool = GarageMaterial("Garage_ToolSteel", new Color(0.65f, 0.67f, 0.70f), 0.7f, Color.black);
+            Material red = GarageMaterial("Garage_CanRed", new Color(0.75f, 0.12f, 0.08f), 0.4f, Color.black);
+            Material lampGlow = GarageMaterial("Garage_LampGlow", new Color(1f, 0.85f, 0.55f), 0.2f, new Color(2.2f, 1.6f, 0.8f));
+
+            float wallT = 0.2f;
+            // Four walls: brick wainscot (lower 1.1 m) under plaster. Walls sit just outside the floor edge.
+            GarageWallPair(room, "BackWall", new Vector3(0f, 0f, -RoomHalfZ - wallT * 0.5f), new Vector3(RoomHalfX * 2f + wallT * 2f, 0f, wallT), brick, plaster);
+            GarageWallPair(room, "FrontWall", new Vector3(0f, 0f, RoomHalfZ + wallT * 0.5f), new Vector3(RoomHalfX * 2f + wallT * 2f, 0f, wallT), brick, plaster);
+            GarageWallPair(room, "LeftWall", new Vector3(-RoomHalfX - wallT * 0.5f, 0f, 0f), new Vector3(wallT, 0f, RoomHalfZ * 2f), brick, plaster);
+            GarageWallPair(room, "RightWall", new Vector3(RoomHalfX + wallT * 0.5f, 0f, 0f), new Vector3(wallT, 0f, RoomHalfZ * 2f), brick, plaster);
+            GarageBox(room, "Ceiling", new Vector3(0f, RoomHeight + 0.05f, 0f), new Vector3(RoomHalfX * 2f + 0.4f, 0.1f, RoomHalfZ * 2f + 0.4f), ceiling);
+            for (int i = -1; i <= 1; i++)
+            {
+                GarageBox(room, "CeilingBeam" + (i + 1), new Vector3(i * 3.2f, RoomHeight - 0.12f, 0f), new Vector3(0.22f, 0.24f, RoomHalfZ * 2f), wood);
+            }
+
+            // Workshop mat under the bike so the stand and tyres read against the floor.
+            GarageBox(room, "WorkshopMat", new Vector3(0f, 0.006f, 0f), new Vector3(3.4f, 0.012f, 2.4f), mat);
+
+            // Roller door in the back wall with slats and a header box.
+            float doorZ = -RoomHalfZ + 0.04f;
+            GarageBox(room, "RollerDoor", new Vector3(-0.8f, 1.2f, doorZ), new Vector3(2.8f, 2.4f, 0.06f), door);
+            for (int i = 0; i < 11; i++)
+            {
+                GarageBox(room, "DoorSlat" + i, new Vector3(-0.8f, 0.2f + i * 0.2f, doorZ + 0.04f), new Vector3(2.8f, 0.035f, 0.03f), doorDark);
+            }
+
+            GarageBox(room, "DoorHeader", new Vector3(-0.8f, 2.5f, doorZ + 0.08f), new Vector3(3.0f, 0.2f, 0.18f), doorDark);
+
+            // Pegboards with hanging tools on the back wall (right of the door) and on the left wall.
+            BuildPegboard(room, "PegboardBack", new Vector3(2.4f, 1.55f, -RoomHalfZ + 0.04f), 0f, peg, tool, red);
+            BuildPegboard(room, "PegboardLeft", new Vector3(-RoomHalfX + 0.04f, 1.55f, -2.2f), 90f, peg, tool, red);
+
+            // Shelf with oil cans on the back wall, far left.
+            GarageBox(room, "OilShelf", new Vector3(-3.9f, 1.0f, -RoomHalfZ + 0.2f), new Vector3(1.4f, 0.05f, 0.4f), wood);
+            for (int i = 0; i < 5; i++)
+            {
+                GameObject can = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                can.name = "OilCan" + i;
+                can.transform.SetParent(room, false);
+                can.transform.localPosition = new Vector3(-4.4f + i * 0.28f, 1.17f, -RoomHalfZ + 0.2f);
+                can.transform.localScale = new Vector3(0.14f, 0.12f, 0.14f);
+                can.GetComponent<Renderer>().sharedMaterial = i % 2 == 0 ? red : door;
+                UnityEngine.Object.DestroyImmediate(can.GetComponent<Collider>());
+            }
+
+            // Warm workshop lighting: three ceiling pendants plus a spot over the stand.
+            Color warm = new Color(1f, 0.78f, 0.5f);
+            Vector3[] lampPositions = { new Vector3(0f, RoomHeight - 0.5f, 0.2f), new Vector3(-3.2f, RoomHeight - 0.5f, -0.5f), new Vector3(3.2f, RoomHeight - 0.5f, -0.5f) };
+            for (int i = 0; i < lampPositions.Length; i++)
+            {
+                GameObject shade = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                shade.name = "PendantLamp" + i;
+                shade.transform.SetParent(room, false);
+                shade.transform.localPosition = lampPositions[i] + new Vector3(0f, 0.3f, 0f);
+                shade.transform.localScale = new Vector3(0.45f, 0.04f, 0.45f);
+                shade.GetComponent<Renderer>().sharedMaterial = lampGlow;
+                UnityEngine.Object.DestroyImmediate(shade.GetComponent<Collider>());
+
+                GameObject lightGo = new GameObject("GarageLight" + i);
+                lightGo.transform.SetParent(room, false);
+                lightGo.transform.localPosition = lampPositions[i];
+                Light point = lightGo.AddComponent<Light>();
+                point.type = LightType.Point;
+                point.color = warm;
+                point.range = i == 0 ? 9f : 8f;
+                point.intensity = i == 0 ? 6f : 4.5f;
+                point.shadows = LightShadows.None;
+            }
+
+            GameObject spotGo = new GameObject("GarageStandSpot");
+            spotGo.transform.SetParent(room, false);
+            spotGo.transform.localPosition = new Vector3(0.8f, 3.1f, 1.6f);
+            spotGo.transform.localRotation = Quaternion.LookRotation(new Vector3(-0.8f, -2.7f, -1.6f));
+            Light spot = spotGo.AddComponent<Light>();
+            spot.type = LightType.Spot;
+            spot.color = new Color(1f, 0.92f, 0.78f);
+            spot.range = 8f;
+            spot.spotAngle = 70f;
+            spot.intensity = 14f;
+            spot.shadows = LightShadows.None;
+        }
+
+        private static void BuildPegboard(Transform parent, string name, Vector3 center, float yawDeg, Material board, Material steel, Material accent)
+        {
+            Transform root = CreateChild(parent, name, center);
+            root.localRotation = Quaternion.Euler(0f, yawDeg, 0f);
+            GarageBox(root, "Board", Vector3.zero, new Vector3(1.6f, 1.0f, 0.04f), board);
+            for (int i = 0; i < 6; i++)
+            {
+                float x = -0.65f + i * 0.26f;
+                GarageBox(root, "Tool" + i, new Vector3(x, 0.12f, 0.04f), new Vector3(0.04f, 0.5f - (i % 3) * 0.08f, 0.03f), i % 2 == 0 ? steel : accent);
+                GarageBox(root, "ToolHead" + i, new Vector3(x, 0.38f - (i % 3) * 0.04f, 0.04f), new Vector3(0.12f, 0.06f, 0.03f), steel);
+            }
+        }
+
+        private static void GarageWallPair(Transform parent, string name, Vector3 center, Vector3 size, Material lower, Material upper)
+        {
+            float lowerH = 1.1f;
+            GarageBox(parent, name + "_Brick", new Vector3(center.x, lowerH * 0.5f, center.z), new Vector3(size.x, lowerH, size.z), lower);
+            GarageBox(parent, name + "_Plaster", new Vector3(center.x, lowerH + (RoomHeight - lowerH) * 0.5f, center.z), new Vector3(size.x, RoomHeight - lowerH, size.z), upper);
+        }
+
+        private static GameObject GarageBox(Transform parent, string name, Vector3 localPosition, Vector3 size, Material material)
+        {
+            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.name = name;
+            box.transform.SetParent(parent, false);
+            box.transform.localPosition = localPosition;
+            box.transform.localScale = size;
+            box.GetComponent<Renderer>().sharedMaterial = material;
+            UnityEngine.Object.DestroyImmediate(box.GetComponent<Collider>());
+            return box;
+        }
+
+        private static Transform FindDeepChild(Transform root, string name)
+        {
+            if (root.name == name)
+            {
+                return root;
+            }
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform found = FindDeepChild(root.GetChild(i), name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Loads or creates a persistent URP Lit material asset so the regenerated scene keeps its colors.</summary>
+        private static Material GarageMaterial(string name, Color color, float smoothness, Color emission)
+        {
+            string path = GarageMaterialsFolder + "/" + name + ".mat";
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                Directory.CreateDirectory(GarageMaterialsFolder);
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null)
+                {
+                    shader = Shader.Find("Standard");
+                }
+
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.color = color;
+            if (material.HasProperty("_BaseColor")) { material.SetColor("_BaseColor", color); }
+            if (material.HasProperty("_Smoothness")) { material.SetFloat("_Smoothness", smoothness); }
+            if (emission.maxColorComponent > 0f)
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", emission);
+            }
+
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         // ------------------------------------------------------------------ UI overlay
@@ -311,59 +507,17 @@ namespace MopedSim.Editor
             eventSystem.AddComponent<EventSystem>();
             eventSystem.AddComponent<InputSystemUIInputModule>();
 
-            RideHudView hud = CreatePanel(canvasGo.transform, "RideHud", new Vector2(0f, 0f), new Vector2(40f, 40f)).AddComponent<RideHudView>();
-            SetObjectReference(hud, "_speedText", CreateText(hud.transform, "Speed", new Vector2(0f, 0f), 48));
-            SetObjectReference(hud, "_rpmText", CreateText(hud.transform, "Rpm", new Vector2(0f, 60f), 28));
-            SetObjectReference(hud, "_chtText", CreateText(hud.transform, "Cht", new Vector2(0f, 100f), 28));
-            SetObjectReference(hud, "_afrText", CreateText(hud.transform, "Afr", new Vector2(0f, 140f), 28));
-            SetObjectReference(hud, "_fuelText", CreateText(hud.transform, "Fuel", new Vector2(0f, 180f), 24));
-            SetObjectReference(hud, "_gearText", CreateText(hud.transform, "Gear", new Vector2(220f, 0f), 36));
-            SetObjectReference(hud, "_staminaText", CreateText(hud.transform, "Stamina", new Vector2(220f, 60f), 24));
-            SetObjectReference(hud, "_statusText", CreateText(hud.transform, "Status", new Vector2(0f, 230f), 30));
-
-            DiagnosticHintsPresenter hints = CreatePanel(canvasGo.transform, "DiagnosticHints", new Vector2(0.5f, 1f), new Vector2(-400f, -80f)).AddComponent<DiagnosticHintsPresenter>();
-            SetObjectReference(hints, "_hintLabel", CreateText(hints.transform, "Hint", Vector2.zero, 24));
-
-            GarageWrenchHudView wrenchHud = CreatePanel(canvasGo.transform, "WrenchHud", new Vector2(1f, 0f), new Vector2(-460f, 40f)).AddComponent<GarageWrenchHudView>();
-            SetObjectReference(wrenchHud, "_fastenerLabel", CreateText(wrenchHud.transform, "Fastener", new Vector2(0f, 120f), 22));
-            SetObjectReference(wrenchHud, "_torqueText", CreateText(wrenchHud.transform, "Torque", new Vector2(0f, 80f), 28));
-            SetObjectReference(wrenchHud, "_zoneLabel", CreateText(wrenchHud.transform, "Zone", new Vector2(0f, 40f), 24));
-            SetObjectReference(wrenchHud, "_resultLabel", CreateText(wrenchHud.transform, "Result", new Vector2(0f, 0f), 18));
-            SetObjectReference(wrenchHud, "_torqueFill", CreateFill(wrenchHud.transform, "TorqueFill", new Vector2(0f, 160f)));
-
-            PlugChopChartView plugChart = CreatePanel(canvasGo.transform, "PlugChopChart", new Vector2(1f, 1f), new Vector2(-460f, -260f)).AddComponent<PlugChopChartView>();
-            SetObjectReference(plugChart, "_zoneLabel", CreateText(plugChart.transform, "ZoneLabel", new Vector2(0f, 60f), 24));
-            SetObjectReference(plugChart, "_summaryLabel", CreateText(plugChart.transform, "Summary", new Vector2(0f, 20f), 18));
-            SetObjectReference(plugChart, "_gapLabel", CreateText(plugChart.transform, "Gap", new Vector2(0f, -20f), 18));
-            SetObjectReference(plugChart, "_insulatorPreview", CreateFill(plugChart.transform, "InsulatorPreview", new Vector2(0f, 100f)));
-
-            ToolRollOverlayView toolRoll = CreatePanel(canvasGo.transform, "ToolRoll", new Vector2(0f, 1f), new Vector2(40f, -300f)).AddComponent<ToolRollOverlayView>();
-            SetObjectReference(toolRoll, "_slotsLabel", CreateText(toolRoll.transform, "Slots", new Vector2(0f, 200f), 24));
-            SetObjectReference(toolRoll, "_itemsList", CreateText(toolRoll.transform, "Items", new Vector2(0f, 0f), 18));
+            BuildRideHud(canvasGo.transform);
+            BuildDiagnosticHints(canvasGo.transform);
+            BuildWrenchHud(canvasGo.transform);
+            BuildPlugChart(canvasGo.transform);
+            BuildToolRoll(canvasGo.transform);
 
             PartsCatalogShopView shop = CreatePanel(canvasGo.transform, "PartsShop", new Vector2(0.5f, 0.5f), new Vector2(-300f, -200f)).AddComponent<PartsCatalogShopView>();
             SetObjectReference(shop, "_cashLabel", CreateText(shop.transform, "Cash", new Vector2(0f, 360f), 26));
             shop.gameObject.SetActive(false);
 
-            JobBoardHudView jobBoard = CreatePanel(canvasGo.transform, "JobBoardHud", new Vector2(1f, 1f), new Vector2(-460f, -560f)).AddComponent<JobBoardHudView>();
-            GameObject jobContent = new GameObject("Content", typeof(RectTransform));
-            jobContent.transform.SetParent(jobBoard.transform, false);
-            SetObjectReference(jobBoard, "_panelRoot", jobContent);
-            SetObjectReference(jobBoard, "_titleText", CreateText(jobContent.transform, "Title", new Vector2(0f, 220f), 24));
-            SetObjectReference(jobBoard, "_clockText", CreateText(jobContent.transform, "Clock", new Vector2(0f, 180f), 28));
-            SetObjectReference(jobBoard, "_limitText", CreateText(jobContent.transform, "Limit", new Vector2(160f, 180f), 20));
-            SetObjectReference(jobBoard, "_integrityText", CreateText(jobContent.transform, "CargoIntegrity", new Vector2(0f, 140f), 22));
-            SetObjectReference(jobBoard, "_integrityFill", CreateFill(jobContent.transform, "CargoIntegrityFill", new Vector2(0f, 120f)));
-            SetObjectReference(jobBoard, "_checkpointsReachedText", CreateText(jobContent.transform, "CheckpointsReached", new Vector2(0f, 80f), 22));
-            SetObjectReference(jobBoard, "_checkpointCountText", CreateText(jobContent.transform, "CheckpointCount", new Vector2(80f, 80f), 22));
-            SetObjectReference(jobBoard, "_placementText", CreateText(jobContent.transform, "RallyPlacement", new Vector2(0f, 40f), 22));
-            SetObjectReference(jobBoard, "_fieldSizeText", CreateText(jobContent.transform, "RallyFieldSize", new Vector2(80f, 40f), 22));
-            SetObjectReference(jobBoard, "_statusText", CreateText(jobContent.transform, "Status", new Vector2(0f, 0f), 22));
-            Text bannerText = CreateText(jobContent.transform, "RewardBanner", new Vector2(0f, -40f), 26);
-            bannerText.text = JobBoardHudView.RewardBannerText;
-            bannerText.gameObject.SetActive(false);
-            SetObjectReference(jobBoard, "_rewardBanner", bannerText.gameObject);
-            jobContent.SetActive(false);
+            BuildJobBoard(canvasGo.transform);
 
             SwapMeetView swapMeet = CreatePanel(canvasGo.transform, "SwapMeet", new Vector2(0.5f, 0.5f), new Vector2(-300f, -200f)).AddComponent<SwapMeetView>();
             SetObjectReference(swapMeet, "_offersLabel", CreateText(swapMeet.transform, "Offers", new Vector2(0f, 120f), 18));
@@ -372,32 +526,185 @@ namespace MopedSim.Editor
             SetObjectReference(swapMeet, "_resultLabel", CreateText(swapMeet.transform, "Result", new Vector2(0f, 0f), 18));
             swapMeet.gameObject.SetActive(false);
 
-            SettingsMenuView settings = CreatePanel(canvasGo.transform, "SettingsMenu", new Vector2(0.5f, 0.5f), new Vector2(-210f, -130f)).AddComponent<SettingsMenuView>();
-            SetObjectReference(settings, "_graphicsPresetLabel", CreateText(settings.transform, "GraphicsPreset", new Vector2(0f, 120f), 22));
-            SetObjectReference(settings, "_conflictStatusLabel", CreateText(settings.transform, "BindingConflict", new Vector2(0f, 80f), 18));
+            RectTransform settingsPanel = HudStyle.CreatePanel(canvasGo.transform, "SettingsMenu", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(460f, 170f), true);
+            SettingsMenuView settings = settingsPanel.gameObject.AddComponent<SettingsMenuView>();
+            HudLabel(settingsPanel, "Title", "SETTINGS", HudStyle.Padding, 10f, 432f, 30f, 24, HudStyle.Warn, TextAnchor.MiddleLeft);
+            HudLabel(settingsPanel, "GraphicsCaption", "Graphics preset", HudStyle.Padding, 54f, 180f, 28f, 18, HudStyle.TextDim, TextAnchor.MiddleLeft);
+            SetObjectReference(settings, "_graphicsPresetLabel", HudLabel(settingsPanel, "GraphicsPreset", string.Empty, 200f, 52f, 240f, 32f, 22, HudStyle.TextPrimary, TextAnchor.MiddleLeft));
+            SetObjectReference(settings, "_conflictStatusLabel", HudLabel(settingsPanel, "BindingConflict", string.Empty, HudStyle.Padding, 100f, 432f, 56f, 18, HudStyle.Bad, TextAnchor.UpperLeft));
             settings.gameObject.SetActive(false);
 
-            // Compact controls cheat sheet pinned to the top-center of the screen.
-            GameObject banner = new GameObject(ControlsBannerName, typeof(RectTransform));
-            banner.transform.SetParent(canvasGo.transform, false);
-            RectTransform bannerRt = (RectTransform)banner.transform;
-            bannerRt.anchorMin = new Vector2(0.5f, 1f);
-            bannerRt.anchorMax = new Vector2(0.5f, 1f);
-            bannerRt.pivot = new Vector2(0.5f, 1f);
-            bannerRt.anchoredPosition = new Vector2(0f, -12f);
-            bannerRt.sizeDelta = new Vector2(1500f, 40f);
-            Image bannerBack = banner.AddComponent<Image>();
-            bannerBack.color = new Color(0f, 0f, 0f, 0.55f);
-            bannerBack.raycastTarget = false;
-            Text cheatSheet = CreateText(banner.transform, "Text", Vector2.zero, 22);
-            RectTransform textRt = (RectTransform)cheatSheet.transform;
-            textRt.anchorMin = Vector2.zero;
-            textRt.anchorMax = Vector2.one;
-            textRt.sizeDelta = Vector2.zero;
-            cheatSheet.alignment = TextAnchor.MiddleCenter;
-            cheatSheet.raycastTarget = false;
-            cheatSheet.text = ControlsBannerText;
+            BuildControlsBanner(canvasGo.transform);
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        // ------------------------------------------------------------------ HUD builders (HudStyle layout, 1920x1080 reference)
+
+        private static Text HudLabel(Transform parent, string name, string caption, float x, float y, float w, float h, int size, Color color, TextAnchor align)
+        {
+            Text t = HudStyle.CreateLabel(parent, name, x, y, w, h, size, color, align);
+            t.text = caption;
+            return t;
+        }
+
+        private static void BuildRideHud(Transform canvas)
+        {
+            RectTransform panel = HudStyle.CreatePanel(canvas, "RideHud", new Vector2(0f, 0f), new Vector2(HudStyle.Margin, HudStyle.Margin), new Vector2(500f, 284f), true);
+            RideHudView hud = panel.gameObject.AddComponent<RideHudView>();
+            Color dim = HudStyle.TextDim;
+            Color txt = HudStyle.TextPrimary;
+            SetObjectReference(hud, "_statusText", HudLabel(panel, "Status", string.Empty, 14f, 10f, 472f, 28f, 20, HudStyle.Warn, TextAnchor.MiddleLeft));
+            SetObjectReference(hud, "_speedText", HudLabel(panel, "Speed", "0", 10f, 38f, 160f, 92f, HudStyle.FontHero, txt, TextAnchor.MiddleRight));
+            HudLabel(panel, "SpeedUnit", "MPH", 178f, 96f, 80f, 26f, 20, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_gearText", HudLabel(panel, "Gear", "GEAR N", 290f, 46f, 196f, 28f, 22, txt, TextAnchor.MiddleLeft));
+            SetObjectReference(hud, "_variatorText", HudLabel(panel, "Variator", string.Empty, 290f, 76f, 196f, 24f, 17, dim, TextAnchor.MiddleLeft));
+            HudLabel(panel, "ThrottleCaption", "THROTTLE", 290f, 102f, 80f, 24f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_throttleText", HudLabel(panel, "Throttle", "0%", 372f, 100f, 60f, 26f, 20, txt, TextAnchor.MiddleRight));
+            SetObjectReference(hud, "_throttleFill", HudStyle.CreateBar(panel, "ThrottleFill", 290f, 128f, 196f, 8f, HudStyle.Cool));
+
+            HudLabel(panel, "RpmCaption", "RPM", 14f, 144f, 60f, 28f, 16, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_rpmText", HudLabel(panel, "Rpm", "0", 70f, 142f, 90f, 30f, HudStyle.FontValue, txt, TextAnchor.MiddleRight));
+            Image rpmBar = HudStyle.CreateBar(panel, "RpmFill", 172f, 150f, 314f, 14f, HudStyle.Cool);
+            HudStyle.CreateBarMarker(rpmBar, "RedlineTick", RideHudView.RedlineRpm / RideHudView.TachMaxRpm, HudStyle.Bad);
+            SetObjectReference(hud, "_rpmFill", rpmBar);
+
+            HudLabel(panel, "ChtCaption", "CHT", 14f, 180f, 60f, 28f, 16, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_chtText", HudLabel(panel, "Cht", "0C", 70f, 178f, 90f, 30f, HudStyle.FontValue, txt, TextAnchor.MiddleRight));
+            SetObjectReference(hud, "_chtFill", HudStyle.CreateBar(panel, "ChtFill", 172f, 186f, 314f, 14f, HudStyle.Good));
+
+            HudLabel(panel, "FuelCaption", "FUEL", 14f, 216f, 60f, 28f, 16, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_fuelText", HudLabel(panel, "Fuel", "0.0 L", 70f, 214f, 90f, 30f, HudStyle.FontValue, txt, TextAnchor.MiddleRight));
+            HudLabel(panel, "AfrCaption", "AFR", 190f, 216f, 44f, 28f, 16, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_afrText", HudLabel(panel, "Afr", "0.0 : 1", 232f, 214f, 124f, 30f, 22, txt, TextAnchor.MiddleLeft));
+            SetObjectReference(hud, "_mixtureText", HudLabel(panel, "Mixture", "OK", 360f, 214f, 126f, 30f, 20, HudStyle.Good, TextAnchor.MiddleLeft));
+
+            HudLabel(panel, "StaminaCaption", "RIDER", 14f, 250f, 70f, 24f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(hud, "_staminaText", HudLabel(panel, "Stamina", "100%", 84f, 248f, 76f, 26f, 20, txt, TextAnchor.MiddleRight));
+            SetObjectReference(hud, "_staminaFill", HudStyle.CreateBar(panel, "StaminaFill", 172f, 256f, 314f, 10f, HudStyle.Good));
+        }
+
+        private static void BuildDiagnosticHints(Transform canvas)
+        {
+            RectTransform root = HudStyle.CreatePanel(canvas, "DiagnosticHints", new Vector2(0.5f, 1f), new Vector2(0f, -HudStyle.SafeTop), new Vector2(1000f, 64f), false);
+            DiagnosticHintsPresenter hints = root.gameObject.AddComponent<DiagnosticHintsPresenter>();
+            RectTransform backdrop = HudStyle.CreatePanel(root, "Backdrop", new Vector2(0.5f, 1f), Vector2.zero, new Vector2(1000f, 64f), true);
+            Text label = HudLabel(backdrop, "Hint", string.Empty, HudStyle.Padding, 8f, 1000f - 2f * HudStyle.Padding, 48f, 22, HudStyle.Warn, TextAnchor.MiddleCenter);
+            SetObjectReference(hints, "_hintLabel", label);
+            SetObjectReference(hints, "_backdrop", backdrop.gameObject);
+            backdrop.gameObject.SetActive(false);
+        }
+
+        private static void BuildWrenchHud(Transform canvas)
+        {
+            RectTransform panel = HudStyle.CreatePanel(canvas, "WrenchHud", new Vector2(1f, 0f), new Vector2(-HudStyle.Margin, HudStyle.Margin), new Vector2(460f, 232f), true);
+            GarageWrenchHudView wrench = panel.gameObject.AddComponent<GarageWrenchHudView>();
+            float w = 460f - 2f * HudStyle.Padding;
+            HudLabel(panel, "Title", "TORQUE WRENCH", HudStyle.Padding, 10f, w, 22f, 16, HudStyle.TextDim, TextAnchor.MiddleLeft);
+            SetObjectReference(wrench, "_fastenerLabel", HudLabel(panel, "Fastener", GarageWrenchHudView.NoFastenerText, HudStyle.Padding, 34f, w, 28f, 20, HudStyle.TextPrimary, TextAnchor.MiddleLeft));
+            SetObjectReference(wrench, "_specText", HudLabel(panel, "Spec", string.Empty, HudStyle.Padding, 62f, w, 24f, 16, HudStyle.TextDim, TextAnchor.MiddleLeft));
+            Image bar = HudStyle.CreateBar(panel, "TorqueFill", HudStyle.Padding, 94f, w, 22f, new Color(0.6f, 0.6f, 0.6f, 1f));
+            SetObjectReference(wrench, "_torqueFill", bar);
+            GameObject band = new GameObject("SpecBand", typeof(RectTransform));
+            band.transform.SetParent(bar.transform.parent, false);
+            Image bandImg = band.AddComponent<Image>();
+            bandImg.color = new Color(0.30f, 0.86f, 0.42f, 0.38f);
+            bandImg.raycastTarget = false;
+            SetObjectReference(wrench, "_specBand", (RectTransform)band.transform);
+            band.SetActive(false);
+            HudLabel(panel, "AppliedCaption", "APPLIED", HudStyle.Padding, 126f, 80f, 34f, 15, HudStyle.TextDim, TextAnchor.MiddleLeft);
+            SetObjectReference(wrench, "_torqueText", HudLabel(panel, "Torque", "0.0 Nm", 92f, 124f, 170f, 38f, 28, HudStyle.TextPrimary, TextAnchor.MiddleLeft));
+            SetObjectReference(wrench, "_zoneLabel", HudLabel(panel, "Zone", string.Empty, 266f, 126f, 180f, 34f, 20, HudStyle.TextPrimary, TextAnchor.MiddleRight));
+            SetObjectReference(wrench, "_resultLabel", HudLabel(panel, "Result", string.Empty, HudStyle.Padding, 168f, w, 56f, 17, HudStyle.Warn, TextAnchor.UpperLeft));
+        }
+
+        private static void BuildPlugChart(Transform canvas)
+        {
+            RectTransform panel = HudStyle.CreatePanel(canvas, "PlugChopChart", new Vector2(1f, 1f), new Vector2(-HudStyle.Margin, -HudStyle.SafeTop), new Vector2(420f, 200f), true);
+            PlugChopChartView chart = panel.gameObject.AddComponent<PlugChopChartView>();
+            float w = 420f - 2f * HudStyle.Padding;
+            HudLabel(panel, "Title", "SPARK PLUG READING", HudStyle.Padding, 10f, w, 22f, 16, HudStyle.TextDim, TextAnchor.MiddleLeft);
+            SetObjectReference(chart, "_zoneLabel", HudLabel(panel, "ZoneLabel", string.Empty, HudStyle.Padding, 34f, w, 30f, 20, HudStyle.TextPrimary, TextAnchor.MiddleLeft));
+            SetObjectReference(chart, "_summaryLabel", HudLabel(panel, "Summary", string.Empty, HudStyle.Padding, 66f, w, 50f, 16, HudStyle.TextDim, TextAnchor.UpperLeft));
+            SetObjectReference(chart, "_gapLabel", HudLabel(panel, "Gap", string.Empty, HudStyle.Padding, 120f, w, 26f, 16, HudStyle.TextDim, TextAnchor.MiddleLeft));
+            GameObject insulator = new GameObject("InsulatorPreview", typeof(RectTransform));
+            insulator.transform.SetParent(panel, false);
+            RectTransform irt = (RectTransform)insulator.transform;
+            irt.anchorMin = new Vector2(0f, 1f);
+            irt.anchorMax = new Vector2(0f, 1f);
+            irt.pivot = new Vector2(0f, 1f);
+            irt.anchoredPosition = new Vector2(HudStyle.Padding, -156f);
+            irt.sizeDelta = new Vector2(w, 26f);
+            Image iimg = insulator.AddComponent<Image>();
+            iimg.raycastTarget = false;
+            iimg.color = new Color(1f, 1f, 1f, 0.12f);
+            SetObjectReference(chart, "_insulatorPreview", iimg);
+        }
+
+        private static void BuildToolRoll(Transform canvas)
+        {
+            RectTransform panel = HudStyle.CreatePanel(canvas, "ToolRoll", new Vector2(0f, 1f), new Vector2(HudStyle.Margin, -HudStyle.SafeTop), new Vector2(340f, 250f), true);
+            ToolRollOverlayView roll = panel.gameObject.AddComponent<ToolRollOverlayView>();
+            float w = 340f - 2f * HudStyle.Padding;
+            SetObjectReference(roll, "_slotsLabel", HudLabel(panel, "Slots", "Tool roll 0/6", HudStyle.Padding, 10f, w, 30f, 24, HudStyle.Warn, TextAnchor.MiddleLeft));
+            SetObjectReference(roll, "_itemsList", HudLabel(panel, "Items", string.Empty, HudStyle.Padding, 46f, w, 190f, 19, HudStyle.TextPrimary, TextAnchor.UpperLeft));
+        }
+
+        private static void BuildJobBoard(Transform canvas)
+        {
+            RectTransform root = HudStyle.CreatePanel(canvas, "JobBoardHud", new Vector2(1f, 1f), new Vector2(-HudStyle.Margin, -HudStyle.SafeTop), new Vector2(400f, 300f), false);
+            JobBoardHudView board = root.gameObject.AddComponent<JobBoardHudView>();
+            RectTransform content = HudStyle.CreatePanel(root, "Content", new Vector2(1f, 1f), Vector2.zero, new Vector2(400f, 300f), true);
+            float p = HudStyle.Padding;
+            float w = 400f - 2f * p;
+            Color dim = HudStyle.TextDim;
+            Color txt = HudStyle.TextPrimary;
+            SetObjectReference(board, "_panelRoot", content.gameObject);
+            SetObjectReference(board, "_titleText", HudLabel(content, "Title", string.Empty, p, 10f, w, 28f, 22, txt, TextAnchor.MiddleLeft));
+            HudLabel(content, "ClockCaption", "TIME", p, 44f, 50f, 30f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(board, "_clockText", HudLabel(content, "Clock", "0:00", 64f, 40f, 110f, 36f, 28, txt, TextAnchor.MiddleLeft));
+            HudLabel(content, "LimitCaption", "LIMIT", 190f, 44f, 56f, 30f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(board, "_limitText", HudLabel(content, "Limit", "0:00", 250f, 42f, 130f, 32f, 22, dim, TextAnchor.MiddleLeft));
+            HudLabel(content, "CargoCaption", "CARGO", p, 84f, 70f, 26f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(board, "_integrityText", HudLabel(content, "CargoIntegrity", "100%", 90f, 82f, 70f, 28f, 20, txt, TextAnchor.MiddleLeft));
+            SetObjectReference(board, "_integrityFill", HudStyle.CreateBar(content, "CargoIntegrityFill", 170f, 92f, 216f, 10f, HudStyle.Good));
+            HudLabel(content, "CheckpointCaption", "CHECKPOINTS", p, 124f, 130f, 26f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(board, "_checkpointsReachedText", HudLabel(content, "CheckpointsReached", "0", 150f, 122f, 50f, 28f, 20, txt, TextAnchor.MiddleRight));
+            HudLabel(content, "CheckpointOf", "of", 204f, 124f, 26f, 26f, 15, dim, TextAnchor.MiddleCenter);
+            SetObjectReference(board, "_checkpointCountText", HudLabel(content, "CheckpointCount", "0", 232f, 122f, 50f, 28f, 20, txt, TextAnchor.MiddleLeft));
+            HudLabel(content, "PlaceCaption", "RALLY PLACE", p, 160f, 130f, 26f, 15, dim, TextAnchor.MiddleLeft);
+            SetObjectReference(board, "_placementText", HudLabel(content, "RallyPlacement", "0", 150f, 158f, 50f, 28f, 20, txt, TextAnchor.MiddleRight));
+            HudLabel(content, "PlaceOf", "of", 204f, 160f, 26f, 26f, 15, dim, TextAnchor.MiddleCenter);
+            SetObjectReference(board, "_fieldSizeText", HudLabel(content, "RallyFieldSize", "0", 232f, 158f, 50f, 28f, 20, txt, TextAnchor.MiddleLeft));
+            SetObjectReference(board, "_statusText", HudLabel(content, "Status", string.Empty, p, 198f, w, 30f, 20, HudStyle.Warn, TextAnchor.MiddleLeft));
+            Text bannerText = HudLabel(content, "RewardBanner", JobBoardHudView.RewardBannerText, p, 238f, w, 40f, 22, HudStyle.Good, TextAnchor.MiddleLeft);
+            bannerText.gameObject.SetActive(false);
+            SetObjectReference(board, "_rewardBanner", bannerText.gameObject);
+            content.gameObject.SetActive(false);
+        }
+
+        private static void BuildControlsBanner(Transform canvas)
+        {
+            GameObject banner = new GameObject(ControlsBannerName, typeof(RectTransform));
+            banner.transform.SetParent(canvas, false);
+            RectTransform bannerRt = (RectTransform)banner.transform;
+            bannerRt.anchorMin = new Vector2(0f, 1f);
+            bannerRt.anchorMax = new Vector2(1f, 1f);
+            bannerRt.pivot = new Vector2(0.5f, 1f);
+            bannerRt.anchoredPosition = new Vector2(0f, -HudStyle.Margin);
+            bannerRt.sizeDelta = new Vector2(-2f * HudStyle.Margin, HudStyle.BannerHeight);
+            Image back = banner.AddComponent<Image>();
+            back.color = HudStyle.PanelBackground;
+            back.raycastTarget = false;
+            Text label = HudStyle.CreateLabel(banner.transform, "Text", 0f, 0f, 0f, 0f, 18, HudStyle.TextPrimary, TextAnchor.MiddleCenter);
+            RectTransform lrt = (RectTransform)label.transform;
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = new Vector2(HudStyle.Padding, 0f);
+            lrt.offsetMax = new Vector2(-HudStyle.Padding, 0f);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.text = ControlsBannerText;
+            ControlsBannerView view = banner.AddComponent<ControlsBannerView>();
+            SetObjectReference(view, "_label", label);
         }
 
         // ------------------------------------------------------------------ Asset gallery (showcase, not a runtime scene)
@@ -963,23 +1270,6 @@ namespace MopedSim.Editor
             text.color = Color.white;
             text.text = string.Empty;
             return text;
-        }
-
-        private static Image CreateFill(Transform parent, string name, Vector2 anchoredPosition)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            RectTransform rt = (RectTransform)go.transform;
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.zero;
-            rt.pivot = Vector2.zero;
-            rt.anchoredPosition = anchoredPosition;
-            rt.sizeDelta = new Vector2(360f, 24f);
-            Image image = go.AddComponent<Image>();
-            image.type = Image.Type.Filled;
-            image.fillMethod = Image.FillMethod.Horizontal;
-            image.fillAmount = 0f;
-            return image;
         }
 
         private static void SetObjectReference(UnityEngine.Object target, string propertyName, UnityEngine.Object value)

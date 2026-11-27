@@ -21,6 +21,10 @@ namespace MopedSim.App
         public const string CommandLineFlag = "-autoplayCapture";
         /// <summary>Opt-in: accept a gig mid-ride and capture the objective guidance marker (10_gig_guidance.png).</summary>
         public const string GigFlag = "-autoplayGig";
+
+
+        /// <summary>Opt-in: keep the title screen, capture it + the archetype picker + the pause menu, then New Game with the default bike.</summary>
+        public const string TitleCommandLineFlag = "-autoplayTitle";
         private const float BootTimeoutSeconds = 60f;
         private const float RideSeconds = 5f;
         private const float SteerSeconds = 3f;
@@ -57,11 +61,14 @@ namespace MopedSim.App
         private readonly Report _report = new Report();
         private AppCompositionRoot _app;
         private MopedBikeController _ride;
+        private Vector3 _rideStartPos;
+        private float _rideStartYaw;
         private float _fpsMin = float.MaxValue;
         private float _fpsMax;
         private double _fpsSum;
         private int _fpsCount;
         private bool _measuring;
+        private bool _titleFailed;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
@@ -145,6 +152,11 @@ namespace MopedSim.App
             _measuring = true; // Exclude the one-off boot/stream-in hitch from fps stats.
             yield return Step("garage_closeups", GarageCloseupsRoutine);
             yield return Step("settings_and_shop", PanelsRoutine);
+            if (HasTitleFlag())
+            {
+                yield return Step("pause_menu", PauseRoutine);
+            }
+
             yield return Step("toggle_to_ride", ToRideRoutine);
             yield return Step("ride_throttle", RideStraightRoutine);
             yield return Step("steer_right_left", SteerRoutine);
@@ -231,11 +243,60 @@ namespace MopedSim.App
             _app.TryPackToolRollItem(ToolIds.SparePlug);
             _app.Input.SetTestOverride(default(FrameControlInputs));
             yield return Settle(2.0f);
+            if (HasTitleFlag())
+            {
+                yield return TitleRoutine(r);
+            }
+
             yield return Capture(r, "01_boot_garage");
-            r.passed = _app.Session.CurrentState == GameSessionState.Garage && _ride != null;
+            r.passed = _app.Session.CurrentState == GameSessionState.Garage && _ride != null && !_titleFailed;
             if (!r.passed)
             {
                 r.note = "Expected Garage state and a MopedBikeController.";
+            }
+        }
+
+        private static bool HasTitleFlag()
+        {
+            return Array.IndexOf(Environment.GetCommandLineArgs(), TitleCommandLineFlag) >= 0;
+        }
+
+        private IEnumerator TitleRoutine(StepRecord r)
+        {
+            SessionMenuController menus = _app.Menus;
+            if (menus == null || !menus.IsTitleOpen)
+            {
+                r.note = "Title screen is not open.";
+                _titleFailed = true;
+                yield break;
+            }
+
+            yield return Capture(r, "00_title");
+            menus.TitleView.ShowPicker();
+            yield return Settle(0.4f);
+            yield return Capture(r, "00_archetype_pick");
+            _app.StartNewGame(ArchetypeIds.MaxerE50);
+            yield return Settle(0.5f);
+            if (menus.IsTitleOpen)
+            {
+                r.note = "Title did not close after New Game.";
+                _titleFailed = true;
+            }
+        }
+
+        private IEnumerator PauseRoutine(StepRecord r)
+        {
+            SessionMenuController menus = _app.EnsureMenus();
+            menus.Pause();
+            yield return Settle(0.5f);
+            bool frozen = Mathf.Approximately(Time.timeScale, 0f) && menus.IsPauseOpen;
+            yield return Capture(r, "03_pause");
+            menus.Resume();
+            yield return Settle(0.3f);
+            r.passed = frozen && Mathf.Approximately(Time.timeScale, 1f) && !menus.IsPauseOpen;
+            if (!r.passed)
+            {
+                r.note = "frozen=" + frozen + " timeScaleAfter=" + Time.timeScale;
             }
         }
 
@@ -282,6 +343,8 @@ namespace MopedSim.App
             yield return PressHotkey(true, false, false);
             yield return Settle(1.0f);
             yield return Capture(r, "04_ride_start");
+            _rideStartPos = _ride.transform.position;
+            _rideStartYaw = _ride.transform.eulerAngles.y;
             r.passed = _app.Session.CurrentState == GameSessionState.Ride;
         }
 
@@ -356,8 +419,30 @@ namespace MopedSim.App
 
         private IEnumerator ChaseRoutine(StepRecord r)
         {
+            // Steering earlier can leave the road; return to the ride-start pose so the camera step is shot on the road.
+            if (_rideStartPos != Vector3.zero)
+            {
+                _ride.ResetUprightAt(_rideStartPos, _rideStartYaw);
+            }
+
             SetRide(1f, 0f);
             yield return RideFor(2f);
+            MopedCameraRig rig = FindAnyObjectByType<MopedCameraRig>();
+            if (rig != null)
+            {
+                MopedCameraRig.CameraMode original = rig.Mode;
+                rig.Mode = MopedCameraRig.CameraMode.Chase;
+                yield return RideFor(0.6f);
+                yield return Capture(r, "07_cam_chase");
+                rig.Mode = MopedCameraRig.CameraMode.CloseChase;
+                yield return RideFor(0.6f);
+                yield return Capture(r, "07_cam_close");
+                rig.Mode = MopedCameraRig.CameraMode.Handlebar;
+                yield return RideFor(0.6f);
+                yield return Capture(r, "07_cam_handlebar");
+                rig.Mode = original;
+            }
+
             yield return Capture(r, "07_chase_camera");
             r.passed = _ride.SpeedMps > 1f;
             if (!r.passed)

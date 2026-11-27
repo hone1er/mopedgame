@@ -1020,6 +1020,7 @@ namespace MopedSim.App
 
             ApplyAudioMix(settings.MasterVolume, settings.EngineVolume);
             ApplyDiagnosticHints(settings.DiagnosticHintsEnabled);
+            OnGraphicsPresetChanged(new GraphicsQualitySettings(settings.GraphicsPreset, settings.TargetFrameRate, settings.FogQualityScale));
         }
 
         private void ApplyAudioMix(float master, float engine)
@@ -1081,7 +1082,12 @@ namespace MopedSim.App
 
         private void OnGraphicsPresetChanged(GraphicsQualitySettings graphics)
         {
-            Application.targetFrameRate = graphics.TargetFrameRate;
+            GraphicsPresetTable.Apply(graphics);
+            BayAreaWeatherController weather = BayAreaWeatherController.Active;
+            if (weather != null)
+            {
+                weather.SetFogQualityScale(graphics.FogQualityScale);
+            }
         }
 
         // ---------------------------------------------------------------- Session flow

@@ -14,7 +14,8 @@ namespace MopedSim.UI
     {
         Low = 0,
         Medium = 1,
-        High = 2
+        High = 2,
+        Ultra = 3
     }
 
     /// <summary>
@@ -135,7 +136,7 @@ namespace MopedSim.UI
         public const float DefaultAmbienceVolume = 0.75f;
 
         public const GraphicsPreset DefaultGraphicsPreset = GraphicsPreset.Medium;
-        public const int MinTargetFrameRate = 60;
+        public const int MinTargetFrameRate = 30;
         public const int MaxTargetFrameRate = 120;
         public const int DefaultTargetFrameRate = 60;
 
@@ -198,7 +199,7 @@ namespace MopedSim.UI
             data.FoleyVolume = ClampFloat(data.FoleyVolume, 0f, 1f, DefaultFoleyVolume);
             data.AmbienceVolume = ClampFloat(data.AmbienceVolume, 0f, 1f, DefaultAmbienceVolume);
 
-            if (data.GraphicsPreset < GraphicsPreset.Low || data.GraphicsPreset > GraphicsPreset.High)
+            if (data.GraphicsPreset < GraphicsPreset.Low || data.GraphicsPreset > GraphicsPreset.Ultra)
             {
                 data.GraphicsPreset = DefaultGraphicsPreset;
             }

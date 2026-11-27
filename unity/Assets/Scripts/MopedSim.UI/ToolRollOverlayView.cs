@@ -201,13 +201,13 @@ namespace MopedSim.UI
 
             if (_slotsLabel != null)
             {
-                _slotsLabel.text = _packed.Count + " / " + _capacity;
+                _slotsLabel.text = (_panelRoot == null ? "Tool roll " + _packed.Count + "/" + _capacity : _packed.Count + " / " + _capacity);
             }
             if (_itemsList != null)
             {
                 List<string> names = new List<string>(_packed.Count);
-                for (int i = 0; i < _packed.Count; i++) { names.Add(GetFriendlyName(_packed[i])); }
-                _itemsList.text = string.Join("\n", names);
+                for (int i = 0; i < _packed.Count; i++) { names.Add("- " + GetFriendlyName(_packed[i])); }
+                _itemsList.text = _packed.Count == 0 ? "(empty - open the shop to buy tools)" : string.Join("\n", names);
             }
             RebuildRows();
         }

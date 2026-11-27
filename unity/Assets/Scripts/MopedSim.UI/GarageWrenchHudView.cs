@@ -20,6 +20,7 @@ namespace MopedSim.UI
     public sealed class GarageWrenchHudView : MonoBehaviour
     {
         private const int MaxTenths = 600;
+        public const string NoFastenerText = "No fastener selected - click a bolt";
         private const string LabelIdle = "";
         private const string LabelUnder = "UNDER-TORQUED";
         private const string LabelInSpec = "IN SPEC";
@@ -39,6 +40,8 @@ namespace MopedSim.UI
 
         [SerializeField] private Image _torqueFill;
         [SerializeField] private Text _fastenerLabel;
+        [SerializeField] private Text _specText;
+        [SerializeField] private RectTransform _specBand;
         [SerializeField] private Text _torqueText;
         [SerializeField] private Text _zoneLabel;
         [SerializeField] private Text _resultLabel;
@@ -56,6 +59,11 @@ namespace MopedSim.UI
         private TorqueGaugeZone _zone = TorqueGaugeZone.Idle;
         private bool _zoneApplied;
         private int _lastTenths = -1;
+
+        private void Awake()
+        {
+            HudStyle.PrepareFill(_torqueFill);
+        }
 
         /// <summary>True when the last ShowResult reported a stripped fastener.</summary>
         public bool LastResultStripped { get; private set; }
@@ -80,8 +88,13 @@ namespace MopedSim.UI
             _zoneApplied = false;
             if (_fastenerLabel != null)
             {
-                _fastenerLabel.text = _activeFastenerId + " (target " + _target.ToString("0.0") + " Nm)";
+                _fastenerLabel.text = "Fastener: " + _activeFastenerId;
             }
+            if (_specText != null)
+            {
+                _specText.text = "Spec " + _target.ToString("0.0") + " Nm  (+/- " + _tolerance.ToString("0.0") + ")  strips at " + _strip.ToString("0.0");
+            }
+            PositionSpecBand();
             if (_resultLabel != null) { _resultLabel.text = string.Empty; }
             SetAppliedTorque(0f);
         }
@@ -96,8 +109,29 @@ namespace MopedSim.UI
             _strip = 0f;
             _lastTenths = -1;
             _zoneApplied = false;
-            if (_fastenerLabel != null) { _fastenerLabel.text = string.Empty; }
+            if (_fastenerLabel != null) { _fastenerLabel.text = NoFastenerText; }
+            if (_specText != null) { _specText.text = string.Empty; }
+            PositionSpecBand();
             SetAppliedTorque(0f);
+        }
+
+        private void PositionSpecBand()
+        {
+            if (_specBand == null) { return; }
+            float denom = _strip * 1.1f;
+            if (!_active || denom <= 0.0001f)
+            {
+                _specBand.gameObject.SetActive(false);
+                return;
+            }
+
+            _specBand.gameObject.SetActive(true);
+            float lo = Mathf.Clamp01((_target - _tolerance) / denom);
+            float hi = Mathf.Clamp01((_target + _tolerance) / denom);
+            _specBand.anchorMin = new Vector2(lo, 0f);
+            _specBand.anchorMax = new Vector2(hi, 1f);
+            _specBand.offsetMin = Vector2.zero;
+            _specBand.offsetMax = Vector2.zero;
         }
 
         /// <summary>Per-frame preview of the pending pull torque. Zero allocations.</summary>

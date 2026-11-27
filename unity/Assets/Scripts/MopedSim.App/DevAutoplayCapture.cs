@@ -19,6 +19,8 @@ namespace MopedSim.App
     public sealed class DevAutoplayCapture : MonoBehaviour
     {
         public const string CommandLineFlag = "-autoplayCapture";
+        /// <summary>Opt-in: accept a gig mid-ride and capture the objective guidance marker (10_gig_guidance.png).</summary>
+        public const string GigFlag = "-autoplayGig";
         private const float BootTimeoutSeconds = 60f;
         private const float RideSeconds = 5f;
         private const float SteerSeconds = 2f;
@@ -147,6 +149,11 @@ namespace MopedSim.App
             yield return Step("ride_throttle", RideStraightRoutine);
             yield return Step("steer_right_left", SteerRoutine);
             yield return Step("chase_camera", ChaseRoutine);
+            if (HasFlag(GigFlag))
+            {
+                yield return Step("gig_guidance", GigGuidanceRoutine);
+            }
+
             yield return Step("breakdown_roadside_repair", BreakdownRoutine);
             yield return Step("back_to_garage", BackToGarageRoutine);
 
@@ -201,7 +208,7 @@ namespace MopedSim.App
             {
                 if (_app == null)
                 {
-                    _app = FindFirstObjectByType<AppCompositionRoot>();
+                    _app = FindAnyObjectByType<AppCompositionRoot>();
                 }
 
                 if (_app != null && _app.IsBootstrapped && _app.Zones != null && _app.Zones.IsZoneLoaded("Zone_WestOakland"))
@@ -218,7 +225,7 @@ namespace MopedSim.App
                 yield break;
             }
 
-            _ride = FindFirstObjectByType<MopedBikeController>();
+            _ride = FindAnyObjectByType<MopedBikeController>();
             // Pack the repair kit so the roadside repair step can succeed (same as the release-candidate PlayMode test).
             _app.TryPackToolRollItem(ToolIds.SparkPlugWrench);
             _app.TryPackToolRollItem(ToolIds.SparePlug);
@@ -234,7 +241,7 @@ namespace MopedSim.App
 
         private IEnumerator GarageCloseupsRoutine(StepRecord r)
         {
-            GarageWorkstandController stand = FindFirstObjectByType<GarageWorkstandController>();
+            GarageWorkstandController stand = FindAnyObjectByType<GarageWorkstandController>();
             if (stand == null)
             {
                 r.note = "No GarageWorkstandController.";
@@ -305,6 +312,46 @@ namespace MopedSim.App
                 r.note = "Bike fell/stopped while steering (lean " + _ride.LeanAngleDeg.ToString("F0", CultureInfo.InvariantCulture)
                     + " deg, speed " + _ride.SpeedMps.ToString("F1", CultureInfo.InvariantCulture) + " m/s).";
             }
+        }
+
+        private static bool HasFlag(string flag)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], flag, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerator GigGuidanceRoutine(StepRecord r)
+        {
+            bool accepted = false;
+            foreach (JobDefinition job in _app.Catalog.Jobs.Values)
+            {
+                if (_app.AcceptJob(job).Accepted)
+                {
+                    accepted = true;
+                    r.note = "Accepted " + job.Id;
+                    break;
+                }
+            }
+
+            if (!accepted)
+            {
+                r.note = "No catalog job could be accepted.";
+                yield break;
+            }
+
+            SetRide(0.4f, 0f);
+            yield return RideFor(1.5f);
+            yield return Capture(r, "10_gig_guidance");
+            r.passed = _app.Courier != null && _app.Courier.HasActiveJob;
+            _app.AbandonJob();
         }
 
         private IEnumerator ChaseRoutine(StepRecord r)

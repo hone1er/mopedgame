@@ -37,7 +37,7 @@ EXE="$(find "$EXE_DIR" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 rm -f "$OUT_DIR"/report.json "$OUT_DIR"/*.png
 echo "[capture] launching $EXE -> $OUT_DIR"
 "$EXE" -screen-fullscreen 0 -screen-width 1600 -screen-height 900 \
-    -autoplayCapture "$OUT_DIR" -logFile "$OUT_DIR/player.log" &
+    ${CAPTURE_EXTRA_ARGS:-} -autoplayCapture "$OUT_DIR" -logFile "$OUT_DIR/player.log" &
 PID=$!
 
 START=$SECONDS

@@ -96,6 +96,9 @@ namespace MopedSim.App
         private bool _persistSettings;
         private SwapMeetMarket _swapMarket;
         private AudioSource _engineAudioSource;
+        private ProceduralFoleyPlayer _foley;
+        private ProceduralAmbiencePlayer _ambience;
+        private float _lastAmbienceFog = -1f;
         private float _lastAppliedAirDensity = RideInputState.StandardAirDensity;
         private float _lastAppliedGrip = 1f;
         private Rigidbody _rideBody;
@@ -703,6 +706,7 @@ namespace MopedSim.App
             }
 
             _engineAudioSource = _audio != null ? _audio.GetComponent<AudioSource>() : null;
+            EnsureMixBusVoices();
             if (_settings == null)
             {
                 _settings = SettingsPreferencesStore.CreateDefaults();
@@ -722,6 +726,7 @@ namespace MopedSim.App
             ApplySettingsToSystems(_settings);
 
             _garageContext.AssemblyChanged += OnAssemblyChanged;
+            _garageContext.WrenchActionCompleted += OnFoleyWrenchCompleted;
             _rideBody = _ride != null ? _ride.GetComponent<Rigidbody>() : null;
             CaptureBikeVisualHome();
             _bootstrapped = true;
@@ -747,6 +752,11 @@ namespace MopedSim.App
             if (_workstand != null)
             {
                 _workstand.NodeSelected -= OnWorkstandNodeSelected;
+            }
+
+            if (_garageContext != null)
+            {
+                _garageContext.WrenchActionCompleted -= OnFoleyWrenchCompleted;
             }
 
             if (_wrench != null)
@@ -877,6 +887,16 @@ namespace MopedSim.App
             if (_audio != null)
             {
                 _audio.UpdateTelemetry(in _frameTelemetry);
+            }
+
+            if (_ambience != null)
+            {
+                float fog = _weather != null ? _weather.FogIntensity : 0f;
+                if (!Mathf.Approximately(fog, _lastAmbienceFog))
+                {
+                    _lastAmbienceFog = fog;
+                    _ambience.SetFogIntensity(fog);
+                }
             }
 
             if (_hints != null)
@@ -1018,17 +1038,46 @@ namespace MopedSim.App
                 _input.ApplyKeyBindings(settings);
             }
 
-            ApplyAudioMix(settings.MasterVolume, settings.EngineVolume);
+            ApplyAudioMix(settings.MasterVolume, settings.EngineVolume, settings.FoleyVolume, settings.AmbienceVolume);
             ApplyDiagnosticHints(settings.DiagnosticHintsEnabled);
             OnGraphicsPresetChanged(new GraphicsQualitySettings(settings.GraphicsPreset, settings.TargetFrameRate, settings.FogQualityScale));
         }
 
-        private void ApplyAudioMix(float master, float engine)
+        private void ApplyAudioMix(float master, float engine, float foley, float ambience)
         {
             AudioListener.volume = Mathf.Clamp01(master);
+            AudioMixBus.SetGain(AudioMixCategory.Engine, engine);
+            AudioMixBus.SetGain(AudioMixCategory.Foley, foley);
+            AudioMixBus.SetGain(AudioMixCategory.Ambience, ambience);
+        }
+
+        private void EnsureMixBusVoices()
+        {
             if (_engineAudioSource != null)
             {
-                _engineAudioSource.volume = Mathf.Clamp01(engine);
+                AudioMixBus.Register(_engineAudioSource, AudioMixCategory.Engine, 1f);
+            }
+
+            if (_foley == null)
+            {
+                GameObject go = new GameObject("FoleyBus");
+                go.transform.SetParent(transform, false);
+                _foley = go.AddComponent<ProceduralFoleyPlayer>();
+            }
+
+            if (_ambience == null)
+            {
+                GameObject go = new GameObject("AmbienceBus");
+                go.transform.SetParent(transform, false);
+                _ambience = go.AddComponent<ProceduralAmbiencePlayer>();
+            }
+        }
+
+        private void OnFoleyWrenchCompleted(WrenchActionResult result)
+        {
+            if (_foley != null)
+            {
+                _foley.PlayWrenchClick(result.Succeeded);
             }
         }
 
@@ -1069,7 +1118,7 @@ namespace MopedSim.App
 
         private void OnAudioMixChanged(AudioMixSettings mix)
         {
-            ApplyAudioMix(mix.MasterVolume, mix.EngineVolume);
+            ApplyAudioMix(mix.MasterVolume, mix.EngineVolume, mix.FoleyVolume, mix.AmbienceVolume);
         }
 
         private void OnKeyBindingsChanged(GameSettingsData settings)

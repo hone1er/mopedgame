@@ -36,6 +36,8 @@ namespace MopedSim.App
 
         /// <summary>Escape / gamepad Start: close the top-most panel, otherwise toggle the pause menu.</summary>
         public readonly bool PausePressed;
+        /// <summary>R / gamepad D-pad Down (both reserved session hotkeys): stand a fallen bike back up ("pick up bike").</summary>
+        public readonly bool PickUpBikePressed;
 
         public FrameControlInputs(
             float throttle,
@@ -52,6 +54,7 @@ namespace MopedSim.App
             bool toggleSettingsPressed = false,
             bool toggleShopPressed = false,
             bool cyclePaintPressed = false,
+            bool pickUpBikePressed = false,
             bool pausePressed = false)
         {
             Throttle = throttle;
@@ -69,6 +72,7 @@ namespace MopedSim.App
             ToggleShopPressed = toggleShopPressed;
             CyclePaintPressed = cyclePaintPressed;
             PausePressed = pausePressed;
+            PickUpBikePressed = pickUpBikePressed;
         }
     }
 
@@ -446,6 +450,7 @@ namespace MopedSim.App
             bool toggleShop = false;
             bool cyclePaint = false;
             bool pause = false;
+            bool pickUpBike = false;
 
             Keyboard kb = Keyboard.current;
             if (kb != null)
@@ -486,6 +491,7 @@ namespace MopedSim.App
                 pause = kb.escapeKey.wasPressedThisFrame;
                 toggleShop = kb.f3Key.wasPressedThisFrame;
                 cyclePaint = kb.f4Key.wasPressedThisFrame;
+                pickUpBike = kb.rKey.wasPressedThisFrame;
             }
 
             Gamepad gp = Gamepad.current;
@@ -508,6 +514,7 @@ namespace MopedSim.App
                 interact = interact || gp[_padInteract].wasPressedThisFrame;
                 toggleGarageRide = toggleGarageRide || gp.buttonNorth.wasPressedThisFrame;
                 pause = pause || gp.startButton.wasPressedThisFrame;
+                pickUpBike = pickUpBike || gp.dpad.down.wasPressedThisFrame;
             }
 
             return new FrameControlInputs(
@@ -525,6 +532,7 @@ namespace MopedSim.App
                 toggleSettings,
                 toggleShop,
                 cyclePaint,
+                pickUpBike,
                 pause);
         }
     }

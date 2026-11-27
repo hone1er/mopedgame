@@ -566,6 +566,10 @@ All attachment empties MUST exist as named glTF scene nodes on parent parts and 
       /________\    Gate 1: dotnet test (MopedSim.Core + Data, <2s Headless)
 ```
 
+### Performance Soak & Profiling (M7)
+- `PerformanceSoakTests` (PlayMode, `-testFilter PerformanceSoakTests`) rides the real Bootstrap + zone scenes with `Time.captureFramerate = 60`, periodically streams a neighbour zone in/out, and asserts steady-state GC per frame, memory growth, worst frame and a clean console. It writes p50/p95/p99 frame ms, GC and memory to `logs/perf/soak_*.json`. Default is 90 game seconds; `MOPED_SOAK_SECONDS=3600` runs the full 60-minute soak (`MOPED_SOAK_MAX_GC_BYTES_P95`, `MOPED_SOAK_MAX_MEMORY_GROWTH_MB` override budgets). Batch-mode editor numbers exclude rendering; the M4 Pro frame-stability pass additionally needs the release player (profile_player.sh launches it idle unless PLAYER_ARGS supplies an autoplay flag).
+- `CliBuild.BuildMacOSRelease` (`-executeMethod MopedSim.Editor.CliBuild.BuildMacOSRelease -quit`) produces a non-development arm64 player at `unity/Builds/MacOS/arm64-release/MopedGame.app`; `./scripts/profile_player.sh [--build] [--seconds N]` launches it windowed and records an Instruments Time Profiler trace (when full Xcode is installed) or `ps` CPU/RSS samples to `logs/perf/<timestamp>/`.
+
 ### Code Quality & Clean Architecture Standards
 - **Zero GC allocations in `FixedUpdate` / hot paths**: Use `readonly struct` snapshots (`EngineTelemetrySnapshot`), cached component references, and pre-allocated arrays/buffers; **never** call `GameObject.Find`, `GetComponent`, or LINQ inside `FixedUpdate`/`Update`.
 - **No magic strings across systems**: Reference part IDs, slot IDs, and fault IDs through strongly-typed constants or validated catalog keys.

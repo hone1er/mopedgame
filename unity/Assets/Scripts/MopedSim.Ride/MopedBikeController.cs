@@ -30,13 +30,19 @@ namespace MopedSim.Ride
         [SerializeField] private LayerMask _groundMask = ~0;
 
         [Header("Lean & Steering")]
-        [SerializeField] private float _maxLeanDeg = 38f;
-        [SerializeField] private float _leanStiffness = 360f;
-        [SerializeField] private float _leanDamping = 60f;
+        [SerializeField] private float _maxLeanDeg = 35f;
+        [Tooltip("Roll stiffness as a multiple of the rider's gravity toppling stiffness (m*g*h). Must exceed 1 or the bike is an unstable inverted pendulum.")]
+        [SerializeField] private float _leanStiffnessScale = 3f;
+        [SerializeField] private float _leanDampingRatio = 0.9f;
+        [SerializeField] private float _leanRateDegPerSec = 140f;
         [SerializeField] private float _lowSpeedSteerYawRateDegPerSec = 55f;
         [SerializeField] private float _yawResponse = 5f;
-        [SerializeField] private float _countersteerSpeedMps = 4.5f;
         [SerializeField, Range(0f, 1f)] private float _lateralGripResponse = 0.7f;
+
+        [Header("Tip-over Recovery (presentation-layer safety net)")]
+        [SerializeField] private float _tipOverLeanDeg = 70f;
+        [SerializeField] private float _tipOverRecoverDelaySec = 1.5f;
+        [SerializeField] private float _recoverRideHeightM = 0.42f;
 
         [Header("Aero / Drag (applied as rigid-body force only)")]
         [SerializeField] private AeroTuckController _aero;
@@ -85,6 +91,9 @@ namespace MopedSim.Ride
         private float _lastRailLateralAccel;
         private float _lastLeanDeg;
         private bool _simulationEnabled = true;
+        private float _leanTargetDeg;
+        private float _tippedTimerSec;
+        private readonly RaycastHit[] _recoverHits = new RaycastHit[8];
 
         public EngineTelemetrySnapshot LatestTelemetry { get { return _latestTelemetry; } }
         public float SpeedMps { get; private set; }
@@ -97,6 +106,10 @@ namespace MopedSim.Ride
         public float LeanAngleDeg { get { return _lastLeanDeg; } }
         public float LastRailCrossingAngleDeg { get { return _lastRailCrossingAngleDeg; } }
         public float LastRailLateralAccel { get { return _lastRailLateralAccel; } }
+        /// <summary>True once the tip-over safety net or PickUpBike() has stood the bike back up (latched).</summary>
+        public bool WasRecoveredFromTipOver { get; private set; }
+        public int TipOverRecoveryCount { get; private set; }
+        public bool IsTippedOver { get { return _tippedTimerSec > 0f; } }
         public bool IsGrounded { get { return _front.Grounded || _rear.Grounded; } }
         public SurfaceHazardSample RearSurface { get { return _rear.Surface; } }
         public AeroTuckController Aero { get { return _aero; } }
@@ -278,6 +291,7 @@ namespace MopedSim.Ride
             }
 
             _steerInput = 0f;
+            _leanTargetDeg = 0f;
             _lastLeanDeg = 0f;
             _lastRailCrossingAngleDeg = 90f;
             _lastRailLateralAccel = 0f;
@@ -285,6 +299,68 @@ namespace MopedSim.Ride
             ForwardSpeedMps = 0f;
             _front = default(WheelState);
             _rear = default(WheelState);
+        }
+
+        /// <summary>
+        /// Stands the bike back upright on the road beneath its current position, facing its current heading, with zero velocity.
+        /// Wired to the R / gamepad West "pick up bike" input and to the automatic tip-over recovery. Zero GC allocations.
+        /// </summary>
+        public void PickUpBike()
+        {
+            EnsureInitialized();
+            Vector3 pos = _tf.position;
+            Vector3 heading = Vector3.ProjectOnPlane(_tf.forward, Vector3.up);
+            if (heading.sqrMagnitude < 0.05f)
+            {
+                // Lying nose-up/down: fall back on the roof direction projected flat.
+                heading = Vector3.ProjectOnPlane(_tf.up, Vector3.up);
+            }
+
+            float yawDeg = heading.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(heading.normalized, Vector3.up).eulerAngles.y : _tf.eulerAngles.y;
+
+            // Find the road below the bike (nearest hit that is not the bike itself).
+            Vector3 origin = pos + Vector3.up * 2f;
+            int count = Physics.RaycastNonAlloc(origin, Vector3.down, _recoverHits, 8f, _groundMask, QueryTriggerInteraction.Ignore);
+            float bestDist = float.MaxValue;
+            float groundY = pos.y;
+            bool found = false;
+            for (int i = 0; i < count; i++)
+            {
+                RaycastHit h = _recoverHits[i];
+                if (h.collider == null || h.collider.attachedRigidbody == _rb || h.distance >= bestDist)
+                {
+                    continue;
+                }
+
+                bestDist = h.distance;
+                groundY = h.point.y;
+                found = true;
+            }
+
+            float mountY = _rearWheelMount != null ? _tf.InverseTransformPoint(_rearWheelMount.position).y : 0f;
+            float originHeight = _recoverRideHeightM - mountY + 0.05f;
+            Vector3 target = found ? new Vector3(pos.x, groundY + originHeight, pos.z) : pos + Vector3.up * 0.5f;
+            ResetUprightAt(target, yawDeg);
+            _tippedTimerSec = 0f;
+            WasRecoveredFromTipOver = true;
+            TipOverRecoveryCount++;
+        }
+
+        private void UpdateTipOverRecovery(float dt)
+        {
+            float tiltDeg = Vector3.Angle(_tf.up, Vector3.up);
+            if (tiltDeg > _tipOverLeanDeg)
+            {
+                _tippedTimerSec += dt;
+                if (_tippedTimerSec >= _tipOverRecoverDelaySec)
+                {
+                    PickUpBike();
+                }
+            }
+            else
+            {
+                _tippedTimerSec = 0f;
+            }
         }
 
         private void FixedUpdate()
@@ -305,6 +381,11 @@ namespace MopedSim.Ride
             if (dt <= 0f)
             {
                 return;
+            }
+
+            if (!_rb.isKinematic)
+            {
+                UpdateTipOverRecovery(dt);
             }
 
             Vector3 velocity = _rb.linearVelocity;
@@ -573,6 +654,12 @@ namespace MopedSim.Ride
             _rb.AddForce(flatRight * force, ForceMode.Force);
         }
 
+        /// <summary>
+        /// Moped-style lean: the commanded turn is a yaw rate (capped so the implied lean stays under the max lean), the lean
+        /// target is the steady-state bicycle lean atan(v*yawRate/g) (so lean ~ v^2/r), and a roll PD with gravity feed-forward
+        /// holds it. Stiffness is expressed relative to the toppling stiffness m*g*h, so the bike can never become an
+        /// unstable inverted pendulum; releasing steer drives the target (and lean) back to zero.
+        /// </summary>
         private void ApplyLeanAndSteer(float forwardSpeed, float dt)
         {
             if (!IsGrounded)
@@ -580,38 +667,55 @@ namespace MopedSim.Ride
                 return;
             }
 
-            float speedFactor = Mathf.Clamp01(SpeedMps / 12f);
-            float leanTargetDeg = -_steerInput * _maxLeanDeg * Mathf.Lerp(0.25f, 1f, speedFactor);
-
-            // Countersteer: at speed, a brief opposite lean impulse precedes the commanded lean.
-            if (SpeedMps > _countersteerSpeedMps)
-            {
-                leanTargetDeg += _steerInput * 6f * (1f - speedFactor * 0.5f);
-            }
-
-            Vector3 up = _tf.up;
-            Vector3 fwd = _tf.forward;
+            const float gravity = 9.81f;
             Vector3 worldUp = Vector3.up;
-
-            Vector3 leanAxis = fwd;
-            float currentLeanDeg = Vector3.SignedAngle(worldUp, up, leanAxis);
+            Vector3 leanAxis = _tf.forward;
+            float currentLeanDeg = Vector3.SignedAngle(worldUp, _tf.up, leanAxis);
             _lastLeanDeg = currentLeanDeg;
 
-            float leanError = Mathf.DeltaAngle(currentLeanDeg, leanTargetDeg) * Mathf.Deg2Rad;
-            float rollRate = Vector3.Dot(_rb.angularVelocity, leanAxis);
-            float rollTorque = (leanError * _leanStiffness) - (rollRate * _leanDamping);
-            _rb.AddTorque(leanAxis * rollTorque, ForceMode.Force);
+            float speed = SpeedMps;
+            float lowSpeedYawRate = _lowSpeedSteerYawRateDegPerSec * Mathf.Deg2Rad;
+            float maxLeanRad = _maxLeanDeg * Mathf.Deg2Rad;
+            float yawRateCap = Mathf.Min(lowSpeedYawRate, gravity * Mathf.Tan(maxLeanRad) / Mathf.Max(speed, 0.1f));
+            // A stationary moped cannot pivot on the spot; fade steering authority in over the first metre per second.
+            float commandedYawRate = _steerInput * yawRateCap * Mathf.Clamp01(speed / 1f);
 
-            // Yaw rate from lean (bicycle model) blended with low-speed handlebar yaw.
-            float leanRad = currentLeanDeg * Mathf.Deg2Rad;
-            float leanYaw = SpeedMps > 0.5f ? (9.81f * Mathf.Tan(-leanRad) / Mathf.Max(SpeedMps, 1.5f)) : 0f;
-            float lowSpeedYaw = _steerInput * _lowSpeedSteerYawRateDegPerSec * Mathf.Deg2Rad * (1f - speedFactor);
-            float desiredYawRate = Mathf.Clamp(leanYaw + lowSpeedYaw, -2.2f, 2.2f);
-            if (forwardSpeed < 0f)
+            float desiredLeanDeg = 0f;
+            if (forwardSpeed > 0.5f)
             {
-                desiredYawRate = -desiredYawRate;
+                desiredLeanDeg = -Mathf.Atan(speed * commandedYawRate / gravity) * Mathf.Rad2Deg;
+                desiredLeanDeg = Mathf.Clamp(desiredLeanDeg, -_maxLeanDeg, _maxLeanDeg);
             }
 
+            _leanTargetDeg = Mathf.MoveTowards(_leanTargetDeg, desiredLeanDeg, _leanRateDegPerSec * dt);
+
+            float h = Mathf.Max(0.3f, _rb.centerOfMass.y);
+            float toppleStiffness = _rb.mass * gravity * h;
+            float stiffness = _leanStiffnessScale * toppleStiffness;
+            // Use the body's real roll inertia (collider-less rigs report ~1 kg*m^2) and keep both gains inside what an
+            // explicit fixed-step integrator can resolve; otherwise the damping term over-corrects each step and the lean
+            // oscillates and grows. Gravity is cancelled by the feed-forward below, so clamping k cannot topple the bike.
+            float rollInertia = Mathf.Max(0.05f, _rb.inertiaTensor.z);
+            float stepDt = Mathf.Max(dt, 1e-4f);
+            float stiffnessLimit = 0.35f * rollInertia / (stepDt * stepDt);
+            float gainScale = 1f;
+            if (stiffness + toppleStiffness > stiffnessLimit)
+            {
+                // The feed-forward behaves as extra stiffness whenever gravity has no ground pivot to topple about.
+                gainScale = stiffnessLimit / (stiffness + toppleStiffness);
+                stiffness *= gainScale;
+            }
+
+            float damping = 2f * _leanDampingRatio * Mathf.Sqrt(stiffness * rollInertia);
+            damping = Mathf.Min(damping, 0.9f * rollInertia / stepDt);
+
+            float leanError = Mathf.DeltaAngle(currentLeanDeg, _leanTargetDeg) * Mathf.Deg2Rad;
+            float rollRate = Vector3.Dot(_rb.angularVelocity, leanAxis);
+            float gravityFeedForward = -gainScale * toppleStiffness * Mathf.Sin(currentLeanDeg * Mathf.Deg2Rad);
+            float rollTorque = (leanError * stiffness) - (rollRate * damping) + gravityFeedForward;
+            _rb.AddTorque(leanAxis * rollTorque, ForceMode.Force);
+
+            float desiredYawRate = forwardSpeed < 0f ? -commandedYawRate : commandedYawRate;
             float yawRate = Vector3.Dot(_rb.angularVelocity, worldUp);
             float yawTorque = (desiredYawRate - yawRate) * _yawResponse * _rb.mass * 0.4f;
             _rb.AddTorque(worldUp * yawTorque, ForceMode.Force);

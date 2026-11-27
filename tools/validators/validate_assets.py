@@ -592,6 +592,34 @@ def infer_budget_for_asset(rel_mesh_path: str, part: Optional[dict] = None) -> i
     return BUDGET_SMALL
 
 
+# ADR-008: the paint booth tints only body-slot submeshes whose material name starts with this prefix.
+PAINTABLE_MATERIAL_PREFIX = "mat_enamel_"
+BODY_PAINT_CATEGORIES = {"Frame", "FuelTank", "FrontFender", "Fender"}
+
+
+def glb_material_names(glb_path: Path) -> List[str]:
+    """Return glTF material names (empty list when the file has no materials or cannot be parsed)."""
+    try:
+        gltf, _ = parse_glb(glb_path)
+    except Exception:
+        return []
+    mats = gltf.get("materials", [])
+    if not isinstance(mats, list):
+        return []
+    return [str(m.get("name", "")) for m in mats if isinstance(m, dict)]
+
+
+def check_body_paint_materials(glb_path: Path, rel_label: str) -> Optional[str]:
+    """Error message when a body-slot part has no paintable (mat_enamel_*) material, else None."""
+    names = glb_material_names(glb_path)
+    if any(n.startswith(PAINTABLE_MATERIAL_PREFIX) for n in names):
+        return None
+    return (
+        f"{rel_label}: body-slot part has no '{PAINTABLE_MATERIAL_PREFIX}*' material, so the paint booth "
+        f"cannot tint it (ADR-008); materials: {', '.join(names) or 'none'}"
+    )
+
+
 def _normalize_mesh_rel_path(raw_path: str) -> str:
     norm = raw_path.strip().replace("\\", "/")
     for prefix in ("unity/Assets/Art/", "Assets/Art/"):
@@ -624,6 +652,7 @@ def run_validation(
 
     # Collect expectations per normalized relative path (under unity/Assets/Art/)
     expected_specs: Dict[str, Tuple[int, Set[str], List[str]]] = {}
+    body_paint_paths: Set[str] = set()
 
     def register_expectation(rel_path: str, budget: int, sockets: Sequence[str], source: str) -> None:
         if rel_path not in expected_specs:
@@ -680,6 +709,8 @@ def run_validation(
                     req_sockets = []
                 budget = infer_budget_for_asset(norm_rel, part)
                 register_expectation(norm_rel, budget, req_sockets, f"part:{part_id}")
+                if str(part.get("category", "")).strip() in BODY_PAINT_CATEGORIES:
+                    body_paint_paths.add(norm_rel)
     else:
         if strict and not allow_partial:
             report.error(f"{parts_catalog_path}: missing parts.json catalog for asset validation")
@@ -711,6 +742,10 @@ def run_validation(
             required_nodes=sorted(sockets),
             max_extent_m=max_extent,
         )
+        if not errs and rel_path in body_paint_paths:
+            paint_err = check_body_paint_materials(abs_path, rel_path)
+            if paint_err:
+                errs = [paint_err]
         if errs:
             for e in errs:
                 report.error(e)

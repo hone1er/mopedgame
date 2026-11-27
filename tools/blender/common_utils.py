@@ -70,7 +70,61 @@ MATERIAL_PALETTE: Dict[str, Tuple[Tuple[float, float, float, float], float, floa
     "mat_paint_mission_marigold": ((0.94, 0.58, 0.08, 1.0), 0.00, 0.56),
     "mat_awning_green": ((0.06, 0.36, 0.20, 1.0), 0.00, 0.70),
     "mat_beacon_glow": ((0.10, 0.90, 0.70, 1.0), 0.00, 0.30),
+    # Vintage moped paint & trim (Pedal Code Army stable references: Maxi, Hobbit, Magnum II)
+    "mat_enamel_black": ((0.018, 0.018, 0.020, 1.0), 0.10, 0.30),
+    "mat_enamel_white": ((0.80, 0.80, 0.77, 1.0), 0.06, 0.32),
+    "mat_enamel_slate_blue": ((0.024, 0.155, 0.262, 1.0), 0.14, 0.32),
+    "mat_enamel_mag_blue": ((0.035, 0.085, 0.36, 1.0), 0.45, 0.34),
+    "mat_enamel_stripe_green": ((0.02, 0.30, 0.16, 1.0), 0.10, 0.34),
+    "mat_lens_red": ((0.62, 0.03, 0.02, 1.0), 0.00, 0.18),
 }
+
+# Rear shock eyes sit at X = +/- this offset (frame SOCKET_SHOCK_TOP_L/R); shocks_* .glb files bake the pair.
+SHOCK_HALF_SPACING = 0.085
+
+# Every crankcase tilts SOCKET_CYLINDER_BASE forward by about this angle (rad, about +X) so the barrel lies
+# near-horizontal like Puch E50 / Honda PA50 engines. Cylinder port sockets counter-rotate by it, so
+# exhausts and intakes are authored in the bike frame (-Y forward, +Z up) with the flange at the origin.
+CYLINDER_FORWARD_TILT = 1.22
+
+
+def superellipse_profile(segments: int = 16, exponent: float = 2.6) -> List[Tuple[float, float]]:
+    """Unit rounded-rectangle profile (u = lateral, v = normal), counter-clockwise, |u|,|v| <= 1."""
+    pts: List[Tuple[float, float]] = []
+    seg = max(4, segments)
+    for k in range(seg):
+        ang = (2.0 * math.pi * k) / seg
+        c, s = math.cos(ang), math.sin(ang)
+        u = math.copysign(abs(c) ** (2.0 / exponent), c)
+        v = math.copysign(abs(s) ** (2.0 / exponent), s)
+        pts.append((u, v))
+    return pts
+
+
+def fender_profile(half_width: float, crown: float, thickness: float, segments: int = 8) -> List[Tuple[float, float]]:
+    """Closed crescent cross-section of a pressed-steel fender: arched outer skin plus inner skin.
+
+    ``v`` points away from the wheel (sweep normal); the profile spans ``u`` in [-half_width, half_width].
+    """
+    outer: List[Tuple[float, float]] = []
+    seg = max(3, segments)
+    for k in range(seg + 1):
+        u = -half_width + (2.0 * half_width * k) / seg
+        t = u / half_width
+        outer.append((u, crown * (1.0 - t * t) + thickness))
+    inner = [(u, v - thickness) for (u, v) in reversed(outer)]
+    return outer + inner
+
+
+def arc_points(center_yz: Tuple[float, float], radius: float, deg_from: float, deg_to: float, count: int, x: float = 0.0) -> List[Vec3]:
+    """Points on a circle in the YZ plane; 0 deg = straight up, positive = toward the rear (+Y)."""
+    out: List[Vec3] = []
+    n = max(2, count)
+    for i in range(n):
+        a = math.radians(deg_from + (deg_to - deg_from) * i / (n - 1))
+        out.append((x, center_yz[0] + radius * math.sin(a), center_yz[1] + radius * math.cos(a)))
+    return out
+
 
 # Optional emissive overrides (RGB, strength) for palette materials; only applied when listed.
 EMISSIVE_PALETTE: Dict[str, Tuple[Tuple[float, float, float], float]] = {
@@ -464,6 +518,67 @@ class MeshPartBuilder:
                 pass
 
         _set_faces_material_and_smooth(new_faces, m_idx, smooth)
+
+    def add_profile_sweep(
+        self,
+        points: Sequence[Vec3],
+        profile: Sequence[Tuple[float, float]],
+        scales: Optional[Sequence[Tuple[float, float]]] = None,
+        mat: str = "mat_enamel_orange",
+        smooth: bool = True,
+        cap_start: bool = True,
+        cap_end: bool = True,
+    ) -> None:
+        """Sweep a closed 2D profile along a path (pressed-steel spines, tanks, seats, fenders).
+
+        The profile's ``u`` axis stays on world +X (lateral) and ``v`` is ``X x tangent`` (up when the path runs
+        toward the rear), so paths should run mostly in the YZ plane. ``scales`` holds per-point (u, v)
+        multipliers; omit it to use the profile in meters.
+        """
+        if len(points) < 2 or len(profile) < 3:
+            return
+        sc = list(scales) if scales is not None else [(1.0, 1.0)] * len(points)
+        if len(sc) != len(points):
+            return
+        pts = [Vector(p) for p in points]
+        x_axis = Vector((1.0, 0.0, 0.0))
+        rings: List[List[bmesh.types.BMVert]] = []
+        for i, pt in enumerate(pts):
+            if i == 0:
+                tangent = pts[1] - pts[0]
+            elif i == len(pts) - 1:
+                tangent = pts[-1] - pts[-2]
+            else:
+                tangent = (pts[i] - pts[i - 1]).normalized() + (pts[i + 1] - pts[i]).normalized()
+            tangent.normalize()
+            side = x_axis - tangent * x_axis.dot(tangent)
+            side.normalize()
+            normal = side.cross(tangent).normalized()
+            su, sv = sc[i]
+            rings.append([self.bm.verts.new(pt + side * (u * su) + normal * (v * sv)) for (u, v) in profile])
+
+        m_idx = self.mat_index(mat)
+        n = len(profile)
+        faces: List[bmesh.types.BMFace] = []
+        for i in range(len(rings) - 1):
+            a, b = rings[i], rings[i + 1]
+            for k in range(n):
+                k1 = (k + 1) % n
+                try:
+                    faces.append(self.bm.faces.new((a[k], b[k], b[k1], a[k1])))
+                except ValueError:
+                    pass
+        if cap_start:
+            try:
+                faces.append(self.bm.faces.new(rings[0]))
+            except ValueError:
+                pass
+        if cap_end:
+            try:
+                faces.append(self.bm.faces.new(list(reversed(rings[-1]))))
+            except ValueError:
+                pass
+        _set_faces_material_and_smooth(faces, m_idx, smooth)
 
     def add_torus(
         self,

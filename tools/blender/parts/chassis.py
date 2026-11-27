@@ -6,7 +6,7 @@ import math
 import os
 from typing import Dict, List
 
-from common_utils import MeshPartBuilder, add_bolt, add_socket, clear_scene, export_glb
+from common_utils import SHOCK_HALF_SPACING, MeshPartBuilder, add_bolt, add_socket, clear_scene, export_glb, superellipse_profile
 
 
 MAJOR_TRI_BUDGET = 6500
@@ -20,7 +20,7 @@ def _build_wheel(out_dir: str, is_mag: bool) -> Dict[str, object]:
 
     # 16" wheel with ~0.536m outer tire OD (0.268m radius)
     mb.add_torus(major_radius=0.232, minor_radius=0.036, major_segments=32, minor_segments=12, rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_rubber")
-    mb.add_torus(major_radius=0.198, minor_radius=0.015, major_segments=32, minor_segments=10, rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_enamel_cream" if is_mag else "mat_chrome")
+    mb.add_torus(major_radius=0.198, minor_radius=0.015, major_segments=32, minor_segments=10, rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_enamel_mag_blue" if is_mag else "mat_chrome")
 
     mb.add_cylinder(radius=0.052, depth=0.095, segments=18, rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_cast_alu")
     mb.add_cylinder(radius=0.062, depth=0.022, segments=18, location=(0.044, 0.0, 0.0), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_anodized_alu")
@@ -30,15 +30,12 @@ def _build_wheel(out_dir: str, is_mag: bool) -> Dict[str, object]:
     mb.add_cylinder(radius=0.042, depth=0.008, segments=16, location=(-0.048, 0.0, 0.0), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_steel_dark")
 
     if is_mag:
-        for i in range(5):
-            ang = (2.0 * math.pi * i) / 5.0
-            y_out = 0.188 * math.cos(ang)
-            z_out = 0.188 * math.sin(ang)
-            mb.add_tube_between((0.0, 0.0, 0.0), (0.0, y_out, z_out), radius=0.014, segments=8, mat="mat_enamel_cream")
-            for d_ang in (-0.20, 0.20):
-                y_sub = 0.188 * math.cos(ang + d_ang)
-                z_sub = 0.188 * math.sin(ang + d_ang)
-                mb.add_tube_between((0.0, 0.075 * math.cos(ang), 0.075 * math.sin(ang)), (0.0, y_sub, z_sub), radius=0.008, segments=6, mat="mat_enamel_cream")
+        # Six flat tapered cast spokes (Puch Magnum II blue mags)
+        for i in range(6):
+            ang = (2.0 * math.pi * i) / 6.0
+            c, sn = math.cos(ang), math.sin(ang)
+            mb.add_tapered_tube_between((0.0, 0.050 * c, 0.050 * sn), (0.0, 0.192 * c, 0.192 * sn), r0=0.016, r1=0.010, segments=8, mat="mat_enamel_mag_blue")
+            mb.add_box(size=(0.010, 0.13, 0.016), location=(0.0, 0.12 * c, 0.12 * sn), rotation=(ang, 0.0, 0.0), mat="mat_enamel_mag_blue")
     else:
         for i in range(24):
             ang_hub = (2.0 * math.pi * i) / 24.0
@@ -72,27 +69,31 @@ def _build_shocks(out_dir: str, is_heavy: bool) -> Dict[str, object]:
 
     spring_mat = "mat_anodized_gold" if is_heavy else "mat_chrome"
     turns = 6
-    pts_per_turn = 8
-
-    mb.add_cylinder(radius=0.014, depth=0.020, segments=12, location=(0.0, 0.0, 0.0), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_anodized_alu")
-    mb.add_cylinder(radius=0.014, depth=0.020, segments=12, location=(0.0, 0.0, -0.29), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_anodized_alu")
-    mb.add_cylinder(radius=0.014, depth=0.14, segments=12, location=(0.0, 0.0, -0.085), mat="mat_steel_dark")
-    mb.add_cylinder(radius=0.007, depth=0.16, segments=10, location=(0.0, 0.0, -0.20), mat="mat_chrome")
-    mb.add_torus(major_radius=0.024, minor_radius=0.004, major_segments=14, minor_segments=6, location=(0.0, 0.0, -0.255), mat="mat_anodized_alu")
-
-    if is_heavy:
-        mb.add_cylinder(radius=0.016, depth=0.085, segments=12, location=(0.0, 0.032, -0.055), mat="mat_anodized_gold")
-        mb.add_box(size=(0.020, 0.034, 0.022), location=(0.0, 0.016, -0.024), mat="mat_anodized_alu")
-
-    total_pts = turns * pts_per_turn
-    coil_pts = []
+    pts_per_turn = 7
     coil_r = 0.025 if is_heavy else 0.022
-    for i in range(total_pts + 1):
-        t = i / total_pts
-        ang = t * turns * 2.0 * math.pi
-        z = -0.035 - t * 0.220
-        coil_pts.append((coil_r * math.cos(ang), coil_r * math.sin(ang), z))
-    mb.add_polyline_tube(coil_pts, [0.0045] * len(coil_pts), segments=6, mat=spring_mat)
+
+    # The catalog mounts this part once, at SOCKET_SHOCK_TOP_L (+X); the matching right-hand shock is baked in
+    # at -2 * SHOCK_HALF_SPACING so every swingarm frame shows the real twin-shock pair.
+    for dx in (0.0, -2.0 * SHOCK_HALF_SPACING):
+        mb.add_cylinder(radius=0.014, depth=0.020, segments=12, location=(dx, 0.0, 0.0), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_anodized_alu")
+        mb.add_cylinder(radius=0.014, depth=0.020, segments=12, location=(dx, 0.0, -0.29), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_anodized_alu")
+        mb.add_cylinder(radius=0.016, depth=0.12, segments=12, location=(dx, 0.0, -0.075), mat="mat_steel_dark")
+        mb.add_cylinder(radius=0.007, depth=0.16, segments=10, location=(dx, 0.0, -0.20), mat="mat_chrome")
+        mb.add_cylinder(radius=0.027, depth=0.008, segments=10, location=(dx, 0.0, -0.032), mat="mat_chrome")
+        mb.add_cylinder(radius=0.027, depth=0.008, segments=10, location=(dx, 0.0, -0.258), mat="mat_chrome")
+
+        if is_heavy:
+            mb.add_cylinder(radius=0.016, depth=0.085, segments=12, location=(dx, 0.032, -0.055), mat="mat_anodized_gold")
+            mb.add_box(size=(0.020, 0.034, 0.022), location=(dx, 0.016, -0.024), mat="mat_anodized_alu")
+
+        total_pts = turns * pts_per_turn
+        coil_pts = []
+        for k in range(total_pts + 1):
+            t = k / total_pts
+            ang = t * turns * 2.0 * math.pi
+            z = -0.036 - t * 0.218
+            coil_pts.append((dx + coil_r * math.cos(ang), coil_r * math.sin(ang), z))
+        mb.add_polyline_tube(coil_pts, [0.0045] * len(coil_pts), segments=5, mat=spring_mat)
 
     mb.build_object()
     add_socket("SOCKET_SHOCK_EYE_TOP", location=(0.0, 0.0, 0.0))
@@ -151,36 +152,61 @@ def _build_bars(out_dir: str, style: str) -> Dict[str, object]:
     )
 
 
+def _seat_cushion(mb: MeshPartBuilder, ys, tops, widths, bottom: float, mat: str) -> None:
+    pts = []
+    scales = []
+    for y, top, w in zip(ys, tops, widths):
+        pts.append((0.0, y, (top + bottom) * 0.5))
+        scales.append((w, (top - bottom) * 0.5))
+    mb.add_profile_sweep(pts, superellipse_profile(16, 3.0), scales=scales, mat=mat)
+
+
 def _build_seat(out_dir: str, is_buddy: bool) -> Dict[str, object]:
     clear_scene()
     name = "seat_long_buddy" if is_buddy else "seat_solo_spring"
     mb = MeshPartBuilder(name)
 
-    mb.add_cylinder(radius=0.020, depth=0.045, segments=14, location=(0.0, 0.0, 0.020), mat="mat_steel_dark")
-    mb.add_hex_bolt(radius=0.006, height=0.028, location=(0.0, 0.022, 0.020), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_chrome")
+    # Clamp at the frame's SOCKET_SEAT_POST (origin); seat tops stay at ~0.78-0.80 m on every frame.
+    mb.add_cylinder(radius=0.018, depth=0.040, segments=14, location=(0.0, 0.0, 0.010), mat="mat_steel_dark")
+    mb.add_hex_bolt(radius=0.006, height=0.028, location=(0.0, 0.020, 0.012), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_chrome")
 
     if is_buddy:
-        mb.add_box(size=(0.175, 0.42, 0.075), location=(0.0, 0.11, 0.075), mat="mat_vinyl_black")
-        mb.add_box(size=(0.150, 0.36, 0.022), location=(0.0, 0.11, 0.116), mat="mat_vinyl_black")
-        for ry in (-0.02, 0.06, 0.14, 0.22):
-            mb.add_box(size=(0.145, 0.012, 0.008), location=(0.0, ry, 0.128), mat="mat_steel_dark")
-        mb.add_polyline_tube(
-            [(-0.088, 0.18, 0.08), (-0.095, 0.33, 0.08), (0.095, 0.33, 0.08), (0.088, 0.18, 0.08)],
-            [0.007, 0.007, 0.007, 0.007],
-            segments=10,
-            mat="mat_chrome",
-        )
-        for sx in (-0.065, 0.065):
-            mb.add_cylinder(radius=0.012, depth=0.045, segments=10, location=(sx, 0.26, 0.055), mat="mat_chrome")
+        # Long flat two-up bench (Magnum II / Maxi S / Derbi SL): pleated black vinyl over a steel pan.
+        ys = [-0.150, -0.125, -0.065, 0.030, 0.120, 0.200, 0.240, 0.262]
+        tops = [0.055, 0.082, 0.100, 0.106, 0.106, 0.110, 0.112, 0.098]
+        widths = [0.046, 0.074, 0.094, 0.100, 0.100, 0.100, 0.094, 0.066]
+        bottom = -0.030
+        _seat_cushion(mb, ys, tops, widths, bottom, "mat_vinyl_black")
+        # Steel seat pan & chrome trim strip
+        mb.add_box(size=(0.176, 0.380, 0.010), location=(0.0, 0.055, bottom - 0.002), mat="mat_steel_dark")
+        for side in (-1.0, 1.0):
+            mb.add_box(size=(0.004, 0.340, 0.012), location=(side * 0.101, 0.055, bottom + 0.010), mat="mat_chrome")
+        # Transverse pleats across the top
+        for k in range(6):
+            py = -0.050 + k * 0.050
+            mb.add_box(size=(0.120, 0.008, 0.005), location=(0.0, py, 0.105), mat="mat_rubber")
+        # Passenger grab strap & rear bumper lip
+        mb.add_box(size=(0.205, 0.022, 0.008), location=(0.0, 0.150, 0.110), mat="mat_vinyl_black")
+        mb.add_box(size=(0.120, 0.012, 0.030), location=(0.0, 0.266, 0.010), mat="mat_chrome")
     else:
-        mb.add_box(size=(0.195, 0.16, 0.045), location=(0.0, 0.03, 0.082), mat="mat_vinyl_tan")
-        mb.add_cone(radius1=0.095, radius2=0.042, depth=0.11, segments=16, location=(0.0, -0.075, 0.082), rotation=(math.pi * 0.5, 0.0, 0.0), mat="mat_vinyl_tan")
-        for ry in (-0.01, 0.04, 0.09):
-            mb.add_box(size=(0.165, 0.010, 0.008), location=(0.0, ry, 0.106), mat="mat_vinyl_black")
-        for sx in (-0.055, 0.055):
-            mb.add_cylinder(radius=0.012, depth=0.042, segments=12, location=(sx, 0.075, 0.045), mat="mat_chrome")
-            for sz in (0.032, 0.044, 0.056):
-                mb.add_torus(major_radius=0.014, minor_radius=0.003, major_segments=12, minor_segments=6, location=(sx, 0.075, sz), mat="mat_chrome")
+        # Denfeld-style pear solo saddle on two rear coil springs (Maxi N)
+        ys = [-0.175, -0.150, -0.090, -0.025, 0.035, 0.080, 0.106]
+        tops = [0.074, 0.080, 0.086, 0.091, 0.096, 0.096, 0.088]
+        widths = [0.028, 0.040, 0.054, 0.084, 0.110, 0.116, 0.098]
+        bottom = 0.044
+        _seat_cushion(mb, ys, tops, widths, bottom, "mat_vinyl_black")
+        mb.add_box(size=(0.200, 0.120, 0.006), location=(0.0, 0.045, bottom - 0.002), mat="mat_steel_dark")
+        # Nose bracket down to the clamp
+        mb.add_tube_between((0.0, -0.150, bottom), (0.0, -0.010, 0.020), radius=0.008, segments=8, mat="mat_steel_dark")
+        mb.add_tube_between((0.0, -0.010, 0.020), (0.0, 0.060, 0.010), radius=0.008, segments=8, mat="mat_steel_dark")
+        for sx in (-0.058, 0.058):
+            mb.add_tube_between((0.0, 0.050, 0.010), (sx, 0.065, 0.004), radius=0.006, segments=6, mat="mat_steel_dark")
+            mb.add_cylinder(radius=0.006, depth=0.040, segments=8, location=(sx, 0.065, 0.024), mat="mat_steel_dark")
+            for sz in (0.010, 0.020, 0.030, 0.040):
+                mb.add_torus(major_radius=0.013, minor_radius=0.0028, major_segments=10, minor_segments=4, location=(sx, 0.065, sz), mat="mat_chrome")
+        # Piping seam around the saddle edge
+        mb.add_box(size=(0.004, 0.120, 0.006), location=(0.112, 0.050, 0.062), mat="mat_vinyl_tan")
+        mb.add_box(size=(0.004, 0.120, 0.006), location=(-0.112, 0.050, 0.062), mat="mat_vinyl_tan")
 
     mb.build_object()
     add_socket("SOCKET_SEAT_CLAMP", location=(0.0, 0.0, 0.0))
@@ -213,7 +239,7 @@ def _build_light(out_dir: str, is_boxy_led: bool) -> Dict[str, object]:
             mb.add_box(size=(0.014, 0.026, 0.032), location=(sx, -0.055, 0.0), mat="mat_amber_plastic")
             mb.add_hex_bolt(radius=0.005, height=0.012, location=(sx * 0.96, -0.012, 0.0), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_chrome")
     else:
-        mb.add_sphere(radius=0.062, u_segments=16, v_segments=10, location=(0.0, -0.038, 0.0), scale=(1.0, 1.15, 1.0), mat="mat_enamel_cream")
+        mb.add_sphere(radius=0.062, u_segments=16, v_segments=10, location=(0.0, -0.038, 0.0), scale=(1.0, 1.15, 1.0), mat="mat_enamel_black")
         mb.add_torus(major_radius=0.060, minor_radius=0.008, major_segments=18, minor_segments=6, location=(0.0, -0.085, 0.0), rotation=(math.pi * 0.5, 0.0, 0.0), mat="mat_chrome")
         mb.add_cylinder(radius=0.056, depth=0.012, segments=16, location=(0.0, -0.088, 0.0), rotation=(math.pi * 0.5, 0.0, 0.0), mat="mat_glass_lens")
         # Classic top-mounted round VDO-style moped speedometer

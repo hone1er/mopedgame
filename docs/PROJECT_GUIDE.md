@@ -514,6 +514,13 @@ All attachment empties MUST exist as named glTF scene nodes on parent parts and 
 | **Cylinder Head (`head_*`)** | `SOCKET_SPARK_PLUG`, `BOLT_HEAD_NUT_1..4` | Spark plug + torque wrench targets |
 | **Exhaust / Carb / Wheel** | `SOCKET_EXHAUST_FLANGE`, `SOCKET_EXHAUST_BRACKET`, `SOCKET_AIR_FILTER`, `SOCKET_WHEEL_HUB`, `SOCKET_SPROCKET_MOUNT`, `BOLT_AXLE_L`, `BOLT_AXLE_R` | Fastener & accessory alignment |
 
+**Socket orientation conventions** (Blender authoring space; `tools/blender/common_utils.py` holds the shared constants):
+- **Handedness**: `+X` is the rider's **left** (`-Y` forward, `+Z` up). `SOCKET_SHOCK_TOP_L` sits at `+X`, `SOCKET_SHOCK_TOP_R` at `-X`. Exhausts run low on the left (`+X`), like the Puch Maxi / Magnum II; the chain guard is on the right (`-X`).
+- **Barrel tilt**: every crankcase rotates `SOCKET_CYLINDER_BASE` forward by `CYLINDER_FORWARD_TILT` (`1.22 rad`, PA50 `+0.14 rad`) about `+X`, so cylinders lie near-horizontal and point at the front wheel.
+- **Port frames**: cylinder `SOCKET_EXHAUST_PORT` and `SOCKET_INTAKE_PORT` counter-rotate by `-CYLINDER_FORWARD_TILT`. Exhausts and intakes are therefore authored in the **bike frame**, with the flange at the origin and the run going `+Y` (rearward). The PA50's extra `0.14 rad` only lifts muffler tails by about `8 cm`.
+- **Rear shocks**: archetypes mount `SLOT_REAR_SUSPENSION` once, at `SOCKET_SHOCK_TOP_L`. `shocks_*.glb` therefore bakes the matching right-hand shock at `x = -2 * SHOCK_HALF_SPACING` (`0.17 m`), so frames show a real twin-shock pair.
+- **Shared fuel tank**: `tank_stock.glb` is one slim capsule (`<= 0.36 x 0.12 x 0.10 m`). `frame_targa_a35` rests it on the backbone as a top tank. `frame_maxer_e50` (inside the pressed spine) and `frame_bramble_pa50` (inside the under-seat body) place `SOCKET_FUEL_TANK` so the frame encloses it.
+
 ### 5.3 Geometry & Triangle Budgets
 
 | Asset Class | Max Triangles (LOD0) | Required UV Channels | Notes |

@@ -6,7 +6,7 @@ import math
 import os
 from typing import Dict, List
 
-from common_utils import MeshPartBuilder, add_bolt, add_socket, clear_scene, export_glb
+from common_utils import MeshPartBuilder, add_bolt, add_socket, clear_scene, export_glb, superellipse_profile
 
 
 SMALL_TRI_BUDGET = 1500
@@ -221,37 +221,49 @@ def _build_filter(out_dir: str, is_pod: bool) -> Dict[str, object]:
 
 
 def build_tank_stock(out_dir: str) -> Dict[str, object]:
-    """Build stylized vintage teardrop top-tube fuel tank with chrome cap and petcock."""
+    """Build a slim rounded capsule tank (Magnum II / Tomos Targa top tank) with chrome cap and petcock.
+
+    Shared by every archetype: the Targa frame rests it on the backbone, while the Maxer spine and the
+    Bramble under-seat body enclose it so only the filler cap shows (keep it inside 0.36 x 0.12 x 0.10 m).
+    """
     clear_scene()
     mb = MeshPartBuilder("tank_stock")
 
-    mb.add_polyline_tube(
-        points=[
-            (0.0, -0.18, 0.02),
-            (0.0, -0.13, 0.04),
-            (0.0, -0.06, 0.055),
-            (0.0, 0.03, 0.042),
-            (0.0, 0.12, 0.018),
-            (0.0, 0.18, 0.002),
-            (0.0, 0.22, -0.010),
-        ],
-        radii=[0.042, 0.076, 0.092, 0.095, 0.078, 0.054, 0.036],
-        segments=18,
-        mat="mat_enamel_cream",
-    )
-    # Rubber knee grip pads + anodized side badges
+    tank_pts = [
+        (0.0, -0.180, -0.004),
+        (0.0, -0.165, 0.002),
+        (0.0, -0.125, 0.006),
+        (0.0, -0.060, 0.008),
+        (0.0, 0.020, 0.006),
+        (0.0, 0.100, 0.002),
+        (0.0, 0.150, -0.004),
+        (0.0, 0.178, -0.010),
+    ]
+    tank_wh = [
+        (0.026, 0.020),
+        (0.044, 0.034),
+        (0.054, 0.043),
+        (0.058, 0.046),
+        (0.058, 0.046),
+        (0.054, 0.042),
+        (0.044, 0.034),
+        (0.026, 0.020),
+    ]
+    mb.add_profile_sweep(tank_pts, superellipse_profile(18, 2.5), scales=tank_wh, mat="mat_enamel_yellow")
+    # Two-tone side stripes (Magnum II style) on both flanks
     for side in (-1.0, 1.0):
-        mb.add_box(size=(0.012, 0.14, 0.068), location=(side * 0.088, 0.02, 0.01), mat="mat_rubber")
-        mb.add_box(size=(0.008, 0.09, 0.024), location=(side * 0.092, -0.06, 0.042), mat="mat_anodized_gold")
-    # Chrome gas cap + flange collar on top front
-    mb.add_cylinder(radius=0.026, depth=0.014, segments=16, location=(0.0, -0.09, 0.142), mat="mat_chrome")
-    mb.add_torus(major_radius=0.026, minor_radius=0.003, major_segments=14, minor_segments=6, location=(0.0, -0.09, 0.136), mat="mat_rubber")
-    # Brass petcock bung + lever underneath left
-    mb.add_cylinder(radius=0.008, depth=0.022, segments=10, location=(-0.038, 0.11, -0.058), mat="mat_brass")
-    mb.add_box(size=(0.022, 0.006, 0.006), location=(-0.048, 0.11, -0.064), mat="mat_enamel_red")
+        mb.add_box(size=(0.004, 0.230, 0.010), location=(side * 0.0575, -0.005, 0.002), mat="mat_enamel_black")
+        mb.add_box(size=(0.004, 0.200, 0.006), location=(side * 0.0570, -0.010, -0.012), mat="mat_enamel_stripe_green")
+    # Chrome flip-up gas cap with rubber seal, front-top
+    mb.add_cylinder(radius=0.020, depth=0.010, segments=16, location=(0.0, -0.120, 0.050), mat="mat_rubber")
+    mb.add_cylinder(radius=0.022, depth=0.012, segments=16, location=(0.0, -0.120, 0.060), mat="mat_chrome")
+    mb.add_box(size=(0.010, 0.016, 0.006), location=(0.0, -0.100, 0.064), mat="mat_chrome")
+    # Brass petcock bung + lever underneath on the right
+    mb.add_cylinder(radius=0.008, depth=0.022, segments=10, location=(-0.026, 0.080, -0.044), mat="mat_brass")
+    mb.add_box(size=(0.022, 0.006, 0.006), location=(-0.036, 0.080, -0.052), mat="mat_enamel_red")
 
     mb.build_object()
-    add_socket("SOCKET_PETCOCK", location=(-0.038, 0.11, -0.070))
+    add_socket("SOCKET_PETCOCK", location=(-0.026, 0.080, -0.056))
 
     return export_glb(
         os.path.join(out_dir, "Parts", "Fuel", "tank_stock.glb"),

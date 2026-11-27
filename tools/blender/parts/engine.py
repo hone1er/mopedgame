@@ -6,7 +6,7 @@ import math
 import os
 from typing import Dict, List
 
-from common_utils import MeshPartBuilder, add_bolt, add_socket, clear_scene, export_glb
+from common_utils import CYLINDER_FORWARD_TILT, MeshPartBuilder, add_bolt, add_socket, clear_scene, export_glb
 
 
 MAJOR_TRI_BUDGET = 6500
@@ -30,11 +30,14 @@ def _build_case(out_dir: str, variant: str) -> Dict[str, object]:
     mb.add_box(size=(0.004, 0.14, 0.12), location=(0.0, 0.035, -0.005), mat="mat_anodized_alu")
     mb.add_hex_bolt(radius=0.006, height=0.008, location=(0.0, 0.020, -0.065), mat="mat_brass")
 
-    cyl_rot = (-1.15, 0.0, 0.0) if variant == "pa50" else (-0.45, 0.0, 0.0)
-    cyl_pos = (0.0, -0.075, 0.032) if variant == "pa50" else (0.0, -0.056, 0.062)
+    # Barrel leans forward to near-horizontal (Puch E50 / Tomos A35 ~20 deg above horizontal, Honda PA50 ~10 deg).
+    # Rx(+t) sends the barrel axis +Z to (0, -sin t, cos t), i.e. toward the front wheel.
+    tilt = CYLINDER_FORWARD_TILT + (0.14 if variant == "pa50" else 0.0)
+    cyl_rot = (tilt, 0.0, 0.0)
+    cyl_pos = (0.0, -0.062, 0.030) if variant == "pa50" else (0.0, -0.058, 0.034)
     mb.add_box(
-        size=(0.080, 0.080, 0.032),
-        location=(0.0, cyl_pos[1] * 0.92, cyl_pos[2] * 0.90),
+        size=(0.080, 0.080, 0.030),
+        location=(0.0, cyl_pos[1] + 0.012 * math.sin(tilt), cyl_pos[2] - 0.012 * math.cos(tilt)),
         rotation=cyl_rot,
         mat="mat_cast_alu",
     )
@@ -155,8 +158,9 @@ def _build_cylinder(out_dir: str, is_70cc: bool) -> Dict[str, object]:
 
     mb.build_object()
     add_socket("SOCKET_HEAD_BASE", location=(0.0, 0.0, 0.088))
-    add_socket("SOCKET_EXHAUST_PORT", location=(0.0, -0.058, 0.042), rotation=(math.pi * 0.5, 0.0, 0.0))
-    add_socket("SOCKET_INTAKE_PORT", location=(0.0, 0.058, 0.045), rotation=(-math.pi * 0.5, 0.0, 0.0))
+    # Port sockets cancel the crankcase's forward barrel tilt so pipes/intakes are authored in the bike frame.
+    add_socket("SOCKET_EXHAUST_PORT", location=(0.0, -0.058, 0.042), rotation=(-CYLINDER_FORWARD_TILT, 0.0, 0.0))
+    add_socket("SOCKET_INTAKE_PORT", location=(0.0, 0.058, 0.045), rotation=(-CYLINDER_FORWARD_TILT, 0.0, 0.0))
 
     return export_glb(
         os.path.join(out_dir, "Parts", "Engine", f"{name}.glb"),

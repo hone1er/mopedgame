@@ -115,6 +115,9 @@ namespace MopedSim.Garage
             get { return _distance; }
         }
 
+        /// <summary>Optional hook (set by the App) that returns true while the pointer is over UI, so UI clicks never pick parts.</summary>
+        public Func<bool> PointerBlocker { get; set; }
+
         public bool ReadMouseInput
         {
             get { return _readMouseInput; }
@@ -417,7 +420,7 @@ namespace MopedSim.Garage
                 Zoom(-scroll * _zoomMetersPerNotch);
             }
 
-            if (mouse.leftButton.wasPressedThisFrame && _inspectionCamera != null)
+            if (mouse.leftButton.wasPressedThisFrame && _inspectionCamera != null && (PointerBlocker == null || !PointerBlocker()))
             {
                 InteractableNode picked;
                 if (TryPickNode(_inspectionCamera.ScreenPointToRay(mouse.position.ReadValue()), out picked))

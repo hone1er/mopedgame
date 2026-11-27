@@ -137,6 +137,27 @@ namespace MopedSim.App
         public event Action<RoadsideRepairResult> RoadsideRepairAttempted;
         public event Action<RecoveryResult> RecoveryCompleted;
 
+        // Station / roadside UI (StationUiController) -- see EnsureStationUi.
+        private StationUiController _stationUi;
+        public StationUiController StationUi { get { return _stationUi; } }
+        internal GarageWrenchHudView WrenchHud { get { return _wrenchHud; } }
+        internal GarageWorkstandController Workstand { get { return _workstand; } }
+        internal FastenerWrenchInteractor Wrench { get { return _wrench; } }
+        internal CarbWorkbenchController CarbBench { get { return _carbBench; } }
+        internal PlugChopInspector PlugInspector { get { return _plugInspector; } }
+        internal PremixStationController Premix { get { return _premix; } }
+        internal CenterStandDynoController Dyno { get { return _dyno; } }
+
+        private void EnsureStationUi()
+        {
+            if (_stationUi == null)
+            {
+                _stationUi = gameObject.GetComponent<StationUiController>();
+                if (_stationUi == null) { _stationUi = gameObject.AddComponent<StationUiController>(); }
+                _stationUi.Initialize(this);
+            }
+        }
+
         public bool IsBootstrapped
         {
             get { return _bootstrapped; }
@@ -705,6 +726,11 @@ namespace MopedSim.App
                 closed = true;
             }
 
+            if (!closed && _stationUi != null && _stationUi.CloseTopPanel())
+            {
+                closed = true;
+            }
+
             return closed;
         }
 
@@ -990,6 +1016,7 @@ namespace MopedSim.App
             {
                 _plugInspector.Bind(_garageContext);
                 _plugInspector.PlugInspected += OnPlugInspected;
+                if (_plugChart != null) { _plugChart.ShowEmptyState(); }
             }
 
             if (_premix != null)
@@ -1092,6 +1119,7 @@ namespace MopedSim.App
             ApplyZone(world.CurrentZone);
             RefreshToolRollView();
             SyncVisuals();
+            EnsureStationUi();
             ApplySessionState(_session != null ? _session.CurrentState : GameSessionState.Garage);
         }
 
@@ -1212,6 +1240,10 @@ namespace MopedSim.App
             }
 
             GameSessionState state = _session != null ? _session.CurrentState : GameSessionState.Garage;
+            if (_stationUi != null)
+            {
+                _stationUi.Tick(state, in controls);
+            }
 
             if (_weather != null && _ride != null)
             {
@@ -1695,14 +1727,16 @@ namespace MopedSim.App
                 return new RecoveryResult(false, "BuddyTow", 0f, 0f, 0m, "Session not bootstrapped.");
             }
 
-            if (_session != null && !_session.TryTransitionTo(GameSessionState.Tow))
+            if (_session != null && !_session.CanTransitionTo(GameSessionState.Tow))
             {
                 return new RecoveryResult(false, "BuddyTow", 0f, 0f, 0m, "Cannot call a tow from " + _session.CurrentState + ".");
             }
 
+            // Core decides (and charges) first: a refused tow (not enough cash) leaves the rider at the roadside instead of in Tow.
             RecoveryResult result = _world.RecoverActiveBikeWithBuddyTow();
             if (result.Succeeded && _session != null)
             {
+                _session.TryTransitionTo(GameSessionState.Tow);
                 _session.TryTransitionTo(GameSessionState.Garage);
             }
 
@@ -1933,6 +1967,10 @@ namespace MopedSim.App
             PlaceBikeVisual(onRoad);
             ApplyCameraForState(garage);
             ApplyHudVisibility(state);
+            if (_stationUi != null)
+            {
+                _stationUi.OnSessionState(state);
+            }
         }
 
         // ---------------------------------------------------------------- Ride <-> Garage presentation (event-driven)

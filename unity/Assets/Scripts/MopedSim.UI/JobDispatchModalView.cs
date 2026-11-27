@@ -23,7 +23,7 @@ namespace MopedSim.UI
         public const string NoBikeMessage = "No bike available";
         public const string EligibleMessage = "Ready to ride";
 
-        private const float ToastSeconds = 6f;
+        private const float ToastSeconds = 3.5f;
 
         private sealed class JobRowEntry
         {

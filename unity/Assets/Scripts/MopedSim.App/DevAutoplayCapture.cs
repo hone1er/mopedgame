@@ -499,6 +499,10 @@ namespace MopedSim.App
             _app.Input.SetTestOverride(default(FrameControlInputs));
             _app.AbandonJob();
             yield return Settle(0.3f);
+            yield return Capture(r, "11_gig_abandoned");
+            _app.Input.SetTestOverride(default(FrameControlInputs));
+            yield return Settle(3.5f);
+            yield return Capture(r, "11_gig_ended");
             r.passed = stillActive;
             if (!stillActive)
             {

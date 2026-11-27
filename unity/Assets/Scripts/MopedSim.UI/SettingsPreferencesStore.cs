@@ -54,6 +54,43 @@ namespace MopedSim.UI
     }
 
     /// <summary>
+    /// Actions whose gamepad button is rebindable, in canonical order (indexes <see cref="GameSettingsData.GamepadBindings"/>).
+    /// Steering stays on the left stick and the settings hotkey on Start, so neither appears here.
+    /// </summary>
+    public static class GamepadBindingActionIds
+    {
+        private static readonly string[] AllIds = new string[]
+        {
+            KeyBindingActionIds.Throttle,
+            KeyBindingActionIds.FrontBrake,
+            KeyBindingActionIds.RearBrake,
+            KeyBindingActionIds.PedalAssist,
+            KeyBindingActionIds.AeroTuck,
+            KeyBindingActionIds.Choke,
+            KeyBindingActionIds.Decompressor,
+            KeyBindingActionIds.Interact,
+            KeyBindingActionIds.ToggleCamera
+        };
+
+        /// <summary>Gamepad-rebindable action identifiers in canonical order.</summary>
+        public static IReadOnlyList<string> All { get { return AllIds; } }
+
+        /// <summary>Index of <paramref name="canonicalActionId"/> in <see cref="All"/>, or -1 when not gamepad-bindable.</summary>
+        public static int IndexOf(string canonicalActionId)
+        {
+            for (int i = 0; i < AllIds.Length; i++)
+            {
+                if (string.Equals(AllIds[i], canonicalActionId, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+    }
+
+    /// <summary>
     /// Serializable user preferences document persisted as JSON via <see cref="JsonUtility"/>.
     /// Key names match <c>UnityEngine.InputSystem.Keyboard</c> control paths (e.g. "w", "leftShift", "space").
     /// </summary>
@@ -83,6 +120,12 @@ namespace MopedSim.UI
         public string InteractKey = SettingsPreferencesStore.DefaultInteractKey;
         public string ToggleCameraKey = SettingsPreferencesStore.DefaultToggleCameraKey;
 
+        /// <summary>
+        /// Gamepad button names (<c>UnityEngine.InputSystem.LowLevel.GamepadButton</c> members such as "RightTrigger" or "East"),
+        /// indexed by <see cref="GamepadBindingActionIds.All"/>. Older preference files lack this field and load the defaults.
+        /// </summary>
+        public string[] GamepadBindings = SettingsPreferencesStore.CreateDefaultGamepadBindings();
+
         /// <summary>Copies all settings fields from <paramref name="source"/> into this instance without allocating.</summary>
         public void CopyFrom(GameSettingsData source)
         {
@@ -110,6 +153,7 @@ namespace MopedSim.UI
             DecompressorKey = source.DecompressorKey;
             InteractKey = source.InteractKey;
             ToggleCameraKey = source.ToggleCameraKey;
+            SettingsPreferencesStore.CopyGamepadBindings(source.GamepadBindings, this);
         }
 
         /// <summary>Creates a deep copy of this settings document.</summary>
@@ -155,6 +199,33 @@ namespace MopedSim.UI
         public const string DefaultInteractKey = "e";
         public const string DefaultToggleCameraKey = "v";
 
+        /// <summary>Conflict marker returned when a key or button is reserved for a fixed session hotkey or is unknown.</summary>
+        public const string ReservedConflict = "reserved";
+
+        private static readonly string[] DefaultGamepadButtons = new string[]
+        {
+            "RightTrigger", // throttle
+            "LeftTrigger",  // front brake
+            "East",         // rear brake
+            "South",        // pedal assist
+            "LeftStick",    // aero tuck
+            "DpadUp",       // choke
+            "LeftShoulder", // decompressor
+            "West",         // interact
+            "Select"        // toggle camera
+        };
+
+        // Start (settings hotkey / capture cancel) and North (Garage-Ride toggle) are fixed session buttons, so they are excluded.
+        private static readonly string[] AssignableGamepadButtons = new string[]
+        {
+            "South", "West", "East",
+            "DpadUp", "DpadDown", "DpadLeft", "DpadRight",
+            "LeftShoulder", "RightShoulder", "LeftStick", "RightStick",
+            "Select", "LeftTrigger", "RightTrigger"
+        };
+
+        private static readonly string[] ReservedKeyNames = new string[] { "escape", "tab", "f1", "f2", "f3", "f4" };
+
         private static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);
 
         /// <summary>Creates a fresh <see cref="GameSettingsData"/> populated with default values.</summary>
@@ -180,6 +251,7 @@ namespace MopedSim.UI
             target.TargetFrameRate = DefaultTargetFrameRate;
             target.FogQualityScale = DefaultFogQualityScale;
             ResetKeyBindings(target);
+            ResetGamepadBindings(target);
         }
 
         /// <summary>
@@ -217,6 +289,7 @@ namespace MopedSim.UI
             data.DecompressorKey = SanitizeKey(data.DecompressorKey, DefaultDecompressorKey);
             data.InteractKey = SanitizeKey(data.InteractKey, DefaultInteractKey);
             data.ToggleCameraKey = SanitizeKey(data.ToggleCameraKey, DefaultToggleCameraKey);
+            SanitizeGamepadBindings(data);
 
             return data;
         }
@@ -300,6 +373,12 @@ namespace MopedSim.UI
             }
 
             string trimmedKey = keyName.Trim();
+            if (IsReservedKey(trimmedKey))
+            {
+                conflictAction = ReservedConflict;
+                return false;
+            }
+
             IReadOnlyList<string> allActions = KeyBindingActionIds.All;
             for (int i = 0; i < allActions.Count; i++)
             {
@@ -360,6 +439,189 @@ namespace MopedSim.UI
             data.ToggleCameraKey = DefaultToggleCameraKey;
         }
 
+        /// <summary>Returns true when <paramref name="keyName"/> is one of the fixed session hotkeys.</summary>
+        public static bool IsReservedKey(string keyName)
+        {
+            if (string.IsNullOrWhiteSpace(keyName))
+            {
+                return false;
+            }
+
+            string trimmed = keyName.Trim();
+            for (int i = 0; i < ReservedKeyNames.Length; i++)
+            {
+                if (EqualsIgnoreCase(ReservedKeyNames[i], trimmed))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Creates a fresh array of default gamepad button names (parallel to <see cref="GamepadBindingActionIds.All"/>).</summary>
+        public static string[] CreateDefaultGamepadBindings()
+        {
+            return (string[])DefaultGamepadButtons.Clone();
+        }
+
+        /// <summary>Default gamepad button name for <paramref name="actionId"/>, or empty when the action is not gamepad-bindable.</summary>
+        public static string GetDefaultGamepadBinding(string actionId)
+        {
+            int index = GamepadBindingActionIds.IndexOf(NormalizeActionId(actionId));
+            return index >= 0 ? DefaultGamepadButtons[index] : string.Empty;
+        }
+
+        /// <summary>Resolves <paramref name="buttonName"/> to its canonical assignable gamepad button name (case-insensitive), or null.</summary>
+        public static string CanonicalGamepadButton(string buttonName)
+        {
+            if (string.IsNullOrWhiteSpace(buttonName))
+            {
+                return null;
+            }
+
+            string trimmed = buttonName.Trim();
+            for (int i = 0; i < AssignableGamepadButtons.Length; i++)
+            {
+                if (EqualsIgnoreCase(AssignableGamepadButtons[i], trimmed))
+                {
+                    return AssignableGamepadButtons[i];
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Gets the gamepad button name bound to <paramref name="actionId"/>, or empty if it is not gamepad-bindable.</summary>
+        public static string GetGamepadBinding(GameSettingsData data, string actionId)
+        {
+            if (data == null)
+            {
+                return string.Empty;
+            }
+
+            int index = GamepadBindingActionIds.IndexOf(NormalizeActionId(actionId));
+            if (index < 0)
+            {
+                return string.Empty;
+            }
+
+            if (data.GamepadBindings == null || index >= data.GamepadBindings.Length || string.IsNullOrEmpty(data.GamepadBindings[index]))
+            {
+                return DefaultGamepadButtons[index];
+            }
+
+            return data.GamepadBindings[index];
+        }
+
+        /// <summary>
+        /// Attempts to bind <paramref name="actionId"/> to the gamepad button <paramref name="buttonName"/>.
+        /// Rejects unknown/reserved buttons (<see cref="ReservedConflict"/>) and buttons already used by another action
+        /// (<paramref name="conflictAction"/> is that action's canonical ID).
+        /// </summary>
+        public static bool TrySetGamepadBinding(GameSettingsData data, string actionId, string buttonName, out string conflictAction)
+        {
+            conflictAction = string.Empty;
+            if (data == null)
+            {
+                return false;
+            }
+
+            int index = GamepadBindingActionIds.IndexOf(NormalizeActionId(actionId));
+            if (index < 0)
+            {
+                return false;
+            }
+
+            string canonicalButton = CanonicalGamepadButton(buttonName);
+            if (canonicalButton == null)
+            {
+                conflictAction = ReservedConflict;
+                return false;
+            }
+
+            EnsureGamepadArray(data);
+            for (int i = 0; i < data.GamepadBindings.Length; i++)
+            {
+                if (i != index && EqualsIgnoreCase(data.GamepadBindings[i], canonicalButton))
+                {
+                    conflictAction = GamepadBindingActionIds.All[i];
+                    return false;
+                }
+            }
+
+            data.GamepadBindings[index] = canonicalButton;
+            return true;
+        }
+
+        /// <summary>Restores all gamepad bindings on <paramref name="data"/> to their defaults in place.</summary>
+        public static void ResetGamepadBindings(GameSettingsData data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            EnsureGamepadArray(data);
+            for (int i = 0; i < DefaultGamepadButtons.Length; i++)
+            {
+                data.GamepadBindings[i] = DefaultGamepadButtons[i];
+            }
+        }
+
+        internal static void CopyGamepadBindings(string[] source, GameSettingsData target)
+        {
+            if (ReferenceEquals(source, target.GamepadBindings))
+            {
+                return;
+            }
+
+            EnsureGamepadArray(target);
+            for (int i = 0; i < DefaultGamepadButtons.Length; i++)
+            {
+                target.GamepadBindings[i] = source != null && i < source.Length && !string.IsNullOrEmpty(source[i])
+                    ? source[i]
+                    : DefaultGamepadButtons[i];
+            }
+        }
+
+        private static void EnsureGamepadArray(GameSettingsData data)
+        {
+            if (data.GamepadBindings == null || data.GamepadBindings.Length != DefaultGamepadButtons.Length)
+            {
+                string[] old = data.GamepadBindings;
+                data.GamepadBindings = new string[DefaultGamepadButtons.Length];
+                for (int i = 0; i < data.GamepadBindings.Length; i++)
+                {
+                    data.GamepadBindings[i] = old != null && i < old.Length ? old[i] : null;
+                }
+            }
+        }
+
+        // Migration: preference files written before gamepad rebinding (or with invalid/duplicate entries) fall back to defaults.
+        private static void SanitizeGamepadBindings(GameSettingsData data)
+        {
+            EnsureGamepadArray(data);
+            bool duplicate = false;
+            for (int i = 0; i < data.GamepadBindings.Length; i++)
+            {
+                string canonical = CanonicalGamepadButton(data.GamepadBindings[i]);
+                data.GamepadBindings[i] = canonical ?? DefaultGamepadButtons[i];
+                for (int j = 0; j < i; j++)
+                {
+                    if (string.Equals(data.GamepadBindings[j], data.GamepadBindings[i], StringComparison.Ordinal))
+                    {
+                        duplicate = true;
+                    }
+                }
+            }
+
+            if (duplicate)
+            {
+                ResetGamepadBindings(data);
+            }
+        }
+
         /// <summary>Synchronizes save-persisted preferences (such as <see cref="SaveState.DiagnosticHintsEnabled"/>) onto <paramref name="saveState"/>.</summary>
         public static void ApplyToSaveState(GameSettingsData data, SaveState saveState)
         {
@@ -398,7 +660,8 @@ namespace MopedSim.UI
                 return fallback;
             }
 
-            return value.Trim();
+            string trimmed = value.Trim();
+            return IsReservedKey(trimmed) ? fallback : trimmed;
         }
 
         private static string NormalizeActionId(string actionId)

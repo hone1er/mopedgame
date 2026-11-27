@@ -717,6 +717,7 @@ namespace MopedSim.App
                 _settingsView.AudioMixChanged += OnAudioMixChanged;
                 _settingsView.KeyBindingsChanged += OnKeyBindingsChanged;
                 _settingsView.GraphicsPresetChanged += OnGraphicsPresetChanged;
+                if (_input != null) { _input.AttachBindingCapture(_settingsView); }
             }
 
             ApplySettingsToSystems(_settings);

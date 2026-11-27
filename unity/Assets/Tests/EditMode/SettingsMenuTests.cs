@@ -124,7 +124,7 @@ namespace MopedSim.Tests.EditMode
 
             string conflict;
             Assert.IsTrue(SettingsPreferencesStore.TrySetKeyBinding(original, KeyBindingActionIds.Throttle, "upArrow", out conflict));
-            Assert.IsTrue(SettingsPreferencesStore.TrySetKeyBinding(original, KeyBindingActionIds.ToggleCamera, "tab", out conflict));
+            Assert.IsTrue(SettingsPreferencesStore.TrySetKeyBinding(original, KeyBindingActionIds.ToggleCamera, "g", out conflict));
 
             SettingsPreferencesStore.SaveToPath(path, original);
             Assert.IsTrue(File.Exists(path));
@@ -140,7 +140,7 @@ namespace MopedSim.Tests.EditMode
             Assert.AreEqual(120, reloaded.TargetFrameRate);
             Assert.AreEqual(1.35f, reloaded.FogQualityScale, 1e-5f);
             Assert.AreEqual("upArrow", reloaded.ThrottleKey);
-            Assert.AreEqual("tab", reloaded.ToggleCameraKey);
+            Assert.AreEqual("g", reloaded.ToggleCameraKey);
             Assert.AreEqual("a", reloaded.SteerLeftKey);
         }
 

@@ -50,6 +50,7 @@ namespace MopedSim.UI
         private const string PresetLowLabel = "Low";
         private const string PresetMediumLabel = "Medium";
         private const string PresetHighLabel = "High";
+        private const string PresetUltraLabel = "Ultra";
 
         [Header("UI Controls")]
         [SerializeField] private Toggle _diagnosticHintsToggle;
@@ -223,19 +224,13 @@ namespace MopedSim.UI
             RefreshUiControls();
         }
 
-        /// <summary>Cycles Low -> Medium -> High -> Low and emits <see cref="GraphicsPresetChanged"/>.</summary>
+        /// <summary>Cycles Low -> Medium -> High -> Ultra -> Low, sets the preset's frame cap and fog quality, and emits <see cref="GraphicsPresetChanged"/>.</summary>
         public void CycleGraphicsPreset()
         {
             EnsureInitialized();
-            GraphicsPreset next;
-            switch (_current.GraphicsPreset)
-            {
-                case GraphicsPreset.Low: next = GraphicsPreset.Medium; break;
-                case GraphicsPreset.Medium: next = GraphicsPreset.High; break;
-                default: next = GraphicsPreset.Low; break;
-            }
-
-            SetGraphicsPreset(next, _current.TargetFrameRate, _current.FogQualityScale);
+            GraphicsPreset next = GraphicsPresetTable.Next(_current.GraphicsPreset);
+            GraphicsPresetEntry entry = GraphicsPresetTable.Get(next);
+            SetGraphicsPreset(next, entry.TargetFrameRate, entry.FogQualityScale);
         }
 
         /// <summary>Raises <see cref="CloseRequested"/>.</summary>
@@ -461,6 +456,7 @@ namespace MopedSim.UI
             {
                 case GraphicsPreset.Low: return PresetLowLabel;
                 case GraphicsPreset.High: return PresetHighLabel;
+                case GraphicsPreset.Ultra: return PresetUltraLabel;
                 default: return PresetMediumLabel;
             }
         }

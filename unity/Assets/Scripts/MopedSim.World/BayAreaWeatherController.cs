@@ -234,6 +234,23 @@ namespace MopedSim.World
             }
         }
 
+        private static float s_fogQualityScale = 1f;
+        private float _fogQualityScale = s_fogQualityScale;
+
+        /// <summary>Fog quality multiplier applied to render fog density (graphics preset).</summary>
+        public float FogQualityScale
+        {
+            get { return _fogQualityScale; }
+        }
+
+        /// <summary>Allocation-free setter; clamps to 0.25..1.5 and refreshes render fog.</summary>
+        public void SetFogQualityScale(float scale)
+        {
+            _fogQualityScale = Mathf.Clamp(scale, 0.25f, 1.5f);
+            s_fogQualityScale = _fogQualityScale; // controllers created later (zone loads) inherit it
+            ApplyRenderSettingsFog();
+        }
+
         private void ApplyRenderSettingsFog()
         {
             if (!_driveRenderSettings)
@@ -245,7 +262,7 @@ namespace MopedSim.World
             RenderSettings.fog = fog > 0.01f;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = Color.Lerp(_clearHorizonColor, _karlFogColor, fog);
-            RenderSettings.fogDensity = fog * _maxFogDensity;
+            RenderSettings.fogDensity = fog * _maxFogDensity * Mathf.Min(_fogQualityScale, 1f); // >1 raises sampling quality only, never past the tuned density cap
         }
     }
 }

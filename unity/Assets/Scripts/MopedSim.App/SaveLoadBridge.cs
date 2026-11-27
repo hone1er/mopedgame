@@ -5,6 +5,23 @@ using MopedSim.Data;
 
 namespace MopedSim.App
 {
+    /// <summary>Title-screen digest of a save file (see <see cref="SaveLoadBridge.TryReadSummary"/>).</summary>
+    public readonly struct SaveSummary
+    {
+        public readonly string ArchetypeId;
+        public readonly string Nickname;
+        public readonly decimal CashUsd;
+        public readonly double OdometerKm;
+
+        public SaveSummary(string archetypeId, string nickname, decimal cashUsd, double odometerKm)
+        {
+            ArchetypeId = archetypeId;
+            Nickname = nickname;
+            CashUsd = cashUsd;
+            OdometerKm = odometerKm;
+        }
+    }
+
     /// <summary>
     /// Maps runtime MopedSim.Core state (SimulationWorld + BikeSimulation) to and from the versioned MopedSim.Data SaveState.
     /// Serialization, schema validation, and migrations are owned by MopedSim.Data.SaveMigrator; restoration only dispatches
@@ -406,6 +423,44 @@ namespace MopedSim.App
         public static SaveState LoadFromPath(string path)
         {
             return SaveMigrator.LoadFromFile(path);
+        }
+
+        /// <summary>
+        /// Reads + migrates the file at <paramref name="path"/> and digests the active bike. Returns false (never throws) when the
+        /// file is missing, unreadable, fails validation, has no active bike, or its archetype is not in <paramref name="archetypes"/>.
+        /// </summary>
+        public static bool TryReadSummary(string path, IReadOnlyDictionary<string, BikeArchetypeSpec> archetypes, out SaveSummary summary)
+        {
+            summary = default(SaveSummary);
+            try
+            {
+                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+                {
+                    return false;
+                }
+
+                SaveState state = SaveMigrator.LoadFromFile(path);
+                for (int i = 0; i < state.Bikes.Count; i++)
+                {
+                    BikeSaveState bike = state.Bikes[i];
+                    if (bike != null && string.Equals(bike.InstanceId, state.ActiveBikeInstanceId, StringComparison.Ordinal))
+                    {
+                        if (archetypes != null && !archetypes.ContainsKey(bike.ArchetypeId))
+                        {
+                            return false;
+                        }
+
+                        summary = new SaveSummary(bike.ArchetypeId, bike.Nickname, state.CashUsd, bike.OdometerKm);
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }

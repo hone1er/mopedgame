@@ -903,7 +903,10 @@ namespace MopedSim.Editor
             GameObject root = new GameObject("Zone_WestOakland_Root");
             CreateRoad(root.transform, "Maritime_PlugChopStraight", new Vector3(0f, 0f, 200f), new Vector3(12f, 0.2f, 400f), 0f, "DryAsphalt");
             CreateRoad(root.transform, "Frontage_PotholePatch", new Vector3(0f, 0.01f, 60f), new Vector3(10f, 0.2f, 20f), 0f, "PatchedPotholeAsphalt");
+            // Spur road so the Oakland Hills portal (x 23..29, z 290..310) is reachable on pavement from the main road.
+            CreateRoad(root.transform, "OaklandHills_Spur", new Vector3(18f, 0f, 300f), new Vector3(24f, 0.2f, 20f), 0f, "DryAsphalt");
             CreateRoad(root.transform, "Frontage_GravelShoulder", new Vector3(9f, 0f, 200f), new Vector3(6f, 0.2f, 400f), 0f, "GravelShoulder");
+            CreateGroundAndBounds(root.transform, -60f, 230f, -30f, 430f, 8f);
             CreateMarker(root.transform, "LM_WestOaklandGarage", new Vector3(0f, 0f, 0f));
             CreateMarker(root.transform, "LM_PartsAlleySwapMeet", new Vector3(180f, 0f, 120f));
 
@@ -937,6 +940,7 @@ namespace MopedSim.Editor
             CreateRoad(root.transform, "TunnelRd_Grade10", new Vector3(0f, 5f, 150f), new Vector3(10f, 0.2f, 101f), Mathf.Atan(0.10f) * Mathf.Rad2Deg, "DryAsphalt");
             CreateRoad(root.transform, "GrizzlyPeak_Grade18", new Vector3(0f, 18f, 250f), new Vector3(10f, 0.2f, 102f), Mathf.Atan(0.18f) * Mathf.Rad2Deg, "DryAsphalt");
 
+            CreateGroundAndBounds(root.transform, -60f, 60f, -20f, 330f, 45f);
             Transform kit = CreateChild(root.transform, "WorldKit", Vector3.zero);
             PlaceWorldModel(kit, "OaklandHills/oh_hill_road_20m", new Vector3(18f, 0f, 20f), 0f);
             PlaceWorldModel(kit, "OaklandHills/oh_hill_road_20m", new Vector3(18f, 0f, 60f), 0f);
@@ -966,6 +970,8 @@ namespace MopedSim.Editor
             root.transform.position = new Vector3(0f, 0f, 1000f);
             CreateRoad(root.transform, "BaySpan_Deck", new Vector3(0f, 20f, 600f), new Vector3(8f, 0.3f, 1200f), 0f, "DryAsphalt");
             CreateMarker(root.transform, "LM_FerryTerminal", new Vector3(0f, 20f, 1220f));
+            // No ground under the span (open water): low curbs along both deck edges and end walls keep riders on the deck.
+            CreateBounds(root.transform, "DeckCurbs", -4.3f, 4.3f, -2f, 1230f, 20.15f, 1.2f);
 
             Transform kit = CreateChild(root.transform, "WorldKit", Vector3.zero);
             for (int k = 0; k < 60; k++)
@@ -996,7 +1002,10 @@ namespace MopedSim.Editor
             CreateRoad(root.transform, "Valencia_Corridor", new Vector3(0f, 0f, 150f), new Vector3(14f, 0.2f, 300f), 0f, "DryAsphalt");
             GameObject rail = CreateRoad(root.transform, "Muni_SteelRailTrack", new Vector3(0f, 0.02f, 150f), new Vector3(1.6f, 0.2f, 300f), 0f, "SteelRailTrack");
             rail.GetComponent<RoadHazardZone>().Configure("SteelRailTrack", 0.95f, 0.38f, 0.25f, 0.2f, Vector3.forward);
-            CreateRoad(root.transform, "TwinPeaks_Grade22", new Vector3(0f, 22f, 350f), new Vector3(10f, 0.2f, 102f), Mathf.Atan(0.22f) * Mathf.Rad2Deg, "DryAsphalt");
+            // Centre y = 11 so the surface climbs 0 -> 22 over local z 300..400 (catalog formula y = (z - 2800) * 0.22), meeting Valencia flush at z 300.
+            CreateRoad(root.transform, "TwinPeaks_Grade22", new Vector3(0f, 11f, 350f), new Vector3(10f, 0.2f, 102f), Mathf.Atan(0.22f) * Mathf.Rad2Deg, "DryAsphalt");
+
+            CreateGroundAndBounds(root.transform, -60f, 60f, -20f, 420f, 45f);
 
             GameObject fog = new GameObject("KarlTheFog_Volume");
             fog.transform.SetParent(root.transform, false);
@@ -1231,6 +1240,39 @@ namespace MopedSim.Editor
                     hazard.Configure("DryAsphalt", 1.00f, 1.00f, 0.05f, 0f, Vector3.forward);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Gravel/dirt ground slab (top at y 0, just under the road tops) covering the zone footprint, plus invisible perimeter walls,
+        /// so a bike that leaves the road keeps riding on lower-grip, higher-drag surface instead of falling through the world.
+        /// </summary>
+        private static void CreateGroundAndBounds(Transform zoneRoot, float minX, float maxX, float minZ, float maxZ, float wallHeight)
+        {
+            CreateRoad(zoneRoot, "Ground_Dirt", new Vector3((minX + maxX) * 0.5f, -0.5f, (minZ + maxZ) * 0.5f), new Vector3(maxX - minX, 1f, maxZ - minZ), 0f, "GravelShoulder");
+            CreateBounds(zoneRoot, "ZoneBounds", minX, maxX, minZ, maxZ, 0f, wallHeight);
+        }
+
+        /// <summary>Four invisible wall colliders (1 m thick, outside the rectangle) standing on <paramref name="baseY"/>.</summary>
+        private static void CreateBounds(Transform zoneRoot, string name, float minX, float maxX, float minZ, float maxZ, float baseY, float height)
+        {
+            Transform bounds = CreateChild(zoneRoot, name, Vector3.zero);
+            float cx = (minX + maxX) * 0.5f;
+            float cz = (minZ + maxZ) * 0.5f;
+            float w = maxX - minX;
+            float d = maxZ - minZ;
+            float cy = baseY + height * 0.5f;
+            AddWall(bounds, "Wall_West", new Vector3(minX - 0.5f, cy, cz), new Vector3(1f, height, d + 2f));
+            AddWall(bounds, "Wall_East", new Vector3(maxX + 0.5f, cy, cz), new Vector3(1f, height, d + 2f));
+            AddWall(bounds, "Wall_South", new Vector3(cx, cy, minZ - 0.5f), new Vector3(w + 2f, height, 1f));
+            AddWall(bounds, "Wall_North", new Vector3(cx, cy, maxZ + 0.5f), new Vector3(w + 2f, height, 1f));
+        }
+
+        private static void AddWall(Transform parent, string name, Vector3 localCenter, Vector3 size)
+        {
+            Transform wall = CreateChild(parent, name, localCenter);
+            BoxCollider box = wall.gameObject.AddComponent<BoxCollider>();
+            box.size = size;
+            wall.gameObject.isStatic = true;
         }
 
         private static void CreateMarker(Transform parent, string name, Vector3 localPosition)

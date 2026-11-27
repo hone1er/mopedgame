@@ -19,6 +19,9 @@ namespace MopedSim.App
     public sealed class DevAutoplayCapture : MonoBehaviour
     {
         public const string CommandLineFlag = "-autoplayCapture";
+        /// <summary>Opt-in: accept a gig mid-ride and capture the objective guidance marker (10_gig_guidance.png).</summary>
+        public const string GigFlag = "-autoplayGig";
+
 
         /// <summary>Opt-in: keep the title screen, capture it + the archetype picker + the pause menu, then New Game with the default bike.</summary>
         public const string TitleCommandLineFlag = "-autoplayTitle";
@@ -158,6 +161,11 @@ namespace MopedSim.App
             yield return Step("ride_throttle", RideStraightRoutine);
             yield return Step("steer_right_left", SteerRoutine);
             yield return Step("chase_camera", ChaseRoutine);
+            if (HasFlag(GigFlag))
+            {
+                yield return Step("gig_guidance", GigGuidanceRoutine);
+            }
+
             yield return Step("breakdown_roadside_repair", BreakdownRoutine);
             yield return Step("back_to_garage", BackToGarageRoutine);
 
@@ -367,6 +375,46 @@ namespace MopedSim.App
                 r.note = "Bike fell/stopped while steering (lean " + _ride.LeanAngleDeg.ToString("F0", CultureInfo.InvariantCulture)
                     + " deg, speed " + _ride.SpeedMps.ToString("F1", CultureInfo.InvariantCulture) + " m/s).";
             }
+        }
+
+        private static bool HasFlag(string flag)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], flag, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerator GigGuidanceRoutine(StepRecord r)
+        {
+            bool accepted = false;
+            foreach (JobDefinition job in _app.Catalog.Jobs.Values)
+            {
+                if (_app.AcceptJob(job).Accepted)
+                {
+                    accepted = true;
+                    r.note = "Accepted " + job.Id;
+                    break;
+                }
+            }
+
+            if (!accepted)
+            {
+                r.note = "No catalog job could be accepted.";
+                yield break;
+            }
+
+            SetRide(0.4f, 0f);
+            yield return RideFor(1.5f);
+            yield return Capture(r, "10_gig_guidance");
+            r.passed = _app.Courier != null && _app.Courier.HasActiveJob;
+            _app.AbandonJob();
         }
 
         private IEnumerator ChaseRoutine(StepRecord r)

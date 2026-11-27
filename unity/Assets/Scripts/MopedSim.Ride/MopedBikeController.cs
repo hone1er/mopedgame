@@ -44,6 +44,12 @@ namespace MopedSim.Ride
         [SerializeField] private float _tipOverRecoverDelaySec = 1.5f;
         [SerializeField] private float _recoverRideHeightM = 0.42f;
 
+        [Header("Fall Safety Net (presentation-layer)")]
+        [Tooltip("Absolute world Y below which the bike is stood back up at its last grounded position.")]
+        [SerializeField] private float _fallResetFloorY = -20f;
+        [Tooltip("Drop below the last grounded height (m) that triggers the same recovery (e.g. riding off a hill road).")]
+        [SerializeField] private float _fallResetDropM = 15f;
+
         [Header("Aero / Drag (applied as rigid-body force only)")]
         [SerializeField] private AeroTuckController _aero;
         [SerializeField] private float _referenceAirDensityKgM3 = 1.225f;
@@ -64,6 +70,9 @@ namespace MopedSim.Ride
 
         private Rigidbody _rb;
         private Transform _tf;
+        private Vector3 _lastGroundedPosition;
+        private float _lastGroundedYawDeg;
+        private bool _hasLastGrounded;
         private WheelState _front;
         private WheelState _rear;
         private readonly SurfaceHazardDetector _surfaceDetector = new SurfaceHazardDetector();
@@ -346,6 +355,38 @@ namespace MopedSim.Ride
             TipOverRecoveryCount++;
         }
 
+        /// <summary>Number of times the fall safety net returned the bike to its last grounded position.</summary>
+        public int FallRecoveryCount { get; private set; }
+
+        private void UpdateFallSafetyNet()
+        {
+            Vector3 pos = _tf.position;
+            if (IsGrounded && pos.y >= _fallResetFloorY && Vector3.Angle(_tf.up, Vector3.up) < 45f)
+            {
+                _lastGroundedPosition = pos;
+                _lastGroundedYawDeg = _tf.eulerAngles.y;
+                _hasLastGrounded = true;
+                return;
+            }
+
+            bool fell = pos.y < _fallResetFloorY || (_hasLastGrounded && pos.y < _lastGroundedPosition.y - _fallResetDropM);
+            if (!fell)
+            {
+                return;
+            }
+
+            FallRecoveryCount++;
+            if (_hasLastGrounded)
+            {
+                ResetUprightAt(_lastGroundedPosition, _lastGroundedYawDeg);
+                _tippedTimerSec = 0f;
+            }
+            else
+            {
+                PickUpBike();
+            }
+        }
+
         private void UpdateTipOverRecovery(float dt)
         {
             float tiltDeg = Vector3.Angle(_tf.up, Vector3.up);
@@ -386,6 +427,7 @@ namespace MopedSim.Ride
             if (!_rb.isKinematic)
             {
                 UpdateTipOverRecovery(dt);
+                UpdateFallSafetyNet();
             }
 
             Vector3 velocity = _rb.linearVelocity;

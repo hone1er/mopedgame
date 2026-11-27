@@ -17,6 +17,7 @@ for arg in "$@"; do
     case "$arg" in
         --build) DO_BUILD=1 ;;
         --title) EXTRA+=("-autoplayTitle") ;;
+        --gig) EXTRA+=("-autoplayGig") ;;
         -h|--help) sed -n 2,3p "$0"; exit 0 ;;
         *) OUT_DIR="$arg" ;;
     esac

@@ -48,6 +48,20 @@ namespace MopedSim.Data.Tests
             return float.Parse(m.Groups[g].Value, System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        /// <summary>Ramp centre-line height at local Z for the pitched blockout (pitch = atan(0.22)).</summary>
+        private static float RampSurfaceY(Match peaks, float localZ)
+        {
+            return F(peaks, 2) + (localZ - F(peaks, 3)) * 0.22f;
+        }
+
+        [Fact]
+        public void TwinPeaksRamp_RunsFromGroundToCatalogHeight()
+        {
+            Match peaks = RoadMatch(SfMissionBody(), "TwinPeaks_Grade22");
+            Assert.Equal(0f, RampSurfaceY(peaks, 300f), 1);
+            Assert.Equal(22f, RampSurfaceY(peaks, 400f), 1);
+        }
+
         [Fact]
         public void SfMissionCheckpoints_LieOnScaffoldValenciaOrTwinPeaksRoad()
         {
@@ -75,6 +89,10 @@ namespace MopedSim.Data.Tests
                     if (onValencia && !onPeaks)
                     {
                         Assert.Equal(0f, cp.Y, 3);
+                    }
+                    else if (onPeaks && !onValencia)
+                    {
+                        Assert.Equal(RampSurfaceY(peaks, cp.Z - ZoneRootZ), cp.Y, 1);
                     }
                 }
             }

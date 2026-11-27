@@ -27,8 +27,8 @@ namespace MopedSim.App
         /// <summary>True while a menu owns the screen (gameplay hotkeys and ride/garage input are ignored).</summary>
         public bool IsBlockingInput { get { return _titleOpen || _pauseOpen; } }
 
-        public TitleMenuView Title { get { return _title; } }
-        public PauseMenuView Pause { get { return _pause; } }
+        public TitleMenuView TitleView { get { return _title; } }
+        public PauseMenuView PauseView { get { return _pause; } }
 
         public void Initialize(AppCompositionRoot app)
         {

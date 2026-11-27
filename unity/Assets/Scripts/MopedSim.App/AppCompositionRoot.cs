@@ -71,6 +71,7 @@ namespace MopedSim.App
 
         [Header("Settings")]
         [SerializeField] private string _settingsFileName = "settings.json";
+        [SerializeField] private string _saveFileName = "savegame.json";
 
         [Header("Audio")]
         [SerializeField] private TwoStrokeAudioDriver _audio;
@@ -108,6 +109,30 @@ namespace MopedSim.App
         private Quaternion _bikeVisualHomeRotation = Quaternion.identity;
         private Vector3 _bikeVisualHomeScale = Vector3.one;
         private bool _bikeVisualHomeCaptured;
+
+        private SessionMenuController _menus;
+        private bool _settingsLayoutBuilt;
+        private float _timeScaleBeforeMenu = 1f;
+        private bool _menuBlocked;
+
+        // Session hand-off across the scene reload used by New Game (non-default bike), Continue (other bike) and Save & Quit to Title.
+        private static bool s_pendingStart;
+        private static string s_pendingArchetype = string.Empty;
+        private static bool s_pendingContinue;
+
+        /// <summary>Tests / tools set this to boot straight into the Garage without the title screen.</summary>
+        public static bool SkipTitleScreen;
+
+        private bool _froze;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            s_pendingStart = false;
+            s_pendingArchetype = string.Empty;
+            s_pendingContinue = false;
+            SkipTitleScreen = false;
+        }
 
         public event Action<RoadsideRepairResult> RoadsideRepairAttempted;
         public event Action<RecoveryResult> RecoveryCompleted;
@@ -412,10 +437,339 @@ namespace MopedSim.App
                 yield break;
             }
 
+            bool pendingContinue = false;
+            bool hadPending = s_pendingStart;
+            if (hadPending)
+            {
+                s_pendingStart = false;
+                pendingContinue = s_pendingContinue;
+                if (!string.IsNullOrEmpty(s_pendingArchetype))
+                {
+                    _startingArchetypeId = s_pendingArchetype;
+                }
+            }
+
             if (BootstrapFromCatalogs() && _zones != null && !string.IsNullOrEmpty(_initialZoneScene))
             {
                 LoadInitialZone();
             }
+
+            if (_bootstrapped)
+            {
+                if (pendingContinue ? !ContinueGame() : (!hadPending && ShouldShowTitle(Environment.GetCommandLineArgs())))
+                {
+                    // Also the fallback when a pending Continue could not restore its save: land on the title, never a silent fresh game.
+                    EnsureMenus().ShowTitle();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Title screen gate: off under the Unity Test Framework, with <c>-skipTitle</c>, <see cref="SkipTitleScreen"/>, or under
+        /// <c>-autoplayCapture</c> unless <c>-autoplayTitle</c> is also passed.
+        /// </summary>
+        public static bool ShouldShowTitle(string[] args)
+        {
+            if (SkipTitleScreen)
+            {
+                return false;
+            }
+
+            bool autoplay = false;
+            bool autoplayTitle = false;
+            if (args != null)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    string a = args[i];
+                    if (string.Equals(a, "-skipTitle", StringComparison.Ordinal) || string.Equals(a, "-runTests", StringComparison.Ordinal)
+                        || string.Equals(a, "-testPlatform", StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    autoplay |= string.Equals(a, DevAutoplayCapture.CommandLineFlag, StringComparison.Ordinal);
+                    autoplayTitle |= string.Equals(a, DevAutoplayCapture.TitleCommandLineFlag, StringComparison.Ordinal);
+                }
+            }
+
+            if (autoplay && !autoplayTitle)
+            {
+                return false;
+            }
+
+            // Interactive Test Runner PlayMode runs have no -runTests flag but always start in an "InitTestScene*" active scene.
+            return !SceneManager.GetActiveScene().name.StartsWith("InitTestScene", StringComparison.Ordinal);
+        }
+
+        public SessionMenuController Menus
+        {
+            get { return _menus; }
+        }
+
+        public SessionMenuController EnsureMenus()
+        {
+            if (_menus == null)
+            {
+                _menus = gameObject.GetComponent<SessionMenuController>();
+                if (_menus == null)
+                {
+                    _menus = gameObject.AddComponent<SessionMenuController>();
+                }
+
+                _menus.Initialize(this);
+            }
+
+            return _menus;
+        }
+
+        public bool IsMenuOpen
+        {
+            get { return _menus != null && _menus.IsBlockingInput; }
+        }
+
+        public bool IsPaused
+        {
+            get { return _menus != null && _menus.IsPauseOpen; }
+        }
+
+        public string ResolveSavePath()
+        {
+            return Path.Combine(Application.persistentDataPath, string.IsNullOrEmpty(_saveFileName) ? "savegame.json" : _saveFileName);
+        }
+
+        /// <summary>Test/tool hook: redirects the save file (a bare file name under persistentDataPath, or an absolute path).</summary>
+        public void SetSaveFileName(string fileName)
+        {
+            _saveFileName = fileName;
+        }
+
+        public bool TryReadSaveSummary(out SaveSummary summary)
+        {
+            return SaveLoadBridge.TryReadSummary(ResolveSavePath(), _catalog != null ? _catalog.Archetypes : null, out summary);
+        }
+
+        /// <summary>Writes the active session to <see cref="ResolveSavePath"/>; false (logged) on failure.</summary>
+        public bool SaveGame()
+        {
+            if (!_bootstrapped)
+            {
+                return false;
+            }
+
+            try
+            {
+                SaveToPath(ResolveSavePath());
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[AppCompositionRoot] Save failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>Title -> New Game. Starts a fresh session with <paramref name="archetypeId"/> (reloads the boot scene when it differs from the booted bike).</summary>
+        public bool StartNewGame(string archetypeId)
+        {
+            if (_catalog == null || string.IsNullOrEmpty(archetypeId) || !_catalog.Archetypes.ContainsKey(archetypeId))
+            {
+                return false;
+            }
+
+            if (!string.Equals(archetypeId, _startingArchetypeId, StringComparison.Ordinal))
+            {
+                ReloadSession(archetypeId, false);
+                return true;
+            }
+
+            if (_menus != null)
+            {
+                _menus.HideTitle();
+            }
+
+            return true;
+        }
+
+        /// <summary>Title -> Continue. Restores the save (reloading the boot scene first when the saved bike differs from the booted one).</summary>
+        public bool ContinueGame()
+        {
+            SaveSummary summary;
+            if (!TryReadSaveSummary(out summary))
+            {
+                return false;
+            }
+
+            if (!string.Equals(summary.ArchetypeId, _startingArchetypeId, StringComparison.Ordinal))
+            {
+                ReloadSession(summary.ArchetypeId, true);
+                return true;
+            }
+
+            try
+            {
+                LoadFromPath(ResolveSavePath());
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[AppCompositionRoot] Continue failed: " + ex.Message);
+                return false;
+            }
+
+            if (_menus != null)
+            {
+                _menus.HideTitle();
+            }
+
+            return true;
+        }
+
+        /// <summary>Reloads the boot scene (clean, same path as a cold boot) with the given archetype; Continue restores the save after bootstrap.</summary>
+        private void ReloadSession(string archetypeId, bool continueSave)
+        {
+            s_pendingStart = true;
+            s_pendingArchetype = archetypeId;
+            s_pendingContinue = continueSave;
+            SetMenuInputBlocked(false);
+            SceneManager.LoadScene(gameObject.scene.name, LoadSceneMode.Single);
+        }
+
+        /// <summary>Pause menu -> Save &amp; Quit to Title: reloads the boot scene, which shows the title again.</summary>
+        public void ReturnToTitle()
+        {
+            s_pendingStart = false;
+            SetMenuInputBlocked(false);
+            SceneManager.LoadScene(gameObject.scene.name, LoadSceneMode.Single);
+        }
+
+        public void QuitApplication()
+        {
+            SetMenuInputBlocked(false);
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        /// <summary>Freezes (timeScale 0, audio paused, wrench/workstand mouse input off) or restores the sim while a menu owns the screen.</summary>
+        public void SetMenuInputBlocked(bool blocked)
+        {
+            bool freeze = blocked && _menus != null && _menus.IsPauseOpen;
+            if (freeze)
+            {
+                if (!_froze && Time.timeScale > 0f)
+                {
+                    _timeScaleBeforeMenu = Time.timeScale;
+                    Time.timeScale = 0f;
+                    _froze = true;
+                }
+
+                AudioListener.pause = true;
+            }
+            else
+            {
+                RestoreTimeScale();
+            }
+
+            _menuBlocked = blocked;
+            bool garage = _session != null && _session.CurrentState == GameSessionState.Garage;
+            if (_wrench != null) { _wrench.ReadMouseInput = !blocked && garage; }
+            if (_workstand != null) { _workstand.ReadMouseInput = !blocked && garage; }
+        }
+
+        private void RestoreTimeScale()
+        {
+            if (_froze)
+            {
+                _froze = false;
+                Time.timeScale = _timeScaleBeforeMenu > 0f ? _timeScaleBeforeMenu : 1f;
+            }
+
+            AudioListener.pause = false;
+        }
+
+        /// <summary>Closes the Shop / Swap Meet if open. Returns whether anything was closed.</summary>
+        public bool CloseTransientPanels()
+        {
+            bool closed = false;
+            if (IsShopOpen)
+            {
+                SetViewVisible(_shop, false);
+                closed = true;
+            }
+
+            if (_swapMeet != null && _swapMeet.gameObject.activeSelf)
+            {
+                SetViewVisible(_swapMeet, false);
+                closed = true;
+            }
+
+            return closed;
+        }
+
+        public void OpenSettings()
+        {
+            if (_settingsView == null)
+            {
+                return;
+            }
+
+            EnsureSettingsLayout();
+            SetViewVisible(_settingsView, true);
+            _settingsView.transform.SetAsLastSibling();
+            if (_menus != null) { _menus.OnSettingsOpened(); }
+        }
+
+        public void CloseSettings()
+        {
+            if (_settingsView == null)
+            {
+                return;
+            }
+
+            SetViewVisible(_settingsView, false);
+            if (_menus != null) { _menus.OnSettingsClosed(); }
+        }
+
+        /// <summary>
+        /// The scaffolded SettingsMenu panel is an empty stub: build its interactive layout once and give it its own canvas sort order
+        /// so it layers above the title / pause overlays.
+        /// </summary>
+        private void EnsureSettingsLayout()
+        {
+            if (_settingsLayoutBuilt || _settingsView == null)
+            {
+                return;
+            }
+
+            _settingsLayoutBuilt = true;
+            if (_settingsView.GetComponentInChildren<UnityEngine.UI.Toggle>(true) != null)
+            {
+                return; // Already has a built layout.
+            }
+
+            RectTransform rt = _settingsView.transform as RectTransform;
+            if (rt == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < rt.childCount; i++)
+            {
+                rt.GetChild(i).gameObject.SetActive(false);
+            }
+
+            _settingsView.BuildDefaultLayout(rt);
+            Canvas c = _settingsView.gameObject.GetComponent<Canvas>();
+            if (c == null)
+            {
+                c = _settingsView.gameObject.AddComponent<Canvas>();
+                _settingsView.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+            }
+
+            c.overrideSorting = true;
+            c.sortingOrder = 300;
         }
 
         private async void LoadInitialZone()
@@ -723,6 +1077,7 @@ namespace MopedSim.App
                 _settingsView.AudioMixChanged += OnAudioMixChanged;
                 _settingsView.KeyBindingsChanged += OnKeyBindingsChanged;
                 _settingsView.GraphicsPresetChanged += OnGraphicsPresetChanged;
+                _settingsView.CloseRequested += CloseSettings;
                 if (_input != null) { _input.AttachBindingCapture(_settingsView); }
             }
 
@@ -742,6 +1097,11 @@ namespace MopedSim.App
 
         private void OnDestroy()
         {
+            if (_menuBlocked)
+            {
+                RestoreTimeScale();
+            }
+
             Unwire();
         }
 
@@ -821,6 +1181,7 @@ namespace MopedSim.App
                 _settingsView.AudioMixChanged -= OnAudioMixChanged;
                 _settingsView.KeyBindingsChanged -= OnKeyBindingsChanged;
                 _settingsView.GraphicsPresetChanged -= OnGraphicsPresetChanged;
+                _settingsView.CloseRequested -= CloseSettings;
             }
 
             _bootstrapped = false;
@@ -834,9 +1195,20 @@ namespace MopedSim.App
             }
 
             FrameControlInputs controls = _input != null ? _input.SampleInputs() : default(FrameControlInputs);
+            if (controls.PausePressed)
+            {
+                EnsureMenus().HandlePausePressed();
+            }
+
             if (controls.ToggleGarageRidePressed || controls.ToggleSettingsPressed || controls.ToggleShopPressed || controls.CyclePaintPressed)
             {
                 HandleSessionHotkeys(in controls);
+            }
+
+            if (IsMenuOpen)
+            {
+                // Title / pause own the screen: no ride, garage or HUD updates (timeScale is 0 while paused).
+                return;
             }
 
             GameSessionState state = _session != null ? _session.CurrentState : GameSessionState.Garage;
@@ -1195,8 +1567,15 @@ namespace MopedSim.App
                 return false;
             }
 
-            bool open = !_settingsView.gameObject.activeSelf;
-            SetViewVisible(_settingsView, open);
+            if (_settingsView.gameObject.activeSelf)
+            {
+                CloseSettings();
+            }
+            else
+            {
+                OpenSettings();
+            }
+
             return IsSettingsMenuOpen;
         }
 
@@ -1246,14 +1625,20 @@ namespace MopedSim.App
 
         private void HandleSessionHotkeys(in FrameControlInputs controls)
         {
-            if (controls.ToggleGarageRidePressed)
+            bool menuOpen = IsMenuOpen;
+            if (controls.ToggleGarageRidePressed && !menuOpen)
             {
                 ToggleGarageRide();
             }
 
-            if (controls.ToggleSettingsPressed)
+            if (controls.ToggleSettingsPressed && !(_menus != null && _menus.IsTitleOpen))
             {
                 ToggleSettingsMenu();
+            }
+
+            if (menuOpen)
+            {
+                return;
             }
 
             if (controls.ToggleShopPressed)
@@ -1537,6 +1922,12 @@ namespace MopedSim.App
             if (_rideBody != null && _holdRideBodyKinematicOffRoad && _rideBody.isKinematic == onRoad)
             {
                 _rideBody.isKinematic = !onRoad;
+            }
+
+            if (_menuBlocked)
+            {
+                if (_wrench != null) { _wrench.ReadMouseInput = false; }
+                if (_workstand != null) { _workstand.ReadMouseInput = false; }
             }
 
             PlaceBikeVisual(onRoad);

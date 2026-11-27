@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Boots the built macOS player windowed, runs the DevAutoplayCapture script, and prints the report + PNG list.
-# Usage: ./scripts/capture_gameplay.sh [--build] [outDir]
+# Usage: ./scripts/capture_gameplay.sh [--build] [--title] [outDir]   (--title also captures the title, archetype picker and pause menu)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,11 +10,13 @@ UNITY="${UNITY_BIN:-/Applications/Unity/Hub/Editor/6000.6.10f1/Unity.app/Content
 APP="unity/Builds/MacOS/arm64/MopedGame.app"
 TIMEOUT_SECONDS="${CAPTURE_TIMEOUT_SECONDS:-180}"
 DO_BUILD=0
+EXTRA=()
 OUT_DIR=""
 
 for arg in "$@"; do
     case "$arg" in
         --build) DO_BUILD=1 ;;
+        --title) EXTRA+=("-autoplayTitle") ;;
         -h|--help) sed -n 2,3p "$0"; exit 0 ;;
         *) OUT_DIR="$arg" ;;
     esac
@@ -37,7 +39,7 @@ EXE="$(find "$EXE_DIR" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 rm -f "$OUT_DIR"/report.json "$OUT_DIR"/*.png
 echo "[capture] launching $EXE -> $OUT_DIR"
 "$EXE" -screen-fullscreen 0 -screen-width 1600 -screen-height 900 \
-    -autoplayCapture "$OUT_DIR" -logFile "$OUT_DIR/player.log" &
+    -autoplayCapture "$OUT_DIR" ${EXTRA[@]+"${EXTRA[@]}"} -logFile "$OUT_DIR/player.log" &
 PID=$!
 
 START=$SECONDS

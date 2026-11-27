@@ -22,6 +22,10 @@ namespace MopedSim.App
 
         /// <summary>Opt-in: keep the title screen, capture it + the archetype picker + the pause menu, then New Game with the default bike.</summary>
         public const string TitleCommandLineFlag = "-autoplayTitle";
+
+        /// <summary>Opt-in: open the gig dispatch board (J), accept an eligible West Oakland gig and ride with the active-gig HUD.</summary>
+        public const string GigCommandLineFlag = "-autoplayGig";
+        private const string GigJobId = "gig_west_oakland_coffee";
         private const float BootTimeoutSeconds = 60f;
         private const float RideSeconds = 5f;
         private const float SteerSeconds = 3f;
@@ -158,6 +162,11 @@ namespace MopedSim.App
             yield return Step("ride_throttle", RideStraightRoutine);
             yield return Step("steer_right_left", SteerRoutine);
             yield return Step("chase_camera", ChaseRoutine);
+            if (HasFlag(GigCommandLineFlag))
+            {
+                yield return Step("gig_board_and_active", GigRoutine);
+            }
+
             yield return Step("breakdown_roadside_repair", BreakdownRoutine);
             yield return Step("back_to_garage", BackToGarageRoutine);
 
@@ -250,7 +259,12 @@ namespace MopedSim.App
 
         private static bool HasTitleFlag()
         {
-            return Array.IndexOf(Environment.GetCommandLineArgs(), TitleCommandLineFlag) >= 0;
+            return HasFlag(TitleCommandLineFlag);
+        }
+
+        private static bool HasFlag(string flag)
+        {
+            return Array.IndexOf(Environment.GetCommandLineArgs(), flag) >= 0;
         }
 
         private IEnumerator TitleRoutine(StepRecord r)
@@ -401,6 +415,58 @@ namespace MopedSim.App
             {
                 r.note = "Bike stopped (lean " + _ride.LeanAngleDeg.ToString("F0", CultureInfo.InvariantCulture) + " deg, grounded=" + _ride.IsGrounded + ").";
             }
+        }
+
+        private IEnumerator GigRoutine(StepRecord r)
+        {
+            if (_rideStartPos != Vector3.zero)
+            {
+                _ride.ResetUprightAt(_rideStartPos, _rideStartYaw);
+            }
+
+            SetRide(0f, 0f);
+            yield return Settle(0.4f);
+            yield return PressJobBoardKey();
+            yield return Settle(0.6f);
+            JobDispatchController dispatch = _app.JobDispatch;
+            bool opened = _app.IsJobBoardOpen && Mathf.Approximately(Time.timeScale, 0f);
+            yield return Capture(r, "11_job_board");
+            if (!opened || dispatch == null || dispatch.View == null)
+            {
+                r.note = "Job board did not open on J (open=" + _app.IsJobBoardOpen + " timeScale=" + Time.timeScale + ").";
+                yield break;
+            }
+
+            dispatch.View.TriggerAcceptJob(GigJobId);
+            yield return Settle(0.4f);
+            bool accepted = _app.Courier != null && _app.Courier.HasActiveJob && !_app.IsJobBoardOpen && Mathf.Approximately(Time.timeScale, 1f);
+            if (!accepted)
+            {
+                r.note = "Accepting " + GigJobId + " did not start the gig (status=" + (_app.Courier != null ? _app.Courier.Status.ToString() : "no courier")
+                    + " boardOpen=" + _app.IsJobBoardOpen + ").";
+                yield break;
+            }
+
+            SetRide(0.7f, 0f);
+            yield return RideFor(3f);
+            yield return Capture(r, "11_gig_active");
+            bool stillActive = _app.Courier.HasActiveJob;
+            _app.Input.SetTestOverride(default(FrameControlInputs));
+            _app.AbandonJob();
+            yield return Settle(0.3f);
+            r.passed = stillActive;
+            if (!stillActive)
+            {
+                r.note = "Gig ended while riding (status=" + _app.Courier.Status + ").";
+            }
+        }
+
+        private IEnumerator PressJobBoardKey()
+        {
+            _app.Input.SetTestOverride(new FrameControlInputs(0f, 0f, 0f, 0f, false, false, false, false, false, false, toggleJobBoardPressed: true));
+            yield return null;
+            _app.Input.SetTestOverride(default(FrameControlInputs));
+            yield return null;
         }
 
         private IEnumerator BreakdownRoutine(StepRecord r)

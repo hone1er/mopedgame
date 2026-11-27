@@ -177,7 +177,7 @@ namespace MopedSim.Tests.EditMode
         }
 
         [Test]
-        public void JobDispatchModalView_RendersCatalogJobs_AndButtonsFireEvents()
+        public void JobDispatchModalView_ListsCatalogGigsWithEligibility_AndButtonsFireEvents()
         {
             CatalogDatabase db = LoadCatalog();
             BikeSimulation bike = new BikeSimulation(db.GetArchetype(ArchetypeIds.MaxerE50), db.Parts);
@@ -186,23 +186,44 @@ namespace MopedSim.Tests.EditMode
 
             GameObject host = CreateChildPanel("JobDispatchHost");
             JobDispatchModalView modal = host.AddComponent<JobDispatchModalView>();
-            modal.BuildDefaultLayout((RectTransform)host.transform);
+            modal.Build(host.transform);
+            Assert.IsTrue(modal.IsBuilt);
+            Assert.IsFalse(modal.IsOpen, "Built closed.");
             modal.RenderCatalog(db, world, bike, null, JobSessionStatus.Idle, true, "Dispatch online");
 
             Assert.AreEqual(db.JobList.Count, modal.DisplayedJobCount);
-            Assert.Greater(modal.DisplayedJobCount, 0);
             StringAssert.Contains("Dispatch online", modal.DisplayedFeedback);
 
-            // Stock wire rack fits 1-slot coffee run, but not 2-slot Mission parts rush.
+            // Stock wire rack fits the 1-slot coffee run, but not the 2-slot Mission parts rush or the 3-slot burrito crate.
             Transform coffeeRow = FindChildByName(host.transform, "JobRow_gig_west_oakland_coffee");
             Assert.IsNotNull(coffeeRow);
             Button coffeeAccept = coffeeRow.GetComponentInChildren<Button>(true);
             Assert.IsTrue(coffeeAccept.interactable);
+            string coffeeText = coffeeRow.GetComponentInChildren<Text>(true).text;
+            StringAssert.Contains("West Oakland Espresso Drop", coffeeText);
+            StringAssert.Contains("(local run)", coffeeText);
+            StringAssert.Contains(" -> ", burritoRowText(host));
+            StringAssert.Contains("$35", coffeeText);
+            StringAssert.Contains("+10 rep", coffeeText);
+            StringAssert.Contains("2:30 limit", coffeeText);
+            StringAssert.Contains(JobDispatchModalView.EligibleMessage, coffeeText);
 
-            Transform missionRow = FindChildByName(host.transform, "JobRow_gig_mission_parts_rush");
-            Assert.IsNotNull(missionRow);
-            Button missionAccept = missionRow.GetComponentInChildren<Button>(true);
-            Assert.IsFalse(missionAccept.interactable, "2-slot job must show locked on stock 1-slot wire rack.");
+            Transform burritoRow = FindChildByName(host.transform, "JobRow_gig_oakland_burrito_crate");
+            Assert.IsFalse(burritoRow.GetComponentInChildren<Button>(true).interactable);
+            StringAssert.Contains(JobDispatchModalView.NeedsRackMessage, burritoRow.GetComponentInChildren<Text>(true).text);
+            Assert.IsFalse(FindChildByName(host.transform, "JobRow_gig_mission_parts_rush").GetComponentInChildren<Button>(true).interactable);
+            Assert.Greater(modal.EligibleJobCount, 0);
+            Assert.Less(modal.EligibleJobCount, modal.DisplayedJobCount);
+
+            // An active gig locks every other row; the active row is tagged.
+            JobDefinition active = db.GetJob("gig_west_oakland_coffee");
+            modal.RenderCatalog(db, world, bike, active, JobSessionStatus.Active, false, string.Empty);
+            Assert.AreEqual(0, modal.EligibleJobCount);
+            StringAssert.Contains(JobDispatchModalView.ActiveGigMessage, burritoRow.GetComponentInChildren<Text>(true).text);
+            StringAssert.Contains("[ACTIVE]", coffeeRow.GetComponentInChildren<Text>(true).text);
+            Assert.IsTrue(FindChildByName(host.transform, "Btn_AbandonActive").GetComponent<Button>().interactable);
+            modal.RenderCatalog(db, world, bike, null, JobSessionStatus.Idle, false, string.Empty);
+            Assert.IsFalse(FindChildByName(host.transform, "Btn_AbandonActive").GetComponent<Button>().interactable);
 
             string acceptedJobId = string.Empty;
             int abandonCount = 0;
@@ -222,6 +243,96 @@ namespace MopedSim.Tests.EditMode
             Assert.AreEqual(1, abandonCount);
             Assert.AreEqual(1, collectCount);
             Assert.AreEqual(1, closeCount);
+
+            modal.Show();
+            Assert.IsTrue(modal.IsOpen);
+            modal.Hide();
+            Assert.IsFalse(modal.IsOpen);
+            modal.ShowToast("DELIVERED", Color.green);
+            Assert.IsTrue(modal.IsToastVisible);
+            StringAssert.Contains("DELIVERED", modal.ToastText);
+            modal.HideToast();
+            Assert.IsFalse(modal.IsToastVisible);
+        }
+
+        private static string burritoRowText(GameObject host)
+        {
+            return FindChildByName(host.transform, "JobRow_gig_oakland_burrito_crate").GetComponentInChildren<Text>(true).text;
+        }
+
+        [Test]
+        public void JobDispatchModalView_EvaluateEligibility_ExplainsEachBlocker()
+        {
+            CatalogDatabase db = LoadCatalog();
+            BikeSimulation bike = new BikeSimulation(db.GetArchetype(ArchetypeIds.MaxerE50), db.Parts);
+            string reason;
+            Assert.IsTrue(JobDispatchModalView.EvaluateEligibility(db.GetJob("gig_west_oakland_coffee"), bike, false, out reason));
+            Assert.AreEqual(JobDispatchModalView.EligibleMessage, reason);
+            Assert.IsFalse(JobDispatchModalView.EvaluateEligibility(db.GetJob("gig_west_oakland_coffee"), bike, true, out reason));
+            Assert.AreEqual(JobDispatchModalView.ActiveGigMessage, reason);
+            Assert.IsFalse(JobDispatchModalView.EvaluateEligibility(db.GetJob("gig_west_oakland_coffee"), null, false, out reason));
+            Assert.AreEqual(JobDispatchModalView.NoBikeMessage, reason);
+            Assert.IsFalse(JobDispatchModalView.EvaluateEligibility(db.GetJob("gig_oakland_burrito_crate"), bike, false, out reason));
+            StringAssert.StartsWith(JobDispatchModalView.NeedsRackMessage, reason);
+            StringAssert.Contains("3 slots", reason);
+        }
+
+        [Test]
+        public void JobBoardHudView_RenderObjective_ShowsCheckpointDistanceAndTimeLeft_WithZeroSteadyStateGc()
+        {
+            GameObject host = CreateChildPanel("JobBoardObjectiveHost");
+            RectTransform content = (RectTransform)new GameObject("Content", typeof(RectTransform)).transform;
+            content.SetParent(host.transform, false);
+            content.anchorMin = new Vector2(1f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(1f, 1f);
+            content.sizeDelta = new Vector2(400f, 300f);
+            JobBoardHudView hud = host.AddComponent<JobBoardHudView>();
+            typeof(JobBoardHudView).GetField("_panelRoot", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(hud, content.gameObject);
+
+            CatalogDatabase db = LoadCatalog();
+            JobDefinition job = db.GetJob("gig_west_oakland_coffee");
+            JobCheckpointSpec pickup = job.Checkpoints[0];
+            JobSessionManager jobs = new JobSessionManager();
+            BikeSimulation bike = new BikeSimulation(db.GetArchetype(ArchetypeIds.MaxerE50), db.Parts);
+            Assert.IsTrue(jobs.TryAcceptJob(job, bike).Accepted);
+            JobSessionSnapshot snap = jobs.GetSnapshot();
+            const string zone = "West Oakland";
+
+            hud.RenderObjective(in snap, pickup, zone, 148.3f, true);
+            Assert.IsTrue(hud.IsObjectiveVisible);
+            StringAssert.Contains("PICKUP: Mandela Pkwy Roaster (West Oakland)", hud.DisplayedObjective);
+            Assert.AreEqual("150 m", hud.DisplayedDistance);
+            Assert.AreEqual("2:30", hud.DisplayedTimeLeft);
+
+            hud.RenderObjective(in snap, pickup, zone, 2500f, true);
+            Assert.AreEqual("2.5 km", hud.DisplayedDistance);
+            hud.RenderObjective(in snap, pickup, zone, 0f, false);
+            Assert.AreEqual(string.Empty, hud.DisplayedDistance);
+
+            hud.RenderObjective(in snap, pickup, zone, 148.3f, true);
+            int writes = hud.TextWriteCount;
+            TestDelegate steady = delegate
+            {
+                for (int i = 0; i < 200; i++)
+                {
+                    hud.RenderObjective(in snap, pickup, zone, 148.3f, true);
+                }
+            };
+            steady();
+            Assert.AreEqual(writes, hud.TextWriteCount, "Unchanged objective frames must perform zero Text writes.");
+            Assert.That(steady, Is.Not.AllocatingGCMemory());
+
+            JobSessionSnapshot idle = default(JobSessionSnapshot);
+            hud.RenderObjective(in idle, null, null, 0f, false);
+            Assert.IsFalse(hud.IsObjectiveVisible);
+        }
+
+        [Test]
+        public void ControlsBanner_GarageAndRideHintsMentionGigBoard()
+        {
+            StringAssert.Contains("[J] Gigs", ControlsBannerView.TextFor(ControlsBannerMode.Garage));
+            StringAssert.Contains("[J] Gigs", ControlsBannerView.TextFor(ControlsBannerMode.Ride));
         }
 
         [Test]

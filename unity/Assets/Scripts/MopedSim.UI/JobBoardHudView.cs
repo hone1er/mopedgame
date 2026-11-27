@@ -29,6 +29,12 @@ namespace MopedSim.UI
         private static readonly string[] ClockStrings;
         private static readonly string[] PercentStrings;
         private static readonly string[] CountStrings;
+        private static readonly string[] DistanceStrings;
+
+        public const int MaxDistanceBucket = 1000;
+        public const float DistanceBucketMeters = 10f;
+        public const float ObjectiveHeight = 108f;
+        public const int LowTimeSeconds = 30;
 
         static JobBoardHudView()
         {
@@ -44,6 +50,15 @@ namespace MopedSim.UI
             for (int i = 0; i <= 100; i++)
             {
                 PercentStrings[i] = i.ToString() + "%";
+            }
+
+            DistanceStrings = new string[MaxDistanceBucket + 1];
+            for (int i = 0; i <= MaxDistanceBucket; i++)
+            {
+                int m = i * (int)DistanceBucketMeters;
+                DistanceStrings[i] = m < 1000
+                    ? m.ToString() + " m"
+                    : (m / 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " km";
             }
 
             CountStrings = new string[MaxCount + 1];
@@ -66,6 +81,19 @@ namespace MopedSim.UI
         [SerializeField] private Text _waypointLabel;
         [SerializeField] private GameObject _rewardBanner;
         [SerializeField] private Image _integrityFill;
+
+        // Objective block (runtime-built above the stats panel so the serialized scene layout stays untouched).
+        private RectTransform _objectiveRoot;
+        private Text _objectiveText;
+        private Text _distanceText;
+        private Text _remainingText;
+        private JobCheckpointSpec _objNext;
+        private string _objZone;
+        private int _objReached = -1;
+        private int _distBucket = -2;
+        private int _remaining = -1;
+        private int _remainingLow = -1;
+        private int _objVisible = -1;
 
         private void Awake()
         {
@@ -105,6 +133,11 @@ namespace MopedSim.UI
         public bool IsRewardBannerVisible { get { return _banner == 1; } }
         public bool IsPanelVisible { get { return _visible == 1; } }
         public int RenderCount { get { return _renderCount; } }
+
+        public bool IsObjectiveVisible { get { return _objVisible == 1; } }
+        public string DisplayedObjective { get { return _objectiveText != null ? _objectiveText.text : string.Empty; } }
+        public string DisplayedDistance { get { return _distanceText != null ? _distanceText.text : string.Empty; } }
+        public string DisplayedTimeLeft { get { return _remainingText != null ? _remainingText.text : string.Empty; } }
 
         /// <summary>Number of Text / GameObject writes performed (unchanged frames add none).</summary>
         public int TextWriteCount { get { return _textWriteCount; } }
@@ -173,6 +206,112 @@ namespace MopedSim.UI
 
             _waypointFormatted = new string(_waypointBuffer, 0, len);
             SetText(_waypointLabel, _waypointFormatted);
+        }
+
+        /// <summary>
+        /// Builds the objective block (next checkpoint, distance, time left) above the stats panel and nudges the panel down.
+        /// Idempotent; no-op without a serialized panel root.
+        /// </summary>
+        public void EnsureObjectivePanel()
+        {
+            if (_objectiveRoot != null || _panelRoot == null)
+            {
+                return;
+            }
+
+            RectTransform content = _panelRoot.transform as RectTransform;
+            RectTransform root = content != null ? content.parent as RectTransform : null;
+            if (root == null)
+            {
+                return;
+            }
+
+            float width = content.sizeDelta.x;
+            float inner = width - 2f * HudStyle.Padding;
+            _objectiveRoot = HudStyle.CreatePanel(root, "Objective", new Vector2(1f, 1f), Vector2.zero, new Vector2(width, ObjectiveHeight), true);
+            _objectiveText = HudStyle.CreateLabel(_objectiveRoot, "ObjectiveText", HudStyle.Padding, 8f, inner, 54f, HudStyle.FontBody, HudStyle.Cool, TextAnchor.UpperLeft);
+            _distanceText = HudStyle.CreateLabel(_objectiveRoot, "ObjectiveDistance", HudStyle.Padding, 62f, 170f, 38f, HudStyle.FontValue + 4, HudStyle.TextPrimary, TextAnchor.MiddleLeft);
+            HudStyle.CreateLabel(_objectiveRoot, "TimeLeftCaption", 190f, 70f, 90f, 28f, HudStyle.FontCaption, HudStyle.TextDim, TextAnchor.MiddleRight).text = "TIME LEFT";
+            _remainingText = HudStyle.CreateLabel(_objectiveRoot, "TimeLeft", 286f, 62f, width - 286f - HudStyle.Padding, 38f, HudStyle.FontValue + 4, HudStyle.TextPrimary, TextAnchor.MiddleRight);
+            _objectiveRoot.gameObject.SetActive(false);
+            _objVisible = 0;
+        }
+
+        /// <summary>
+        /// Renders the objective block for the active job: next checkpoint name + zone, distance to it (10 m buckets, or hidden when
+        /// <paramref name="hasDistance"/> is false) and time left. Strings come from tables or are rebuilt only when the checkpoint
+        /// changes, so unchanged frames allocate zero bytes.
+        /// </summary>
+        public void RenderObjective(in JobSessionSnapshot snapshot, JobCheckpointSpec next, string zoneName, float distanceMeters, bool hasDistance)
+        {
+            EnsureObjectivePanel();
+            bool show = snapshot.Status == JobSessionStatus.Active && next != null;
+            SetObjectiveVisible(show ? 1 : 0);
+            if (!show)
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(next, _objNext) || !ReferenceEquals(zoneName, _objZone) || snapshot.CheckpointsReached != _objReached)
+            {
+                _objNext = next;
+                _objZone = zoneName;
+                _objReached = snapshot.CheckpointsReached;
+                bool last = snapshot.CheckpointCount > 0 && snapshot.CheckpointsReached >= snapshot.CheckpointCount - 1;
+                string prefix = snapshot.CheckpointsReached == 0 ? "PICKUP: " : (last ? "DELIVER TO: " : "NEXT STOP: ");
+                string where = string.IsNullOrEmpty(zoneName) ? string.Empty : " (" + zoneName + ")";
+                SetText(_objectiveText, prefix + next.DisplayName + where);
+            }
+
+            int bucket = -1;
+            if (hasDistance && !float.IsNaN(distanceMeters) && !float.IsInfinity(distanceMeters))
+            {
+                bucket = Mathf.Clamp(Mathf.RoundToInt(Mathf.Max(0f, distanceMeters) / DistanceBucketMeters), 0, MaxDistanceBucket);
+            }
+
+            if (bucket != _distBucket)
+            {
+                _distBucket = bucket;
+                SetText(_distanceText, bucket < 0 ? string.Empty : DistanceStrings[bucket]);
+            }
+
+            int remaining = snapshot.TimeLimitSeconds > 0f ? Mathf.Clamp(Mathf.CeilToInt(snapshot.RemainingSeconds), 0, MaxClockSeconds) : -1;
+            if (remaining != _remaining)
+            {
+                _remaining = remaining;
+                SetText(_remainingText, remaining < 0 ? "--" : ClockStrings[remaining]);
+            }
+
+            int low = remaining >= 0 && remaining <= LowTimeSeconds ? 1 : 0;
+            if (low != _remainingLow)
+            {
+                _remainingLow = low;
+                if (_remainingText != null)
+                {
+                    _remainingText.color = low == 1 ? HudStyle.Bad : HudStyle.TextPrimary;
+                }
+            }
+        }
+
+        private void SetObjectiveVisible(int visible)
+        {
+            if (visible == _objVisible)
+            {
+                return;
+            }
+
+            _objVisible = visible;
+            if (_objectiveRoot != null)
+            {
+                _textWriteCount++;
+                _objectiveRoot.gameObject.SetActive(visible == 1);
+                // The stats panel sits below the objective block only while that block is shown (no empty gap otherwise).
+                RectTransform content = _panelRoot != null ? _panelRoot.transform as RectTransform : null;
+                if (content != null)
+                {
+                    content.anchoredPosition = new Vector2(0f, visible == 1 ? -(ObjectiveHeight + 8f) : 0f);
+                }
+            }
         }
 
         public static string FormatClock(int seconds)

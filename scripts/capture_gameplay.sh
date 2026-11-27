@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Boots the built macOS player windowed, runs the DevAutoplayCapture script, and prints the report + PNG list.
-# Usage: ./scripts/capture_gameplay.sh [--build] [--title] [outDir]   (--title also captures the title, archetype picker and pause menu)
+# Usage: ./scripts/capture_gameplay.sh [--build] [--title] [--gig] [outDir]
+#   --title also captures the title, archetype picker and pause menu; --gig opens the J gig board, accepts a gig and rides it
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,7 +18,8 @@ for arg in "$@"; do
     case "$arg" in
         --build) DO_BUILD=1 ;;
         --title) EXTRA+=("-autoplayTitle") ;;
-        -h|--help) sed -n 2,3p "$0"; exit 0 ;;
+        --gig) EXTRA+=("-autoplayGig") ;;
+        -h|--help) sed -n 2,4p "$0"; exit 0 ;;
         *) OUT_DIR="$arg" ;;
     esac
 done

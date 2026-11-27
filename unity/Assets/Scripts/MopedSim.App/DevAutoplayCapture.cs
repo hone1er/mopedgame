@@ -23,7 +23,7 @@ namespace MopedSim.App
         public const string GigFlag = "-autoplayGig";
         private const float BootTimeoutSeconds = 60f;
         private const float RideSeconds = 5f;
-        private const float SteerSeconds = 2f;
+        private const float SteerSeconds = 3f;
 
         [Serializable]
         private sealed class StepRecord

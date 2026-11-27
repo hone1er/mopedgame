@@ -216,16 +216,18 @@ namespace MopedSim.UI
             "Select"        // toggle camera
         };
 
-        // Start (settings hotkey / capture cancel) and North (Garage-Ride toggle) are fixed session buttons, so they are excluded.
+        // Start (settings hotkey / capture cancel), North (Garage-Ride toggle) and DpadDown (pick up a fallen bike) are fixed
+        // session buttons, so they are excluded.
         private static readonly string[] AssignableGamepadButtons = new string[]
         {
             "South", "West", "East",
-            "DpadUp", "DpadDown", "DpadLeft", "DpadRight",
+            "DpadUp", "DpadLeft", "DpadRight",
             "LeftShoulder", "RightShoulder", "LeftStick", "RightStick",
             "Select", "LeftTrigger", "RightTrigger"
         };
 
-        private static readonly string[] ReservedKeyNames = new string[] { "escape", "tab", "f1", "f2", "f3", "f4" };
+        // "r" is the fixed "pick up a fallen bike" hotkey.
+        private static readonly string[] ReservedKeyNames = new string[] { "escape", "tab", "f1", "f2", "f3", "f4", "r" };
 
         private static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);
 

@@ -545,6 +545,37 @@ class AssetValidatorTests(unittest.TestCase):
             self.assertIn("SOCKET_MISSING", joined)
 
 
+class BodyPaintMaterialTests(unittest.TestCase):
+    """ADR-008: body-slot parts need at least one mat_enamel_* material for the paint booth."""
+
+    @staticmethod
+    def _with_materials(glb: bytes, names: Sequence[str]) -> bytes:
+        import json as _json
+        import struct as _struct
+
+        json_len = _struct.unpack_from("<I", glb, 12)[0]
+        gltf = _json.loads(glb[20:20 + json_len].decode("utf-8"))
+        gltf["materials"] = [{"name": n} for n in names]
+        new_json = _json.dumps(gltf).encode("utf-8")
+        new_json += b" " * ((4 - len(new_json) % 4) % 4)
+        rest = glb[20 + json_len:]
+        total = 12 + 8 + len(new_json) + len(rest)
+        return _struct.pack("<4sII", b"glTF", 2, total) + _struct.pack("<II", len(new_json), 0x4E4F534A) + new_json + rest
+
+    def test_enamel_material_passes_and_missing_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            good = Path(tmp) / "good.glb"
+            bad = Path(tmp) / "bad.glb"
+            base = _build_minimal_glb(num_tris=12, include_uv0=True)
+            good.write_bytes(self._with_materials(base, ["mat_chrome", "mat_enamel_red"]))
+            bad.write_bytes(self._with_materials(base, ["mat_chrome", "mat_frame_black"]))
+            self.assertEqual(validate_assets.glb_material_names(good), ["mat_chrome", "mat_enamel_red"])
+            self.assertIsNone(validate_assets.check_body_paint_materials(good, "good.glb"))
+            err = validate_assets.check_body_paint_materials(bad, "bad.glb")
+            self.assertIsNotNone(err)
+            self.assertIn("mat_enamel_", err or "")
+
+
 class WorldAssetValidatorTests(unittest.TestCase):
     """Bay Area world modules under Models/World/ route to the 3,500-tri / 30 m contract."""
 

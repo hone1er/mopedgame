@@ -65,7 +65,7 @@ namespace MopedSim.Tests.EditMode
             for (int z = 0; z < ZoneStreamManager.KnownZoneScenes.Length; z++)
             {
                 string zone = ZoneStreamManager.KnownZoneScenes[z];
-                Open(zone);
+                Scene opened = Open(zone);
                 foreach (JobDefinition job in db.Jobs.Values)
                 {
                     for (int c = 0; c < job.Checkpoints.Count; c++)
@@ -84,6 +84,8 @@ namespace MopedSim.Tests.EditMode
                             job.Id + "/" + cp.Id + " expects y=" + cp.Y + " but the road surface is at y=" + hitY + " in " + zone);
                     }
                 }
+
+                CloseOpened(opened);
             }
 
             Assert.Greater(exercised, 0, "No checkpoints were exercised.");
@@ -112,7 +114,19 @@ namespace MopedSim.Tests.EditMode
                         }
                     }
                 }
+
+                CloseOpened(scene);
             }
+        }
+
+        private void CloseOpened(Scene scene)
+        {
+            if (scene.IsValid() && scene.isLoaded && SceneManager.sceneCount > 1)
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+
+            _opened.Remove(scene);
         }
     }
 }

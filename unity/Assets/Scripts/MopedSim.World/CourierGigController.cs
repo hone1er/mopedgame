@@ -97,6 +97,12 @@ namespace MopedSim.World
             _rider = rider;
         }
 
+        /// <summary>The beacon moved onto the next checkpoint (null when unassigned).</summary>
+        public Transform NextCheckpointBeacon
+        {
+            get { return _nextCheckpointBeacon; }
+        }
+
         public void SetNextCheckpointBeacon(Transform beacon)
         {
             _nextCheckpointBeacon = beacon;

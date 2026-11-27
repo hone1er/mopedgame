@@ -12,7 +12,7 @@ namespace MopedSim.World
     public sealed class ObjectiveGuidance : MonoBehaviour
     {
         private const float PillarHeight = 90f;
-        private const float PillarWidth = 0.7f;
+        private const float PillarWidth = 1.2f;
         private const float ArrowLead = 3.5f;
         private const float ArrowHeight = 2.4f;
         private const int MaxDistanceMeters = 20000;
@@ -32,6 +32,7 @@ namespace MopedSim.World
         private Material _material;
         private int _lastMeters = -1;
         private bool _visible;
+        private bool _beaconMaterialApplied;
         private Camera _camera;
 
         /// <summary>True while the pillar and arrow are shown (an active gig has a next checkpoint).</summary>
@@ -119,6 +120,7 @@ namespace MopedSim.World
             }
 
             SetVisible(true);
+            ResolveBeaconMaterial();
             Vector3 riderPos = rider.position;
             _pillar.position = new Vector3(target.x, target.y + PillarHeight * 0.5f, target.z);
 
@@ -155,6 +157,51 @@ namespace MopedSim.World
                 if (away.sqrMagnitude > 0.0001f)
                 {
                     _labelTransform.rotation = Quaternion.LookRotation(away, Vector3.up);
+                }
+            }
+        }
+
+        /// <summary>Reuses the delivery beacon's imported emissive material (known to render in player builds) once available.</summary>
+        private void ResolveBeaconMaterial()
+        {
+            if (_beaconMaterialApplied)
+            {
+                return;
+            }
+
+            _beaconMaterialApplied = true;
+            Transform beacon = _courier.NextCheckpointBeacon;
+            if (beacon == null)
+            {
+                return;
+            }
+
+            Material glow = null;
+            MeshRenderer[] beaconRenderers = beacon.GetComponentsInChildren<MeshRenderer>(true);
+            for (int b = 0; b < beaconRenderers.Length && glow == null; b++)
+            {
+                Material[] mats = beaconRenderers[b].sharedMaterials;
+                for (int m = 0; m < mats.Length; m++)
+                {
+                    if (mats[m] != null && mats[m].HasProperty("_EmissionColor") && mats[m].GetColor("_EmissionColor").maxColorComponent > 0.1f)
+                    {
+                        glow = mats[m];
+                        break;
+                    }
+                }
+            }
+
+            if (glow == null)
+            {
+                return;
+            }
+
+            MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i].gameObject.name != "DistanceLabel")
+                {
+                    renderers[i].sharedMaterial = glow;
                 }
             }
         }
@@ -204,7 +251,7 @@ namespace MopedSim.World
             _label = labelGo.AddComponent<TextMesh>();
             _label.anchor = TextAnchor.MiddleCenter;
             _label.alignment = TextAlignment.Center;
-            _label.characterSize = 0.12f;
+            _label.characterSize = 0.04f;
             _label.fontSize = 64;
             _label.color = Color.white;
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -240,21 +287,20 @@ namespace MopedSim.World
 
         private static Material CreateGlowMaterial()
         {
-            Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            Material m;
-            if (unlit != null)
-            {
-                m = new Material(unlit);
-            }
-            else
+            // Pipeline default material (URP Lit): Shader.Find can return null (stripped) in player builds and the primitive's
+            // built-in default material renders magenta under URP.
+            Material source = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null
+                ? UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial
+                : null;
+            if (source == null)
             {
                 GameObject probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                m = new Material(probe.GetComponent<MeshRenderer>().sharedMaterial);
+                source = probe.GetComponent<MeshRenderer>().sharedMaterial;
                 Destroy(probe);
-                m.EnableKeyword("_EMISSION");
-                m.SetColor("_EmissionColor", GuideColor * 3f);
             }
 
+            Material m = new Material(source);
+            // No emission keyword: the _EMISSION variant is stripped from player builds that never use it, rendering magenta.
             m.name = "ObjectiveGuidanceGlow";
             m.color = GuideColor;
             if (m.HasProperty("_BaseColor"))

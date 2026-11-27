@@ -20,11 +20,11 @@ namespace MopedSim.Garage
 
         [Header("Orbit / Zoom")]
         [SerializeField] private float _orbitDegreesPerPixel = 0.25f;
-        [SerializeField] private float _zoomMetersPerNotch = 0.0015f;
-        [SerializeField] private float _minDistance = 0.6f;
-        [SerializeField] private float _maxDistance = 3.5f;
-        [SerializeField] private float _minPitch = -10f;
-        [SerializeField] private float _maxPitch = 75f;
+        [SerializeField] private float _zoomMetersPerNotch = 0.003f;
+        [SerializeField] private float _minDistance = 1.0f;
+        [SerializeField] private float _maxDistance = 4.2f;
+        [SerializeField] private float _minPitch = 3f;
+        [SerializeField] private float _maxPitch = 55f;
         [SerializeField] private bool _readMouseInput = true;
 
         [Header("Explode / X-Ray")]
@@ -52,9 +52,14 @@ namespace MopedSim.Garage
         private readonly Dictionary<string, Vector3> _explodeOrigins = new Dictionary<string, Vector3>(48, StringComparer.Ordinal);
         private MaterialPropertyBlock _block;
         private GarageBikeContext _context;
-        private float _yawDeg = 35f;
-        private float _pitchDeg = 18f;
-        private float _distance = 1.8f;
+        // Default framing: whole bike from a 3/4-front view (the bike faces +Z, so yaw ~145 puts the camera ahead and to its left).
+        private const float DefaultYawDeg = 145f;
+        private const float DefaultPitchDeg = 14f;
+        private const float DefaultDistance = 2.5f;
+
+        private float _yawDeg = DefaultYawDeg;
+        private float _pitchDeg = DefaultPitchDeg;
+        private float _distance = DefaultDistance;
         private bool _exploded;
         private bool _xray;
         private string _selectedNodeId = string.Empty;
@@ -128,6 +133,14 @@ namespace MopedSim.Garage
         public Camera InspectionCamera
         {
             get { return _inspectionCamera; }
+        }
+
+        /// <summary>Restores the default 3/4-front inspection framing.</summary>
+        public void ResetOrbit()
+        {
+            _yawDeg = DefaultYawDeg;
+            _pitchDeg = DefaultPitchDeg;
+            _distance = DefaultDistance;
         }
 
         public void SetInspectionActive(bool active)

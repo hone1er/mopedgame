@@ -13,36 +13,35 @@ GARAGE_TRI_BUDGET = 4000
 
 
 def build_garage_workstand(out_dir: str) -> Dict[str, object]:
-    """Build hydraulic/pedal moped garage workstand with SOCKET_BIKE_MOUNT."""
+    """Build a low moped lift-table stand: H-shaped feet, central column, padded cradle with SOCKET_BIKE_MOUNT.
+
+    The cradle pad top sits at z=0.26 (SOCKET_BIKE_MOUNT). A frame's underside (z=0.12 in frame space, just below
+    SOCKET_CENTER_STAND at z=0.18) rests on the pad, so the wheels hang ~0.14 m off the floor. The stand's footprint stays
+    inside +-0.45 m fore/aft so it never reaches the wheels at +-0.58 m.
+    """
     clear_scene()
     mb = MeshPartBuilder("garage_workstand")
 
-    for sx in (-0.34, 0.34):
-        mb.add_box(size=(0.06, 0.90, 0.045), location=(sx, 0.0, 0.040), mat="mat_enamel_red")
-        for sy in (-0.42, 0.42):
-            mb.add_cylinder(radius=0.028, depth=0.020, segments=14, location=(sx, sy, 0.015), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_rubber")
-            mb.add_box(size=(0.040, 0.045, 0.022), location=(sx, sy, 0.025), mat="mat_steel_dark")
-    mb.add_box(size=(0.68, 0.10, 0.045), location=(0.0, 0.0, 0.042), mat="mat_enamel_red")
+    # H-shaped feet: two long skids along y joined by a cross bar, with rubber pads.
+    for sx in (-0.30, 0.30):
+        mb.add_box(size=(0.07, 0.84, 0.06), location=(sx, 0.0, 0.045), mat="mat_enamel_red")
+        for sy in (-0.38, 0.38):
+            mb.add_box(size=(0.09, 0.08, 0.016), location=(sx, sy, 0.008), mat="mat_rubber")
+    mb.add_box(size=(0.54, 0.09, 0.06), location=(0.0, 0.0, 0.045), mat="mat_enamel_red")
 
-    mb.add_cylinder(radius=0.052, depth=0.38, segments=16, location=(0.0, 0.0, 0.24), mat="mat_steel_dark")
-    mb.add_cylinder(radius=0.034, depth=0.32, segments=16, location=(0.0, 0.0, 0.50), mat="mat_chrome")
-    # Hydraulic scissor brace arms & safety lock pin
-    for sx in (-0.12, 0.12):
-        mb.add_tube_between((sx, -0.18, 0.06), (sx * 0.4, -0.05, 0.65), radius=0.012, segments=8, mat="mat_steel_dark")
-    mb.add_cylinder(radius=0.012, depth=0.22, segments=12, location=(0.14, 0.08, 0.14), rotation=(0.0, 1.35, 0.0), mat="mat_chrome")
-    mb.add_box(size=(0.06, 0.04, 0.015), location=(0.24, 0.08, 0.16), mat="mat_rubber")
+    # Column with chrome ram and safety pin
+    mb.add_box(size=(0.16, 0.12, 0.10), location=(0.0, 0.0, 0.125), mat="mat_steel_dark")
+    mb.add_cylinder(radius=0.040, depth=0.12, segments=16, location=(0.0, 0.0, 0.18), mat="mat_chrome")
+    mb.add_cylinder(radius=0.012, depth=0.20, segments=12, location=(0.0, 0.0, 0.14), rotation=(0.0, math.pi * 0.5, 0.0), mat="mat_chrome")
 
-    mb.add_box(size=(0.24, 0.58, 0.045), location=(0.0, 0.0, 0.67), mat="mat_enamel_red")
-    mb.add_box(size=(0.26, 0.44, 0.020), location=(0.0, 0.0, 0.705), mat="mat_rubber")
-    for sy in (-0.16, 0.16):
-        mb.add_box(size=(0.14, 0.04, 0.06), location=(0.0, sy, 0.715), mat="mat_steel_dark")
-
-    # Magnetic side bolt dish with spare bolts
-    mb.add_cylinder(radius=0.085, depth=0.022, segments=16, location=(0.19, 0.0, 0.56), mat="mat_anodized_alu")
-    mb.add_torus(major_radius=0.085, minor_radius=0.008, major_segments=16, minor_segments=6, location=(0.19, 0.0, 0.568), mat="mat_anodized_red")
+    # Cradle: rubber-topped pad with two side lips
+    mb.add_box(size=(0.40, 0.14, 0.030), location=(0.0, 0.0, 0.230), mat="mat_enamel_red")
+    mb.add_box(size=(0.36, 0.12, 0.012), location=(0.0, 0.0, 0.254), mat="mat_rubber")
+    for sx in (-0.19, 0.19):
+        mb.add_box(size=(0.025, 0.14, 0.05), location=(sx, 0.0, 0.265), mat="mat_enamel_red")
 
     mb.build_object()
-    add_socket("SOCKET_BIKE_MOUNT", location=(0.0, 0.0, 0.72))
+    add_socket("SOCKET_BIKE_MOUNT", location=(0.0, 0.0, 0.26))
 
     return export_glb(
         os.path.join(out_dir, "Garage", "garage_workstand.glb"),

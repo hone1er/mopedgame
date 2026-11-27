@@ -158,20 +158,12 @@ namespace MopedSim.UI
 
             CreateLabel(_modalRoot.transform, "Title", "PARTS ALLEY SWAP MEET", 20, TextAnchor.MiddleLeft, Color.white, 30f, _font);
 
-            if (_selectionLabel == null)
-            {
-                _selectionLabel = CreateLabel(_modalRoot.transform, "SelectionLabel", string.Empty, 14, TextAnchor.MiddleLeft, new Color(0.85f, 0.90f, 0.96f, 1f), 22f, _font);
-            }
+            // Scaffolded stub labels are hidden: always bind fresh ones inside the generated modal.
+            _selectionLabel = CreateLabel(_modalRoot.transform, "SelectionLabel", string.Empty, 14, TextAnchor.MiddleLeft, new Color(0.85f, 0.90f, 0.96f, 1f), 22f, _font);
 
-            if (_inspectionLabel == null)
-            {
-                _inspectionLabel = CreateLabel(_modalRoot.transform, "InspectionLabel", string.Empty, 14, TextAnchor.MiddleLeft, new Color(0.96f, 0.85f, 0.45f, 1f), 22f, _font);
-            }
+            _inspectionLabel = CreateLabel(_modalRoot.transform, "InspectionLabel", string.Empty, 14, TextAnchor.MiddleLeft, new Color(0.96f, 0.85f, 0.45f, 1f), 22f, _font);
 
-            if (_resultLabel == null)
-            {
-                _resultLabel = CreateLabel(_modalRoot.transform, "ResultLabel", string.Empty, 14, TextAnchor.MiddleLeft, new Color(0.55f, 0.92f, 0.62f, 1f), 22f, _font);
-            }
+            _resultLabel = CreateLabel(_modalRoot.transform, "ResultLabel", string.Empty, 14, TextAnchor.MiddleLeft, new Color(0.55f, 0.92f, 0.62f, 1f), 22f, _font);
 
             GameObject listGo = new GameObject("OfferRows", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
             listGo.transform.SetParent(_modalRoot.transform, false);
@@ -200,6 +192,18 @@ namespace MopedSim.UI
             _closeButton = CreateButton(footerGo.transform, "Btn_Close", "Close", new Color(0.28f, 0.26f, 0.28f, 1f), _font, TriggerClose);
 
             RenderSelection();
+        }
+
+        private void OnEnable()
+        {
+            if (_rowPool.Count > 0 && _rowPool[0].Root != null && _rowPool[0].Root.activeSelf)
+            {
+                MenuWidgets.Focus(_rowPool[0].InspectButton);
+            }
+            else
+            {
+                MenuWidgets.Focus(_rotateButton);
+            }
         }
 
         /// <summary>Re-reads the market's current rotation (call after a rotation advance or a purchase).</summary>

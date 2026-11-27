@@ -97,6 +97,7 @@ namespace MopedSim.App
         private GameSettingsData _settings;
         private bool _persistSettings;
         private SwapMeetMarket _swapMarket;
+        private ShopPanelsPresenter _shopPresenter;
         private AudioSource _engineAudioSource;
         private ProceduralFoleyPlayer _foley;
         private ProceduralAmbiencePlayer _ambience;
@@ -1019,6 +1020,7 @@ namespace MopedSim.App
 
                 _shop.SetCash(world.CashUsd);
                 _shop.PurchaseRequested += OnPurchaseRequested;
+                _shopPresenter = new ShopPanelsPresenter(this, _shop, _swapMeet, shopCatalog);
             }
 
             if (_zones != null)
@@ -1142,6 +1144,12 @@ namespace MopedSim.App
             if (_shop != null)
             {
                 _shop.PurchaseRequested -= OnPurchaseRequested;
+            }
+
+            if (_shopPresenter != null)
+            {
+                _shopPresenter.Dispose();
+                _shopPresenter = null;
             }
 
             if (_zones != null)
@@ -1591,6 +1599,11 @@ namespace MopedSim.App
             if (open && _world != null)
             {
                 _shop.SetCash(_world.CashUsd);
+            }
+
+            if (open && _shopPresenter != null)
+            {
+                _shopPresenter.PrepareShop();
             }
 
             SetViewVisible(_shop, open);

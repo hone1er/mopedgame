@@ -232,6 +232,43 @@ namespace MopedSim.Core
         }
 
         /// <summary>
+        /// Finds a mount slot on this bike whose accepted category and required interfaces fit <paramref name="part"/>
+        /// (a static fit check; occupancy and wrench preconditions are still enforced by install/swap). Prefers an empty
+        /// slot, otherwise the first matching slot. Returns null when the part cannot fit this bike at all.
+        /// </summary>
+        public string? FindCompatibleSlotId(PartDefinition part)
+        {
+            if (part == null)
+            {
+                return null;
+            }
+
+            IReadOnlyList<MountSlotNode> slots = Slots;
+            string? firstMatch = null;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                MountSlotNode node = slots[i];
+                if (part.Category != node.Spec.AcceptedCategory)
+                {
+                    continue;
+                }
+                if (node.Spec.RequiredInterfaces.Length > 0 && !HasMatchingInterface(node.Spec.RequiredInterfaces, part.CompatibleInterfaces))
+                {
+                    continue;
+                }
+                if (!node.IsOccupied)
+                {
+                    return node.Spec.SlotId;
+                }
+                if (firstMatch == null)
+                {
+                    firstMatch = node.Spec.SlotId;
+                }
+            }
+            return firstMatch;
+        }
+
+        /// <summary>
         /// Attempts to remove a part from a mount slot after verifying all DAG preconditions.
         /// </summary>
         public WrenchActionResult TryRemovePart(string slotId)

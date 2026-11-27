@@ -55,6 +55,8 @@ namespace MopedSim.App
         private readonly Report _report = new Report();
         private AppCompositionRoot _app;
         private MopedBikeController _ride;
+        private Vector3 _rideStartPos;
+        private float _rideStartYaw;
         private float _fpsMin = float.MaxValue;
         private float _fpsMax;
         private double _fpsSum;
@@ -275,6 +277,8 @@ namespace MopedSim.App
             yield return PressHotkey(true, false, false);
             yield return Settle(1.0f);
             yield return Capture(r, "04_ride_start");
+            _rideStartPos = _ride.transform.position;
+            _rideStartYaw = _ride.transform.eulerAngles.y;
             r.passed = _app.Session.CurrentState == GameSessionState.Ride;
         }
 
@@ -309,8 +313,30 @@ namespace MopedSim.App
 
         private IEnumerator ChaseRoutine(StepRecord r)
         {
+            // Steering earlier can leave the road; return to the ride-start pose so the camera step is shot on the road.
+            if (_rideStartPos != Vector3.zero)
+            {
+                _ride.ResetUprightAt(_rideStartPos, _rideStartYaw);
+            }
+
             SetRide(1f, 0f);
             yield return RideFor(2f);
+            MopedCameraRig rig = FindAnyObjectByType<MopedCameraRig>();
+            if (rig != null)
+            {
+                MopedCameraRig.CameraMode original = rig.Mode;
+                rig.Mode = MopedCameraRig.CameraMode.Chase;
+                yield return RideFor(0.6f);
+                yield return Capture(r, "07_cam_chase");
+                rig.Mode = MopedCameraRig.CameraMode.CloseChase;
+                yield return RideFor(0.6f);
+                yield return Capture(r, "07_cam_close");
+                rig.Mode = MopedCameraRig.CameraMode.Handlebar;
+                yield return RideFor(0.6f);
+                yield return Capture(r, "07_cam_handlebar");
+                rig.Mode = original;
+            }
+
             yield return Capture(r, "07_chase_camera");
             r.passed = _ride.SpeedMps > 1f;
             if (!r.passed)

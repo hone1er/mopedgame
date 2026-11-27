@@ -41,6 +41,13 @@ EXE="$(find "$EXE_DIR" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 
 rm -f "$OUT_DIR"/report.json "$OUT_DIR"/*.png
 echo "[capture] launching $EXE -> $OUT_DIR"
+# A sleeping display stops the windowed player from rendering frames (no WaitForEndOfFrame, so the script hangs until
+# the timeout). Assert user activity / keep the display awake for the whole run.
+if command -v caffeinate >/dev/null 2>&1; then
+    caffeinate -u -d -t $((TIMEOUT_SECONDS + 30)) &
+    CAFFEINATE_PID=$!
+    trap 'kill "$CAFFEINATE_PID" 2>/dev/null || true' EXIT
+fi
 "$EXE" -screen-fullscreen 0 -screen-width 1600 -screen-height 900 \
     -autoplayCapture "$OUT_DIR" ${EXTRA[@]+"${EXTRA[@]}"} -logFile "$OUT_DIR/player.log" &
 PID=$!

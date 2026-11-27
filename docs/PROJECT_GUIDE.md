@@ -572,6 +572,9 @@ All attachment empties MUST exist as named glTF scene nodes on parent parts and 
 - **Deterministic core tests**: Every mechanical bug gets a reproducible regression unit test in `tests/MopedSim.Core.Tests/` with a fixed seed and fixed `dt` stepping.
 - **Documentation Integrity**: Update [ROADMAP_STATUS.md](ROADMAP_STATUS.md) after every completed milestone or test run; create an ADR in [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) before changing architectural boundaries.
 
+### Autoplay capture (end-to-end smoke + screenshots)
+`./scripts/capture_gameplay.sh [--build] [outDir]` (default `logs/autoplay/<timestamp>`) optionally runs the Gate 5 build, then launches the built macOS player **windowed** (rendering is disabled under `-batchmode -nographics`) with `-autoplayCapture <outDir>`. `MopedSim.App.DevAutoplayCapture` self-installs only when that flag is present and drives Garage overview/close-ups, F2/F3 panels, ride (straight, steer right/left, chase camera), an induced fouled-plug breakdown with roadside repair, and the return to Garage through the same `InputAdapter` test-override seam the PlayMode tests use. It writes `NN_name.png` screenshots plus `report.json` (per-step pass/fail, speed/rpm/position samples, fps min/avg/max, logged errors/exceptions) and quits non-zero if any step failed or an error was logged; the script kills the player after `CAPTURE_TIMEOUT_SECONDS` (default 180).
+
 ---
 
 ## 7. Phased Vertical-Slice Roadmap (`M0`–`M7`) with Verifiable Outcomes

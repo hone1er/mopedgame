@@ -17,6 +17,16 @@ namespace MopedSim.UI
         private const int MaxAfrTenths = 250;
         private const int MaxFuelTenths = 100;
         private const int MaxStamina = 100;
+        private const int MaxVariatorHundredths = 600;
+
+        /// <summary>RPM at the full end of the tach bar (display scale only).</summary>
+        public const float TachMaxRpm = 8000f;
+        /// <summary>RPM where the tach bar turns red and the redline tick is drawn (display cue only).</summary>
+        public const float RedlineRpm = 7000f;
+
+        private const string MixtureLean = "LEAN";
+        private const string MixtureRich = "RICH";
+        private const string MixtureOk = "OK";
 
         private const string StatusHardSeize = "HARD SEIZE";
         private const string StatusSoftSeize = "SOFT SEIZE";
@@ -33,6 +43,8 @@ namespace MopedSim.UI
         private static readonly string[] FuelStrings;
         private static readonly string[] GearStrings;
         private static readonly string[] StaminaStrings;
+        private static readonly string[] ThrottleStrings;
+        private static readonly string[] VariatorStrings;
 
         static RideHudView()
         {
@@ -48,7 +60,7 @@ namespace MopedSim.UI
             AfrStrings = new string[MaxAfrTenths - MinAfrTenths + 1];
             for (int i = MinAfrTenths; i <= MaxAfrTenths; i++)
             {
-                AfrStrings[i - MinAfrTenths] = (i / 10).ToString() + "." + (i % 10).ToString();
+                AfrStrings[i - MinAfrTenths] = (i / 10).ToString() + "." + (i % 10).ToString() + " : 1";
             }
 
             FuelStrings = new string[MaxFuelTenths + 1];
@@ -57,7 +69,16 @@ namespace MopedSim.UI
                 FuelStrings[i] = (i / 10).ToString() + "." + (i % 10).ToString() + " L";
             }
 
-            GearStrings = new string[] { "N", "1", "2" };
+            GearStrings = new string[] { "GEAR N", "GEAR 1", "GEAR 2" };
+
+            ThrottleStrings = new string[101];
+            for (int i = 0; i <= 100; i++) { ThrottleStrings[i] = i.ToString() + "%"; }
+
+            VariatorStrings = new string[MaxVariatorHundredths + 1];
+            for (int i = 0; i <= MaxVariatorHundredths; i++)
+            {
+                VariatorStrings[i] = "CVT " + (i / 100).ToString() + "." + ((i / 10) % 10).ToString() + (i % 10).ToString() + " : 1";
+            }
 
             StaminaStrings = new string[MaxStamina + 1];
             for (int i = 0; i <= MaxStamina; i++) { StaminaStrings[i] = i.ToString() + "%"; }
@@ -72,8 +93,13 @@ namespace MopedSim.UI
         [SerializeField] private Text _gearText;
         [SerializeField] private Text _staminaText;
         [SerializeField] private Text _statusText;
+        [SerializeField] private Text _throttleText;
+        [SerializeField] private Text _variatorText;
+        [SerializeField] private Text _mixtureText;
 
         [Header("Fills")]
+        [SerializeField] private Image _rpmFill;
+        [SerializeField] private Image _throttleFill;
         [SerializeField] private Image _chtFill;
         [SerializeField] private Image _staminaFill;
 
@@ -86,6 +112,20 @@ namespace MopedSim.UI
         private int _stamina = -1;
         private string _status;
         private int _renderCount;
+        private int _throttle = -1;
+        private int _variator = -1;
+        private int _tachZone = -1;
+        private int _chtZone = -1;
+        private int _fuelZone = -1;
+        private int _mixture = -1;
+
+        private void Awake()
+        {
+            HudStyle.PrepareFill(_chtFill);
+            HudStyle.PrepareFill(_staminaFill);
+            HudStyle.PrepareFill(_rpmFill);
+            HudStyle.PrepareFill(_throttleFill);
+        }
 
         /// <summary>Last displayed whole mph (0..99).</summary>
         public int DisplayedMph { get { return _mph < 0 ? 0 : _mph; } }
@@ -114,6 +154,16 @@ namespace MopedSim.UI
                 _rpmBucket = rpmBucket;
                 SetText(_rpmText, RpmStrings[rpmBucket]);
             }
+            if (_rpmFill != null)
+            {
+                _rpmFill.fillAmount = Mathf.Clamp01(t.Rpm / TachMaxRpm);
+                int tachZone = t.Rpm >= RedlineRpm ? 2 : (t.IsPowerbandActive ? 1 : 0);
+                if (tachZone != _tachZone)
+                {
+                    _tachZone = tachZone;
+                    HudStyle.SetColor(_rpmFill, tachZone == 2 ? HudStyle.Bad : (tachZone == 1 ? HudStyle.Good : HudStyle.Cool));
+                }
+            }
 
             int cht = Mathf.Clamp(Mathf.RoundToInt(t.ChtCelsius), 0, MaxCht);
             if (cht != _cht)
@@ -124,6 +174,14 @@ namespace MopedSim.UI
             if (_chtFill != null)
             {
                 _chtFill.fillAmount = Mathf.InverseLerp(20f, 260f, t.ChtCelsius);
+            }
+            int chtZone = (int)t.ThermalZone;
+            if (chtZone != _chtZone)
+            {
+                _chtZone = chtZone;
+                Color c = ChtColor(t.ThermalZone);
+                HudStyle.SetColor(_chtFill, c);
+                if (_chtText != null) { HudStyle.SetColor(_chtText, c); }
             }
 
             int afr = Mathf.Clamp(Mathf.RoundToInt(t.EffectiveAfr * 10f), MinAfrTenths, MaxAfrTenths);
@@ -138,6 +196,35 @@ namespace MopedSim.UI
             {
                 _fuel = fuel;
                 SetText(_fuelText, FuelStrings[fuel]);
+            }
+            int fuelZone = t.IsReserveActive ? 1 : 0;
+            if (fuelZone != _fuelZone)
+            {
+                _fuelZone = fuelZone;
+                if (_fuelText != null) { HudStyle.SetColor(_fuelText, fuelZone == 1 ? HudStyle.Warn : HudStyle.TextPrimary); }
+            }
+
+            int mixture = t.IsDetonating ? 1 : (t.IsFourStroking ? 2 : 0);
+            if (mixture != _mixture)
+            {
+                _mixture = mixture;
+                SetText(_mixtureText, mixture == 1 ? MixtureLean : (mixture == 2 ? MixtureRich : MixtureOk));
+                if (_mixtureText != null) { HudStyle.SetColor(_mixtureText, mixture == 0 ? HudStyle.Good : HudStyle.Warn); }
+            }
+
+            int throttle = Mathf.Clamp(Mathf.RoundToInt(t.ThrottlePosition * 100f), 0, 100);
+            if (throttle != _throttle)
+            {
+                _throttle = throttle;
+                SetText(_throttleText, ThrottleStrings[throttle]);
+            }
+            if (_throttleFill != null) { _throttleFill.fillAmount = Mathf.Clamp01(t.ThrottlePosition); }
+
+            int variator = Mathf.Clamp(Mathf.RoundToInt(t.VariatorRatio * 100f), 0, MaxVariatorHundredths);
+            if (variator != _variator)
+            {
+                _variator = variator;
+                SetText(_variatorText, VariatorStrings[variator]);
             }
 
             int gear = Mathf.Clamp(t.CurrentGear, 0, 2);
@@ -163,6 +250,18 @@ namespace MopedSim.UI
             {
                 _status = status;
                 SetText(_statusText, status);
+            }
+        }
+
+        private static Color ChtColor(ThermalZone zone)
+        {
+            switch (zone)
+            {
+                case ThermalZone.Cold: return HudStyle.Cool;
+                case ThermalZone.Warming: return HudStyle.Cool;
+                case ThermalZone.Optimal: return HudStyle.Good;
+                case ThermalZone.RunningHot: return HudStyle.Warn;
+                default: return HudStyle.Bad;
             }
         }
 

@@ -67,6 +67,11 @@ namespace MopedSim.UI
         [SerializeField] private GameObject _rewardBanner;
         [SerializeField] private Image _integrityFill;
 
+        private void Awake()
+        {
+            HudStyle.PrepareFill(_integrityFill);
+        }
+
         private readonly char[] _waypointBuffer = new char[128];
         private string _title;
         private string _status;

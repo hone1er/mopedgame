@@ -67,6 +67,7 @@ namespace MopedSim.App
         [SerializeField] private SettingsMenuView _settingsView;
         [SerializeField] private SwapMeetView _swapMeet;
         [SerializeField] private JobBoardHudView _jobBoard;
+        [SerializeField] private ControlsBannerView _controlsBanner;
 
         [Header("Settings")]
         [SerializeField] private string _settingsFileName = "settings.json";
@@ -461,6 +462,7 @@ namespace MopedSim.App
             if (_settingsView == null) { _settingsView = Find<SettingsMenuView>(); }
             if (_swapMeet == null) { _swapMeet = Find<SwapMeetView>(); }
             if (_jobBoard == null) { _jobBoard = Find<JobBoardHudView>(); }
+            if (_controlsBanner == null) { _controlsBanner = Find<ControlsBannerView>(); }
         }
 
         /// <summary>
@@ -1623,6 +1625,11 @@ namespace MopedSim.App
             bool garage = state == GameSessionState.Garage;
             bool ride = state == GameSessionState.Ride;
             bool roadside = state == GameSessionState.RoadsideRepair;
+
+            if (_controlsBanner != null)
+            {
+                _controlsBanner.SetMode(garage ? ControlsBannerMode.Garage : (roadside ? ControlsBannerMode.Roadside : ControlsBannerMode.Ride));
+            }
 
             SetViewVisible(_rideHud, ride);
             SetViewVisible(_jobBoard, ride || roadside);

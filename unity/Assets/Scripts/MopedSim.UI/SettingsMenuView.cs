@@ -44,7 +44,7 @@ namespace MopedSim.UI
     /// Event-driven Settings menu view managing Mechanic Diagnostic Hints, audio mix, graphics presets,
     /// and keyboard rebinding. Performs zero per-frame allocations (no Update loop).
     /// </summary>
-    public sealed class SettingsMenuView : MonoBehaviour
+    public sealed partial class SettingsMenuView : MonoBehaviour
     {
         private const string BuiltinFontName = "LegacyRuntime.ttf";
         private const string PresetLowLabel = "Low";
@@ -221,6 +221,7 @@ namespace MopedSim.UI
             CreateButton(footerGo.transform, "Btn_Apply", "Apply", new Color(0.20f, 0.52f, 0.28f, 1f), font, Apply);
             CreateButton(footerGo.transform, "Btn_Close", "Close", new Color(0.26f, 0.27f, 0.32f, 1f), font, TriggerClose);
 
+            BuildControlsSection(font);
             RefreshUiControls();
         }
 
@@ -314,7 +315,9 @@ namespace MopedSim.UI
             bool rebound = SettingsPreferencesStore.TrySetKeyBinding(_current, actionId, newKey, out conflict);
             if (!rebound)
             {
-                _lastConflictAction = conflict ?? string.Empty;
+                _lastConflictAction = string.Equals(conflict, SettingsPreferencesStore.ReservedConflict, StringComparison.Ordinal)
+                    ? string.Empty
+                    : conflict ?? string.Empty;
                 SetConflictText(_lastConflictAction);
                 return false;
             }
@@ -334,6 +337,7 @@ namespace MopedSim.UI
             EnsureInitialized();
             SettingsPreferencesStore.CopyDefaultsInto(_current);
             _lastConflictAction = string.Empty;
+            CancelCapture();
 
             SyncHintsPresenter();
             RefreshUiControls();
@@ -390,6 +394,7 @@ namespace MopedSim.UI
             RefreshAudioSliders();
             RefreshGraphicsLabel();
             SetConflictText(_lastConflictAction);
+            RefreshControlsUi();
         }
 
         private void RefreshAudioSliders()

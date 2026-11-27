@@ -2,6 +2,7 @@ using System;
 using MopedSim.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace MopedSim.App
 {
@@ -70,7 +71,9 @@ namespace MopedSim.App
     /// Samples Unity InputSystem keyboard/gamepad devices or programmatic overrides for automated tests.
     /// Keyboard bindings come from <see cref="GameSettingsData"/> (MopedSim.UI settings menu): key names are parsed into cached
     /// <see cref="Key"/> values once in <see cref="ApplyKeyBindings"/>, never per frame, so <see cref="SampleInputs"/> stays
-    /// allocation-free. Arrow keys and Z remain fixed secondary bindings; gamepad controls are not rebindable yet.
+    /// allocation-free. Arrow keys and Z remain fixed secondary bindings. Gamepad buttons come from <see cref="GameSettingsData.GamepadBindings"/>
+    /// (cached <see cref="GamepadButton"/> values; steering stays on the left stick, Start stays the settings hotkey).
+    /// While the Settings Controls section is capturing a rebind, <see cref="SampleInputs"/> consumes the next key/button press and returns neutral inputs.
     /// Session hotkeys are fixed (not rebindable): F1/Tab Garage-Ride toggle, F2/Escape settings, F3 shop, F4 paint swatch.
     /// </summary>
     public sealed class InputAdapter : MonoBehaviour
@@ -89,6 +92,29 @@ namespace MopedSim.App
         private Key _decompressorKey = Key.Q;
         private Key _interactKey = Key.E;
         private Key _toggleCameraKey = Key.V;
+
+        private GamepadButton _padThrottle = GamepadButton.RightTrigger;
+        private GamepadButton _padFrontBrake = GamepadButton.LeftTrigger;
+        private GamepadButton _padRearBrake = GamepadButton.East;
+        private GamepadButton _padPedalAssist = GamepadButton.South;
+        private GamepadButton _padAeroTuck = GamepadButton.LeftStick;
+        private GamepadButton _padChoke = GamepadButton.DpadUp;
+        private GamepadButton _padDecompressor = GamepadButton.LeftShoulder;
+        private GamepadButton _padInteract = GamepadButton.West;
+        private GamepadButton _padToggleCamera = GamepadButton.Select;
+
+        private SettingsMenuView _captureView;
+        private int _armedCaptureSerial = -1;
+
+        public GamepadButton ThrottlePadButton { get { return _padThrottle; } }
+        public GamepadButton FrontBrakePadButton { get { return _padFrontBrake; } }
+        public GamepadButton RearBrakePadButton { get { return _padRearBrake; } }
+        public GamepadButton PedalAssistPadButton { get { return _padPedalAssist; } }
+        public GamepadButton AeroTuckPadButton { get { return _padAeroTuck; } }
+        public GamepadButton ChokePadButton { get { return _padChoke; } }
+        public GamepadButton DecompressorPadButton { get { return _padDecompressor; } }
+        public GamepadButton InteractPadButton { get { return _padInteract; } }
+        public GamepadButton ToggleCameraPadButton { get { return _padToggleCamera; } }
 
         public Key ThrottleKey { get { return _throttleKey; } }
         public Key SteerLeftKey { get { return _steerLeftKey; } }
@@ -137,6 +163,7 @@ namespace MopedSim.App
             _decompressorKey = ResolveKey(settings.DecompressorKey, Key.Q, ref fallbacks);
             _interactKey = ResolveKey(settings.InteractKey, Key.E, ref fallbacks);
             _toggleCameraKey = ResolveKey(settings.ToggleCameraKey, Key.V, ref fallbacks);
+            ApplyGamepadBindings(settings, ref fallbacks);
             return fallbacks;
         }
 
@@ -154,7 +181,169 @@ namespace MopedSim.App
             _decompressorKey = Key.Q;
             _interactKey = Key.E;
             _toggleCameraKey = Key.V;
+            ResetDefaultGamepadBindings();
         }
+
+        /// <summary>Restores the default gamepad layout (matches SettingsPreferencesStore defaults).</summary>
+        public void ResetDefaultGamepadBindings()
+        {
+            int unused = 0;
+            ApplyGamepadBindings(SettingsPreferencesStore.CreateDefaults(), ref unused);
+        }
+
+        /// <summary>Parses a gamepad button name ("RightTrigger", "east", ...) into a <see cref="GamepadButton"/>; Start is not assignable.</summary>
+        public static bool TryParseGamepadButton(string name, out GamepadButton button)
+        {
+            button = GamepadButton.South;
+            string canonical = SettingsPreferencesStore.CanonicalGamepadButton(name);
+            if (canonical == null)
+            {
+                return false;
+            }
+
+            GamepadButton parsed;
+            if (!Enum.TryParse(canonical, false, out parsed))
+            {
+                return false;
+            }
+
+            button = parsed;
+            return true;
+        }
+
+        private void ApplyGamepadBindings(GameSettingsData settings, ref int fallbacks)
+        {
+            _padThrottle = ResolvePad(settings, KeyBindingActionIds.Throttle, GamepadButton.RightTrigger, ref fallbacks);
+            _padFrontBrake = ResolvePad(settings, KeyBindingActionIds.FrontBrake, GamepadButton.LeftTrigger, ref fallbacks);
+            _padRearBrake = ResolvePad(settings, KeyBindingActionIds.RearBrake, GamepadButton.East, ref fallbacks);
+            _padPedalAssist = ResolvePad(settings, KeyBindingActionIds.PedalAssist, GamepadButton.South, ref fallbacks);
+            _padAeroTuck = ResolvePad(settings, KeyBindingActionIds.AeroTuck, GamepadButton.LeftStick, ref fallbacks);
+            _padChoke = ResolvePad(settings, KeyBindingActionIds.Choke, GamepadButton.DpadUp, ref fallbacks);
+            _padDecompressor = ResolvePad(settings, KeyBindingActionIds.Decompressor, GamepadButton.LeftShoulder, ref fallbacks);
+            _padInteract = ResolvePad(settings, KeyBindingActionIds.Interact, GamepadButton.West, ref fallbacks);
+            _padToggleCamera = ResolvePad(settings, KeyBindingActionIds.ToggleCamera, GamepadButton.Select, ref fallbacks);
+        }
+
+        private static GamepadButton ResolvePad(GameSettingsData settings, string actionId, GamepadButton fallback, ref int fallbacks)
+        {
+            GamepadButton button;
+            if (TryParseGamepadButton(SettingsPreferencesStore.GetGamepadBinding(settings, actionId), out button))
+            {
+                return button;
+            }
+
+            fallbacks++;
+            return fallback;
+        }
+
+        /// <summary>Connects the Settings menu so its Controls section can capture the next key/gamepad press during <see cref="SampleInputs"/>.</summary>
+        public void AttachBindingCapture(SettingsMenuView view)
+        {
+            _captureView = view;
+        }
+
+        /// <summary>
+        /// While <paramref name="view"/> is capturing, consumes the next key (Escape cancels) or gamepad button (Start cancels).
+        /// Capture is "armed" only after one poll sees every key/button released, so the Enter/Space/A press that activated the
+        /// row (and its release) can never become the new binding. Returns true when capture is active (the caller must then
+        /// ignore all other inputs this frame). Allocation-free unless a binding is committed.
+        /// </summary>
+        public bool PollBindingCapture(SettingsMenuView view)
+        {
+            if (view == null || !view.IsCapturing)
+            {
+                return false;
+            }
+
+            Keyboard kb = Keyboard.current;
+            Gamepad gp = Gamepad.current;
+            bool armed = _armedCaptureSerial == view.CaptureSerial;
+            bool escape = kb != null && kb.escapeKey.isPressed;
+            bool start = gp != null && gp.startButton.isPressed;
+
+            Key pressedKey = Key.None;
+            if (kb != null && view.CaptureColumn == BindingColumn.Keyboard)
+            {
+                var keys = kb.allKeys;
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    var control = keys[i];
+                    if (control.isPressed && control.keyCode != Key.None)
+                    {
+                        pressedKey = control.keyCode;
+                        break;
+                    }
+                }
+            }
+
+            bool padPressed = false;
+            GamepadButton pressedButton = GamepadButton.South;
+            if (gp != null)
+            {
+                for (int i = 0; i < CapturableButtons.Length; i++)
+                {
+                    if (gp[CapturableButtons[i]].isPressed)
+                    {
+                        padPressed = true;
+                        pressedButton = CapturableButtons[i];
+                        break;
+                    }
+                }
+            }
+
+            bool anyDown = escape || start || padPressed || pressedKey != Key.None || AnyKeyboardKeyDown(kb);
+            if (!armed)
+            {
+                if (!anyDown)
+                {
+                    _armedCaptureSerial = view.CaptureSerial;
+                }
+
+                return true;
+            }
+
+            if (escape || start)
+            {
+                view.CancelCapture();
+            }
+            else if (view.CaptureColumn == BindingColumn.Keyboard && pressedKey != Key.None)
+            {
+                view.TryCommitCapture(pressedKey.ToString());
+            }
+            else if (view.CaptureColumn == BindingColumn.Gamepad && padPressed)
+            {
+                view.TryCommitCapture(pressedButton.ToString());
+            }
+
+            return true;
+        }
+
+        private static bool AnyKeyboardKeyDown(Keyboard kb)
+        {
+            if (kb == null)
+            {
+                return false;
+            }
+
+            var keys = kb.allKeys;
+            for (int i = 0; i < keys.Count; i++)
+            {
+                if (keys[i].isPressed)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static readonly GamepadButton[] CapturableButtons = new GamepadButton[]
+        {
+            GamepadButton.South, GamepadButton.West, GamepadButton.East,
+            GamepadButton.DpadUp, GamepadButton.DpadDown, GamepadButton.DpadLeft, GamepadButton.DpadRight,
+            GamepadButton.LeftShoulder, GamepadButton.RightShoulder, GamepadButton.LeftStick, GamepadButton.RightStick,
+            GamepadButton.Select, GamepadButton.LeftTrigger, GamepadButton.RightTrigger
+        };
 
         /// <summary>
         /// Parses a settings key name ("w", "leftShift", "space", "1", "digit1", ...) into an InputSystem <see cref="Key"/>.
@@ -232,6 +421,11 @@ namespace MopedSim.App
                 return _overrideInputs;
             }
 
+            if (_captureView != null && PollBindingCapture(_captureView))
+            {
+                return default(FrameControlInputs);
+            }
+
             float throttle = 0f;
             float frontBrake = 0f;
             float rearBrake = 0f;
@@ -290,21 +484,21 @@ namespace MopedSim.App
             Gamepad gp = Gamepad.current;
             if (gp != null)
             {
-                throttle = Mathf.Max(throttle, gp.rightTrigger.ReadValue());
-                frontBrake = Mathf.Max(frontBrake, gp.leftTrigger.ReadValue());
-                rearBrake = Mathf.Max(rearBrake, gp.buttonEast.isPressed ? 1f : 0f);
+                throttle = Mathf.Max(throttle, gp[_padThrottle].ReadValue());
+                frontBrake = Mathf.Max(frontBrake, gp[_padFrontBrake].ReadValue());
+                rearBrake = Mathf.Max(rearBrake, gp[_padRearBrake].ReadValue());
                 float stickX = gp.leftStick.x.ReadValue();
                 if (Mathf.Abs(stickX) > Mathf.Abs(steer))
                 {
                     steer = stickX;
                 }
 
-                aeroTuck = aeroTuck || gp.leftStickButton.isPressed;
-                pedalAssist = pedalAssist || gp.buttonSouth.isPressed;
-                choke = choke || gp.dpad.up.isPressed;
-                decompressor = decompressor || gp.leftShoulder.isPressed;
-                toggleCamera = toggleCamera || gp.selectButton.wasPressedThisFrame;
-                interact = interact || gp.buttonWest.wasPressedThisFrame;
+                aeroTuck = aeroTuck || gp[_padAeroTuck].isPressed;
+                pedalAssist = pedalAssist || gp[_padPedalAssist].isPressed;
+                choke = choke || gp[_padChoke].isPressed;
+                decompressor = decompressor || gp[_padDecompressor].isPressed;
+                toggleCamera = toggleCamera || gp[_padToggleCamera].wasPressedThisFrame;
+                interact = interact || gp[_padInteract].wasPressedThisFrame;
                 toggleGarageRide = toggleGarageRide || gp.buttonNorth.wasPressedThisFrame;
                 toggleSettings = toggleSettings || gp.startButton.wasPressedThisFrame;
             }

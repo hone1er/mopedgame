@@ -330,9 +330,12 @@ namespace MopedSim.Editor
             SetObjectReference(swapMeet, "_resultLabel", CreateText(swapMeet.transform, "Result", new Vector2(0f, 0f), 18));
             swapMeet.gameObject.SetActive(false);
 
-            SettingsMenuView settings = CreatePanel(canvasGo.transform, "SettingsMenu", new Vector2(0.5f, 0.5f), new Vector2(-210f, -130f)).AddComponent<SettingsMenuView>();
-            SetObjectReference(settings, "_graphicsPresetLabel", CreateText(settings.transform, "GraphicsPreset", new Vector2(0f, 120f), 22));
-            SetObjectReference(settings, "_conflictStatusLabel", CreateText(settings.transform, "BindingConflict", new Vector2(0f, 80f), 18));
+            RectTransform settingsPanel = HudStyle.CreatePanel(canvasGo.transform, "SettingsMenu", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(460f, 170f), true);
+            SettingsMenuView settings = settingsPanel.gameObject.AddComponent<SettingsMenuView>();
+            HudLabel(settingsPanel, "Title", "SETTINGS", HudStyle.Padding, 10f, 432f, 30f, 24, HudStyle.Warn, TextAnchor.MiddleLeft);
+            HudLabel(settingsPanel, "GraphicsCaption", "Graphics preset", HudStyle.Padding, 54f, 180f, 28f, 18, HudStyle.TextDim, TextAnchor.MiddleLeft);
+            SetObjectReference(settings, "_graphicsPresetLabel", HudLabel(settingsPanel, "GraphicsPreset", string.Empty, 200f, 52f, 240f, 32f, 22, HudStyle.TextPrimary, TextAnchor.MiddleLeft));
+            SetObjectReference(settings, "_conflictStatusLabel", HudLabel(settingsPanel, "BindingConflict", string.Empty, HudStyle.Padding, 100f, 432f, 56f, 18, HudStyle.Bad, TextAnchor.UpperLeft));
             settings.gameObject.SetActive(false);
 
             BuildControlsBanner(canvasGo.transform);
@@ -437,16 +440,17 @@ namespace MopedSim.Editor
             irt.sizeDelta = new Vector2(w, 26f);
             Image iimg = insulator.AddComponent<Image>();
             iimg.raycastTarget = false;
+            iimg.color = new Color(1f, 1f, 1f, 0.12f);
             SetObjectReference(chart, "_insulatorPreview", iimg);
         }
 
         private static void BuildToolRoll(Transform canvas)
         {
-            RectTransform panel = HudStyle.CreatePanel(canvas, "ToolRoll", new Vector2(0f, 1f), new Vector2(HudStyle.Margin, -HudStyle.SafeTop), new Vector2(340f, 280f), true);
+            RectTransform panel = HudStyle.CreatePanel(canvas, "ToolRoll", new Vector2(0f, 1f), new Vector2(HudStyle.Margin, -HudStyle.SafeTop), new Vector2(340f, 250f), true);
             ToolRollOverlayView roll = panel.gameObject.AddComponent<ToolRollOverlayView>();
             float w = 340f - 2f * HudStyle.Padding;
             SetObjectReference(roll, "_slotsLabel", HudLabel(panel, "Slots", "Tool roll 0/6", HudStyle.Padding, 10f, w, 30f, 24, HudStyle.Warn, TextAnchor.MiddleLeft));
-            SetObjectReference(roll, "_itemsList", HudLabel(panel, "Items", string.Empty, HudStyle.Padding, 46f, w, 224f, 19, HudStyle.TextPrimary, TextAnchor.UpperLeft));
+            SetObjectReference(roll, "_itemsList", HudLabel(panel, "Items", string.Empty, HudStyle.Padding, 46f, w, 190f, 19, HudStyle.TextPrimary, TextAnchor.UpperLeft));
         }
 
         private static void BuildJobBoard(Transform canvas)

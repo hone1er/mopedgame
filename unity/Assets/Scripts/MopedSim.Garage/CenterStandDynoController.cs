@@ -19,6 +19,8 @@ namespace MopedSim.Garage
         private GarageBikeContext _context;
         private bool _running;
         private bool _choke;
+        private float _pedalStartSeconds;
+        private float _peakPowerWatts;
         private float _elapsedSeconds;
         private float _peakRpm;
         private float _peakWheelSpeedMps;
@@ -82,6 +84,19 @@ namespace MopedSim.Garage
             set { _throttle = Mathf.Clamp01(value); }
         }
 
+        /// <summary>Seconds at the start of a run during which the rider kick-starts on the roller (pedal assist). 0 = none.</summary>
+        public float PedalStartSeconds
+        {
+            get { return _pedalStartSeconds; }
+            set { _pedalStartSeconds = Mathf.Max(0f, value); }
+        }
+
+        /// <summary>Highest crank power (W) seen during the current / last run.</summary>
+        public float PeakPowerWatts
+        {
+            get { return _peakPowerWatts; }
+        }
+
         public bool Choke
         {
             get { return _choke; }
@@ -109,6 +124,7 @@ namespace MopedSim.Garage
             _running = true;
             _elapsedSeconds = 0f;
             _peakRpm = 0f;
+            _peakPowerWatts = 0f;
             _peakWheelSpeedMps = 0f;
             _peakChtCelsius = 0f;
             _minAfr = float.MaxValue;
@@ -154,9 +170,14 @@ namespace MopedSim.Garage
                 return;
             }
 
-            RideInputState input = new RideInputState(_throttle, choke: _choke);
+            RideInputState input = new RideInputState(_throttle, pedalAssist: _elapsedSeconds < _pedalStartSeconds, choke: _choke);
             _latest = _context.Bike.Step(dt, in input, _context.Random);
             _elapsedSeconds += dt;
+
+            if (_latest.PowerOutputWatts > _peakPowerWatts)
+            {
+                _peakPowerWatts = _latest.PowerOutputWatts;
+            }
 
             if (_latest.Rpm > _peakRpm)
             {

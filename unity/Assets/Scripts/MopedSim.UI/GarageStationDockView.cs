@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace MopedSim.UI
@@ -14,7 +16,26 @@ namespace MopedSim.UI
     {
         private const string BuiltinFontName = "LegacyRuntime.ttf";
 
+        /// <summary>Shows a per-button hint line on pointer hover / keyboard-gamepad selection (also for disabled buttons).</summary>
+        private sealed class DockHint : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, ISelectHandler, IDeselectHandler
+        {
+            public GarageStationDockView Owner;
+            public string Hint = string.Empty;
+
+            public void OnPointerEnter(PointerEventData eventData) { Owner.SetHint(Hint); }
+            public void OnPointerExit(PointerEventData eventData) { Owner.SetHint(string.Empty); }
+            public void OnSelect(BaseEventData eventData) { Owner.SetHint(Hint); }
+            public void OnDeselect(BaseEventData eventData) { Owner.SetHint(string.Empty); }
+        }
+
+        public const string DefaultHint = "Hover a station button for what it does. [F1/Tab] Ride";
+
         [SerializeField] private Text _statusText;
+        [SerializeField] private Text _hintText;
+        private readonly Dictionary<string, Button> _buttons = new Dictionary<string, Button>(16);
+        private readonly Dictionary<string, Text> _buttonLabels = new Dictionary<string, Text>(16);
+        private readonly Dictionary<string, DockHint> _buttonHints = new Dictionary<string, DockHint>(16);
+        private string _displayedHint = string.Empty;
         [SerializeField] private RectTransform _buttonRowRoot;
 
         private readonly StringBuilder _statusBuilder = new StringBuilder(160);
@@ -42,6 +63,8 @@ namespace MopedSim.UI
         public event Action RefuelRequested;
         public event Action SwapJetRequested;
         public event Action SaveRequested;
+        public event Action CycleMixRatioRequested;
+        public event Action OpenInventoryRequested;
 
         public string DisplayedStatusText
         {
@@ -64,6 +87,48 @@ namespace MopedSim.UI
         public void TriggerRefuel() { InvokeEvent(RefuelRequested); }
         public void TriggerSwapJet() { InvokeEvent(SwapJetRequested); }
         public void TriggerSave() { InvokeEvent(SaveRequested); }
+        public void TriggerCycleMixRatio() { InvokeEvent(CycleMixRatioRequested); }
+        public void TriggerOpenInventory() { InvokeEvent(OpenInventoryRequested); }
+
+        /// <summary>Hint line currently shown under the status strip.</summary>
+        public string DisplayedHint { get { return _displayedHint; } }
+
+        /// <summary>Returns a dock button by name (e.g. "Btn_DynoPull"), or null.</summary>
+        public Button GetButton(string buttonName)
+        {
+            Button b;
+            return buttonName != null && _buttons.TryGetValue(buttonName, out b) ? b : null;
+        }
+
+        /// <summary>Enables / disables a station button; a non-null <paramref name="hint"/> replaces the hover hint (use "coming soon" text when disabled), null keeps it.</summary>
+        public void SetButtonState(string buttonName, bool interactable, string hint)
+        {
+            Button b = GetButton(buttonName);
+            if (b != null) { b.interactable = interactable; }
+            DockHint h;
+            if (hint != null && buttonName != null && _buttonHints.TryGetValue(buttonName, out h)) { h.Hint = hint; }
+        }
+
+        /// <summary>Changes the station caption + action label of a dock button (event-driven; allocates the formatted string).</summary>
+        public void SetButtonLabel(string buttonName, string station, string action)
+        {
+            Text t;
+            if (buttonName != null && _buttonLabels.TryGetValue(buttonName, out t)) { t.text = FormatLabel(station, action); }
+        }
+
+        /// <summary>Sets the hint line (blank falls back to the default hint).</summary>
+        public void SetHint(string hint)
+        {
+            string text = string.IsNullOrEmpty(hint) ? DefaultHint : hint;
+            if (string.Equals(text, _displayedHint, StringComparison.Ordinal)) { return; }
+            _displayedHint = text;
+            if (_hintText != null) { _hintText.text = text; }
+        }
+
+        private static string FormatLabel(string station, string action)
+        {
+            return "<size=11><color=#9FB0C0>" + station + "</color></size>\n" + action;
+        }
 
         /// <summary>
         /// Builds the bottom translucent garage station dock bar under <paramref name="root"/>.
@@ -98,7 +163,7 @@ namespace MopedSim.UI
             dockRt.anchorMax = new Vector2(1f, 0f);
             dockRt.pivot = new Vector2(0.5f, 0f);
             dockRt.anchoredPosition = new Vector2(0f, 8f);
-            dockRt.sizeDelta = new Vector2(-24f, 108f);
+            dockRt.sizeDelta = new Vector2(-24f, 140f);
 
             Image dockBg = _dockRoot.GetComponent<Image>();
             dockBg.color = new Color(0.08f, 0.09f, 0.11f, 0.88f);
@@ -126,12 +191,28 @@ namespace MopedSim.UI
             statusText.text = _displayedStatusText;
             _statusText = statusText;
 
+            // Hint line (hover / focus tooltip, including "coming soon" notes for disabled stations).
+            GameObject hintGo = new GameObject("DockHintText", typeof(RectTransform), typeof(LayoutElement));
+            hintGo.transform.SetParent(_dockRoot.transform, false);
+            LayoutElement hintLe = hintGo.GetComponent<LayoutElement>();
+            hintLe.preferredHeight = 22f;
+            hintLe.minHeight = 20f;
+            Text hintText = hintGo.AddComponent<Text>();
+            hintText.font = font;
+            hintText.fontSize = 14;
+            hintText.alignment = TextAnchor.MiddleLeft;
+            hintText.color = new Color(0.98f, 0.82f, 0.38f, 1f);
+            hintText.raycastTarget = false;
+            hintText.text = DefaultHint;
+            _hintText = hintText;
+            _displayedHint = DefaultHint;
+
             // Bottom button row.
             GameObject rowGo = new GameObject("DockButtonRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             rowGo.transform.SetParent(_dockRoot.transform, false);
             LayoutElement rowLe = rowGo.GetComponent<LayoutElement>();
-            rowLe.preferredHeight = 52f;
-            rowLe.minHeight = 44f;
+            rowLe.preferredHeight = 58f;
+            rowLe.minHeight = 50f;
             HorizontalLayoutGroup hLayout = rowGo.GetComponent<HorizontalLayoutGroup>();
             hLayout.spacing = 6f;
             hLayout.childControlWidth = true;
@@ -144,17 +225,23 @@ namespace MopedSim.UI
             Color stationColor = new Color(0.20f, 0.24f, 0.30f, 1f);
             Color utilityColor = new Color(0.26f, 0.24f, 0.20f, 1f);
 
-            CreateDockButton(_buttonRowRoot, "Btn_Ride", "Ride", primaryRide, font, TriggerRide);
-            CreateDockButton(_buttonRowRoot, "Btn_Shop", "Shop", stationColor, font, TriggerOpenShop);
-            CreateDockButton(_buttonRowRoot, "Btn_SwapMeet", "Swap Meet", stationColor, font, TriggerOpenSwapMeet);
-            CreateDockButton(_buttonRowRoot, "Btn_Jobs", "Jobs", stationColor, font, TriggerOpenJobs);
-            CreateDockButton(_buttonRowRoot, "Btn_Paint", "Paint", stationColor, font, TriggerCyclePaint);
-            CreateDockButton(_buttonRowRoot, "Btn_DynoPull", "Dyno Pull", stationColor, font, TriggerDynoPull);
-            CreateDockButton(_buttonRowRoot, "Btn_PlugChop", "Plug Chop", stationColor, font, TriggerPlugChop);
-            CreateDockButton(_buttonRowRoot, "Btn_Refuel", "Refuel", stationColor, font, TriggerRefuel);
-            CreateDockButton(_buttonRowRoot, "Btn_SwapJet", "Swap Jet", stationColor, font, TriggerSwapJet);
-            CreateDockButton(_buttonRowRoot, "Btn_Save", "Save", utilityColor, font, TriggerSave);
-            CreateDockButton(_buttonRowRoot, "Btn_Settings", "Settings", utilityColor, font, TriggerOpenSettings);
+            _buttons.Clear();
+            _buttonLabels.Clear();
+            _buttonHints.Clear();
+            AddButton("Btn_Ride", "GO", "Ride", primaryRide, font, TriggerRide, "Take the bike out. [F1 / Tab]");
+            AddButton("Btn_PlugChop", "WORKSTAND", "Plug Chop", stationColor, font, TriggerPlugChop, "Pull the plug and read its colour (see the SPARK PLUG READING panel). Colour builds while the engine runs - dyno pull first.");
+            AddButton("Btn_Paint", "WORKSTAND", "Paint", stationColor, font, TriggerCyclePaint, "Cycle the paint-booth swatches. [F4]");
+            AddButton("Btn_DynoPull", "DYNO", "Dyno Pull", stationColor, font, TriggerDynoPull, "Run the bike flat out on the roller: power, AFR and head temp. Uses fuel and heats the engine.");
+            AddButton("Btn_MixRatio", "PREMIX", "Mix 50:1", stationColor, font, TriggerCycleMixRatio, "Pick the fuel : oil ratio for the next refuel (32:1, 40:1, 50:1 or straight gas).");
+            AddButton("Btn_Refuel", "PREMIX", "Refuel", stationColor, font, TriggerRefuel, "Mix a 5 L can at the selected ratio and pour it into the tank.");
+            AddButton("Btn_SwapJet", "WORKBENCH", "Swap Jet", stationColor, font, TriggerSwapJet, "Fit the next main jet size from the parts crate. Re-check AFR on the dyno.");
+            AddButton("Btn_Inventory", "WORKBENCH", "Owned Parts", stationColor, font, TriggerOpenInventory, "Coming soon: install owned parts from here. For now swap parts at the workstand.");
+            _buttons["Btn_Inventory"].interactable = false;
+            AddButton("Btn_Shop", "SHOP", "Shop", stationColor, font, TriggerOpenShop, "Buy parts and tools. [F3]");
+            AddButton("Btn_SwapMeet", "SHOP", "Swap Meet", stationColor, font, TriggerOpenSwapMeet, "Used parts, rotating stock.");
+            AddButton("Btn_Jobs", "JOBS", "Jobs", stationColor, font, TriggerOpenJobs, "Courier job board.");
+            AddButton("Btn_Save", "GAME", "Save", utilityColor, font, TriggerSave, "Write the save file.");
+            AddButton("Btn_Settings", "GAME", "Settings", utilityColor, font, TriggerOpenSettings, "Controls, audio, graphics. [F2]");
         }
 
         /// <summary>
@@ -218,6 +305,17 @@ namespace MopedSim.UI
             }
         }
 
+        private void AddButton(string name, string station, string action, Color color, Font font, UnityEngine.Events.UnityAction onClick, string hint)
+        {
+            Button btn = CreateDockButton(_buttonRowRoot, name, FormatLabel(station, action), color, font, onClick);
+            _buttons[name] = btn;
+            _buttonLabels[name] = btn.GetComponentInChildren<Text>();
+            DockHint h = btn.gameObject.AddComponent<DockHint>();
+            h.Owner = this;
+            h.Hint = hint;
+            _buttonHints[name] = h;
+        }
+
         private static Button CreateDockButton(
             RectTransform parent,
             string name,
@@ -233,6 +331,12 @@ namespace MopedSim.UI
 
             Button btn = go.GetComponent<Button>();
             btn.targetGraphic = bg;
+            ColorBlock cb = btn.colors;
+            cb.normalColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+            cb.highlightedColor = Color.white;
+            cb.selectedColor = Color.white;
+            cb.disabledColor = new Color(0.35f, 0.35f, 0.35f, 0.6f);
+            btn.colors = cb;
             btn.onClick.AddListener(onClick);
 
             GameObject textGo = new GameObject("Label", typeof(RectTransform));
@@ -248,6 +352,7 @@ namespace MopedSim.UI
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.raycastTarget = false;
+            text.supportRichText = true;
             text.text = label;
             return btn;
         }

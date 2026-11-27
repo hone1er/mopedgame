@@ -48,7 +48,7 @@ namespace MopedSim.Tests.EditMode
             int buttonCountAfterFirst = host.GetComponentsInChildren<Button>(true).Length;
             dock.BuildDefaultLayout((RectTransform)host.transform);
             Assert.AreEqual(buttonCountAfterFirst, host.GetComponentsInChildren<Button>(true).Length, "BuildDefaultLayout must be idempotent.");
-            Assert.AreEqual(11, buttonCountAfterFirst);
+            Assert.AreEqual(13, buttonCountAfterFirst);
 
             int rideCount = 0;
             int shopCount = 0;

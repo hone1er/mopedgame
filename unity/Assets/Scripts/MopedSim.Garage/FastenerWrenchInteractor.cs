@@ -50,6 +50,9 @@ namespace MopedSim.Garage
             get { return _wrenchHeld; }
         }
 
+        /// <summary>Optional hook (set by the App) that returns true while the pointer is over UI, so UI clicks never start a torque pull.</summary>
+        public Func<bool> PointerBlocker { get; set; }
+
         public bool ReadMouseInput
         {
             get { return _readMouseInput; }
@@ -224,7 +227,7 @@ namespace MopedSim.Garage
                 if (mouse != null && _activeFastenerId.Length > 0)
                 {
                     // The press that selected the fastener on the work stand never starts a pull.
-                    if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != _selectedFrame)
+                    if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != _selectedFrame && (PointerBlocker == null || !PointerBlocker()))
                     {
                         BeginTorque();
                     }

@@ -8,6 +8,7 @@ using MopedSim.Garage;
 using MopedSim.Ride;
 using MopedSim.UI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace MopedSim.App
 {
@@ -178,6 +179,7 @@ namespace MopedSim.App
 
             yield return Step("breakdown_roadside_repair", BreakdownRoutine);
             yield return Step("back_to_garage", BackToGarageRoutine);
+            yield return Step("garage_stations", GarageStationsRoutine);
 
             _measuring = false;
             Finish(Time.realtimeSinceStartup - start);
@@ -326,7 +328,18 @@ namespace MopedSim.App
                 yield return Capture(r, "02_garage_yaw" + i);
             }
 
-            r.passed = true;
+            stand.Orbit(-140f, 0f);
+            yield return Settle(0.4f);
+            StationUiController ui = _app.StationUi;
+            // Dock + the (still empty) spark plug panel exactly as a new player sees them.
+            PlugChopChartView plug = FindAnyObjectByType<PlugChopChartView>();
+            r.passed = ui != null && ui.IsDockVisible && plug != null && !plug.HasReading && ui.Dock.GetButton("Btn_DynoPull") != null;
+            if (!r.passed)
+            {
+                r.note = "Dock visible=" + (ui != null && ui.IsDockVisible) + " plugEmpty=" + (plug != null && !plug.HasReading);
+            }
+
+            yield return Capture(r, "02_stations");
         }
 
         private IEnumerator PanelsRoutine(StepRecord r)
@@ -590,19 +603,82 @@ namespace MopedSim.App
             }
 
             _app.Input.SetTestOverride(default(FrameControlInputs));
+            yield return Settle(0.4f);
             yield return Capture(r, "08_breakdown");
-            if (!_app.PullOverForRoadsideRepair())
+            StationUiController ui = _app.StationUi;
+            if (ui == null || !ui.IsBreakdownPromptVisible)
             {
-                r.note = "PullOverForRoadsideRepair refused.";
+                r.note = "Breakdown prompt not visible after the stall.";
                 yield break;
             }
 
+            // A human presses Interact (E) to pull over; the roadside panel then opens.
+            _app.Input.SetTestOverride(new FrameControlInputs(0f, 0f, 0f, 0f, false, false, false, false, false, true));
+            yield return null;
+            _app.Input.SetTestOverride(default(FrameControlInputs));
             yield return Settle(0.8f);
-            yield return Capture(r, "08_roadside_repair");
-            RoadsideRepairResult result = _app.AttemptRoadsideRepair(FaultIds.FouledPlug);
-            r.passed = result.Succeeded;
-            r.note = result.Message ?? string.Empty;
+            if (_app.Session.CurrentState != GameSessionState.RoadsideRepair || !ui.IsRoadsidePanelVisible)
+            {
+                r.note = "Interact did not open the roadside panel (state " + _app.Session.CurrentState + ").";
+                yield break;
+            }
+
+            yield return Capture(r, "08_roadside_panel");
+
+            // Click the panel's real Repair button (dispatches AttemptRoadsideRepair, i.e. the same Core path as the tests).
+            RoadsideRepairResult result = default(RoadsideRepairResult);
+            bool attempted = false;
+            Action<RoadsideRepairResult> onAttempt = delegate(RoadsideRepairResult x) { result = x; attempted = true; };
+            _app.RoadsideRepairAttempted += onAttempt;
+            Button repair = FindPanelButton(ui.RoadsidePanel.gameObject, "Btn_Repair");
+            if (repair != null && repair.IsInteractable())
+            {
+                repair.onClick.Invoke();
+            }
+
+            _app.RoadsideRepairAttempted -= onAttempt;
+            r.passed = attempted && result.Succeeded && _app.Session.CurrentState == GameSessionState.Ride;
+            r.note = attempted ? (result.Message ?? string.Empty) : "Repair button missing or disabled.";
             yield return Settle(0.5f);
+        }
+
+        private static Button FindPanelButton(GameObject root, string name)
+        {
+            Button[] all = root.GetComponentsInChildren<Button>(false);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].name == name) { return all[i]; }
+            }
+
+            return null;
+        }
+
+        private IEnumerator GarageStationsRoutine(StepRecord r)
+        {
+            StationUiController ui = _app.StationUi;
+            PlugChopChartView plug = FindAnyObjectByType<PlugChopChartView>();
+            if (ui == null || !ui.IsDockVisible || plug == null)
+            {
+                r.note = "Garage dock / plug panel missing.";
+                yield break;
+            }
+
+            // Station buttons are real UI buttons: dyno pull (power / AFR / CHT), then read the plug, premix refuel, jet swap.
+            ui.Dock.GetButton("Btn_DynoPull").onClick.Invoke();
+            yield return Settle(0.3f);
+            string dyno = ui.Feedback;
+            yield return Capture(r, "10_dyno_result");
+            ui.Dock.GetButton("Btn_PlugChop").onClick.Invoke();
+            yield return Settle(0.3f);
+            bool plugRead = plug.HasReading;
+            yield return Capture(r, "10_plug_reading");
+            ui.Dock.GetButton("Btn_MixRatio").onClick.Invoke();
+            ui.Dock.GetButton("Btn_Refuel").onClick.Invoke();
+            ui.Dock.GetButton("Btn_SwapJet").onClick.Invoke();
+            yield return Settle(0.3f);
+            yield return Capture(r, "10_premix_jet");
+            r.passed = plugRead && dyno.IndexOf(" hp", StringComparison.Ordinal) >= 0;
+            r.note = dyno + " | " + ui.Feedback;
         }
 
         private IEnumerator BackToGarageRoutine(StepRecord r)

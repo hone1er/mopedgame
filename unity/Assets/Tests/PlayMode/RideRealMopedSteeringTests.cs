@@ -34,6 +34,7 @@ namespace MopedSim.Tests.PlayMode
         private float _minSpeed;
         private bool _everUngrounded;
         private GameObject _pad;
+        private bool _usePad = true;
 
         [SetUp]
         public void SetUp()
@@ -119,7 +120,7 @@ namespace MopedSim.Tests.PlayMode
 
             // The West Oakland road strip is narrow; lay a wide test pad level with it so long steering runs stay on a surface.
             RaycastHit roadHit;
-            if (Physics.Raycast(_ride.transform.position + Vector3.up, Vector3.down, out roadHit, 5f))
+            if (_usePad && Physics.Raycast(_ride.transform.position + Vector3.up, Vector3.down, out roadHit, 5f))
             {
                 GameObject pad = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 pad.name = "SteeringTestPad";
@@ -210,6 +211,46 @@ namespace MopedSim.Tests.PlayMode
             yield return Hold(0.6f, 0f, 2f);
             Assert.Less(Mathf.Abs(_ride.LeanAngleDeg), 8f, "Lean must return toward upright within 2 s of release." + Diag());
             Assert.Greater(_ride.SpeedMps, 5f, Diag());
+        }
+
+        [UnityTest]
+        public IEnumerator RidingOffTheRoadEdge_OntoShoulderAndGround_StaysGroundedAndKeepsRiding()
+        {
+            _usePad = false;
+            yield return BootAndStartRide();
+            Vector3 start = _ride.transform.position;
+            yield return AccelerateTo(8f, 20f);
+
+            // Veer off the 12 m road (and its 6 m gravel shoulder) onto the dirt ground slab.
+            float end = Time.time + 8f;
+            Drive(0.5f, 0.2f);
+            while (Mathf.Abs(_ride.transform.position.x - start.x) < 16f && Time.time < end)
+            {
+                yield return null;
+                _everUngrounded |= !_ride.IsGrounded && _ride.transform.position.y > start.y + 1.5f;
+            }
+
+            Assert.GreaterOrEqual(Mathf.Abs(_ride.transform.position.x - start.x), 16f, "Bike never left the road edge." + Diag());
+            yield return Hold(0.5f, 0f, 1.5f);
+            Assert.IsTrue(_ride.IsGrounded, "Bike must stay grounded on the dirt/ground beside the road." + Diag());
+            Assert.Greater(_ride.SpeedMps, 2f, "Bike must keep riding off-road." + Diag());
+            Assert.Greater(_ride.transform.position.y, start.y - 1f, "Bike must not sink through the ground." + Diag());
+            Assert.AreEqual(0, _ride.FallRecoveryCount, "Fall safety net must not be needed on the shoulder." + Diag());
+            Assert.Less(Vector3.Angle(_ride.transform.up, Vector3.up), 45f, Diag());
+        }
+
+        [UnityTest]
+        public IEnumerator FallingBelowTheWorld_SafetyNetReturnsBikeToLastGroundedPosition()
+        {
+            yield return BootAndStartRide();
+            yield return Hold(0f, 0f, 1f);
+            Vector3 grounded = _ride.transform.position;
+            _ride.transform.position = grounded + Vector3.down * 60f;
+            _body.position = _ride.transform.position;
+            _body.linearVelocity = Vector3.zero;
+            yield return Hold(0f, 0f, 0.5f);
+            Assert.GreaterOrEqual(_ride.FallRecoveryCount, 1);
+            Assert.Greater(_ride.transform.position.y, grounded.y - 1f, Diag());
         }
 
         [UnityTest]

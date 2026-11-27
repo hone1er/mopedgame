@@ -191,6 +191,11 @@ namespace MopedSim.World
                 }
             }
 
+            if (glow == null && beaconRenderers.Length > 0 && beaconRenderers[beaconRenderers.Length - 1].sharedMaterial != null)
+            {
+                glow = beaconRenderers[beaconRenderers.Length - 1].sharedMaterial;
+            }
+
             if (glow == null)
             {
                 return;

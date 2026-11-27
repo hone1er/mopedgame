@@ -17,6 +17,7 @@ for arg in "$@"; do
     case "$arg" in
         --build) DO_BUILD=1 ;;
         --title) EXTRA+=("-autoplayTitle") ;;
+        --gig) EXTRA+=("-autoplayGig") ;;
         -h|--help) sed -n 2,3p "$0"; exit 0 ;;
         *) OUT_DIR="$arg" ;;
     esac
@@ -39,11 +40,7 @@ EXE="$(find "$EXE_DIR" -maxdepth 1 -type f -perm -u+x | head -n 1)"
 rm -f "$OUT_DIR"/report.json "$OUT_DIR"/*.png
 echo "[capture] launching $EXE -> $OUT_DIR"
 "$EXE" -screen-fullscreen 0 -screen-width 1600 -screen-height 900 \
-<<<<<<< HEAD
-    ${CAPTURE_EXTRA_ARGS:-} -autoplayCapture "$OUT_DIR" -logFile "$OUT_DIR/player.log" &
-=======
     -autoplayCapture "$OUT_DIR" ${EXTRA[@]+"${EXTRA[@]}"} -logFile "$OUT_DIR/player.log" &
->>>>>>> main
 PID=$!
 
 START=$SECONDS

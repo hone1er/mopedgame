@@ -34,6 +34,9 @@ namespace MopedSim.App
         /// <summary>F4: cycle the paint booth's curated swatches on the bike.</summary>
         public readonly bool CyclePaintPressed;
 
+        /// <summary>R / gamepad D-pad Down (both reserved session hotkeys): stand a fallen bike back up ("pick up bike").</summary>
+        public readonly bool PickUpBikePressed;
+
         public FrameControlInputs(
             float throttle,
             float frontBrake,
@@ -48,7 +51,8 @@ namespace MopedSim.App
             bool toggleGarageRidePressed = false,
             bool toggleSettingsPressed = false,
             bool toggleShopPressed = false,
-            bool cyclePaintPressed = false)
+            bool cyclePaintPressed = false,
+            bool pickUpBikePressed = false)
         {
             Throttle = throttle;
             FrontBrake = frontBrake;
@@ -64,6 +68,7 @@ namespace MopedSim.App
             ToggleSettingsPressed = toggleSettingsPressed;
             ToggleShopPressed = toggleShopPressed;
             CyclePaintPressed = cyclePaintPressed;
+            PickUpBikePressed = pickUpBikePressed;
         }
     }
 
@@ -440,6 +445,7 @@ namespace MopedSim.App
             bool toggleSettings = false;
             bool toggleShop = false;
             bool cyclePaint = false;
+            bool pickUpBike = false;
 
             Keyboard kb = Keyboard.current;
             if (kb != null)
@@ -479,6 +485,7 @@ namespace MopedSim.App
                 toggleSettings = kb.f2Key.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame;
                 toggleShop = kb.f3Key.wasPressedThisFrame;
                 cyclePaint = kb.f4Key.wasPressedThisFrame;
+                pickUpBike = kb.rKey.wasPressedThisFrame;
             }
 
             Gamepad gp = Gamepad.current;
@@ -501,6 +508,7 @@ namespace MopedSim.App
                 interact = interact || gp[_padInteract].wasPressedThisFrame;
                 toggleGarageRide = toggleGarageRide || gp.buttonNorth.wasPressedThisFrame;
                 toggleSettings = toggleSettings || gp.startButton.wasPressedThisFrame;
+                pickUpBike = pickUpBike || gp.dpad.down.wasPressedThisFrame;
             }
 
             return new FrameControlInputs(
@@ -517,7 +525,8 @@ namespace MopedSim.App
                 toggleGarageRide,
                 toggleSettings,
                 toggleShop,
-                cyclePaint);
+                cyclePaint,
+                pickUpBike);
         }
     }
 }

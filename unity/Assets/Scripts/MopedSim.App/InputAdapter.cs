@@ -39,6 +39,12 @@ namespace MopedSim.App
         /// <summary>R / gamepad D-pad Down (both reserved session hotkeys): stand a fallen bike back up ("pick up bike").</summary>
         public readonly bool PickUpBikePressed;
 
+        /// <summary>J / gamepad D-pad Left (both reserved session hotkeys): open or close the gig dispatch board.</summary>
+        public readonly bool ToggleJobBoardPressed;
+
+        /// <summary>True when <see cref="ToggleJobBoardPressed"/> came from the gamepad D-pad only (D-pad Left also navigates the open board, so it never closes it).</summary>
+        public readonly bool JobBoardPadOnly;
+
         public FrameControlInputs(
             float throttle,
             float frontBrake,
@@ -55,7 +61,9 @@ namespace MopedSim.App
             bool toggleShopPressed = false,
             bool cyclePaintPressed = false,
             bool pickUpBikePressed = false,
-            bool pausePressed = false)
+            bool pausePressed = false,
+            bool toggleJobBoardPressed = false,
+            bool jobBoardPadOnly = false)
         {
             Throttle = throttle;
             FrontBrake = frontBrake;
@@ -73,6 +81,8 @@ namespace MopedSim.App
             CyclePaintPressed = cyclePaintPressed;
             PausePressed = pausePressed;
             PickUpBikePressed = pickUpBikePressed;
+            ToggleJobBoardPressed = toggleJobBoardPressed;
+            JobBoardPadOnly = jobBoardPadOnly;
         }
     }
 
@@ -83,7 +93,7 @@ namespace MopedSim.App
     /// allocation-free. Arrow keys and Z remain fixed secondary bindings. Gamepad buttons come from <see cref="GameSettingsData.GamepadBindings"/>
     /// (cached <see cref="GamepadButton"/> values; steering stays on the left stick, Start stays the settings hotkey).
     /// While the Settings Controls section is capturing a rebind, <see cref="SampleInputs"/> consumes the next key/button press and returns neutral inputs.
-    /// Session hotkeys are fixed (not rebindable): F1/Tab Garage-Ride toggle, F2 settings, Escape/Start pause, F3 shop, F4 paint swatch.
+    /// Session hotkeys are fixed (not rebindable): F1/Tab Garage-Ride toggle, F2 settings, Escape/Start pause, F3 shop, F4 paint swatch, R/D-pad Down pick up, J/D-pad Left gig dispatch board.
     /// </summary>
     public sealed class InputAdapter : MonoBehaviour
     {
@@ -451,6 +461,8 @@ namespace MopedSim.App
             bool cyclePaint = false;
             bool pause = false;
             bool pickUpBike = false;
+            bool toggleJobBoard = false;
+            bool jobBoardPadOnly = false;
 
             Keyboard kb = Keyboard.current;
             if (kb != null)
@@ -492,6 +504,7 @@ namespace MopedSim.App
                 toggleShop = kb.f3Key.wasPressedThisFrame;
                 cyclePaint = kb.f4Key.wasPressedThisFrame;
                 pickUpBike = kb.rKey.wasPressedThisFrame;
+                toggleJobBoard = kb.jKey.wasPressedThisFrame;
             }
 
             Gamepad gp = Gamepad.current;
@@ -515,6 +528,11 @@ namespace MopedSim.App
                 toggleGarageRide = toggleGarageRide || gp.buttonNorth.wasPressedThisFrame;
                 pause = pause || gp.startButton.wasPressedThisFrame;
                 pickUpBike = pickUpBike || gp.dpad.down.wasPressedThisFrame;
+                if (!toggleJobBoard && gp.dpad.left.wasPressedThisFrame)
+                {
+                    toggleJobBoard = true;
+                    jobBoardPadOnly = true;
+                }
             }
 
             return new FrameControlInputs(
@@ -533,7 +551,9 @@ namespace MopedSim.App
                 toggleShop,
                 cyclePaint,
                 pickUpBike,
-                pause);
+                pause,
+                toggleJobBoard,
+                jobBoardPadOnly);
         }
     }
 }

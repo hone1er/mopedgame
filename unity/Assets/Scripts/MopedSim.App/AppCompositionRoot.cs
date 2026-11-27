@@ -116,6 +116,7 @@ namespace MopedSim.App
         private bool _settingsLayoutBuilt;
         private float _timeScaleBeforeMenu = 1f;
         private bool _menuBlocked;
+        private JobDispatchController _dispatch;
 
         // Session hand-off across the scene reload used by New Game (non-default bike), Continue (other bike) and Save & Quit to Title.
         private static bool s_pendingStart;
@@ -527,7 +528,65 @@ namespace MopedSim.App
 
         public bool IsMenuOpen
         {
-            get { return _menus != null && _menus.IsBlockingInput; }
+            get { return (_menus != null && _menus.IsBlockingInput) || IsJobBoardOpen; }
+        }
+
+        /// <summary>True while the J / D-pad Left gig dispatch board is open (the sim is frozen like the pause menu).</summary>
+        public bool IsJobBoardOpen
+        {
+            get { return _dispatch != null && _dispatch.IsOpen; }
+        }
+
+        public JobDispatchController JobDispatch
+        {
+            get { return _dispatch; }
+        }
+
+        /// <summary>Creates the gig dispatch board controller on first use (no-op without a courier dispatch).</summary>
+        public JobDispatchController EnsureJobDispatch()
+        {
+            if (_dispatch == null && _courier != null)
+            {
+                _dispatch = gameObject.GetComponent<JobDispatchController>();
+                if (_dispatch == null)
+                {
+                    _dispatch = gameObject.AddComponent<JobDispatchController>();
+                }
+
+                _dispatch.Initialize(this);
+            }
+
+            return _dispatch;
+        }
+
+        /// <summary>
+        /// J / D-pad Left: opens (Garage or Ride, no other menu up) or closes the gig dispatch board. A pad press never closes an open
+        /// board because D-pad Left also navigates it. Returns whether the board is open afterwards.
+        /// </summary>
+        public bool ToggleJobBoard(bool padOnly = false)
+        {
+            JobDispatchController dispatch = EnsureJobDispatch();
+            if (dispatch == null || !_bootstrapped)
+            {
+                return false;
+            }
+
+            if (dispatch.IsOpen)
+            {
+                if (!padOnly)
+                {
+                    dispatch.Close();
+                }
+
+                return dispatch.IsOpen;
+            }
+
+            if ((_menus != null && _menus.IsBlockingInput) || IsSettingsMenuOpen || IsShopOpen)
+            {
+                return false;
+            }
+
+            return dispatch.Open();
         }
 
         public bool IsPaused
@@ -657,7 +716,7 @@ namespace MopedSim.App
         /// <summary>Freezes (timeScale 0, audio paused, wrench/workstand mouse input off) or restores the sim while a menu owns the screen.</summary>
         public void SetMenuInputBlocked(bool blocked)
         {
-            bool freeze = blocked && _menus != null && _menus.IsPauseOpen;
+            bool freeze = blocked && ((_menus != null && _menus.IsPauseOpen) || IsJobBoardOpen);
             if (freeze)
             {
                 if (!_froze && Time.timeScale > 0f)
@@ -704,6 +763,12 @@ namespace MopedSim.App
             if (_swapMeet != null && _swapMeet.gameObject.activeSelf)
             {
                 SetViewVisible(_swapMeet, false);
+                closed = true;
+            }
+
+            if (IsJobBoardOpen)
+            {
+                _dispatch.Close();
                 closed = true;
             }
 
@@ -1205,7 +1270,8 @@ namespace MopedSim.App
                 EnsureMenus().HandlePausePressed();
             }
 
-            if (controls.ToggleGarageRidePressed || controls.ToggleSettingsPressed || controls.ToggleShopPressed || controls.CyclePaintPressed)
+            if (controls.ToggleGarageRidePressed || controls.ToggleSettingsPressed || controls.ToggleShopPressed || controls.CyclePaintPressed
+                || controls.ToggleJobBoardPressed)
             {
                 HandleSessionHotkeys(in controls);
             }
@@ -1302,8 +1368,34 @@ namespace MopedSim.App
                 {
                     JobSessionSnapshot snapshot = _courier.GetSnapshot();
                     _jobBoard.Render(in snapshot, _courier.ActiveJobTitle);
+                    RenderJobObjective(in snapshot);
                 }
             }
+        }
+
+        /// <summary>Feeds the job board's objective block: next checkpoint, its zone name, straight-line distance and time left.</summary>
+        private void RenderJobObjective(in JobSessionSnapshot snapshot)
+        {
+            JobCheckpointSpec next = snapshot.Status == JobSessionStatus.Active && _courier.Jobs != null ? _courier.Jobs.NextCheckpoint : null;
+            string zoneName = null;
+            float distance = 0f;
+            bool hasDistance = false;
+            if (next != null)
+            {
+                ZoneEnvironmentSpec zone;
+                zoneName = _catalog != null && _catalog.Zones.TryGetValue(next.ZoneId, out zone) ? zone.DisplayName : next.ZoneId;
+                Transform rider = _courier.Rider;
+                if (rider != null)
+                {
+                    Vector3 p = rider.position;
+                    float dx = next.X - p.x;
+                    float dz = next.Z - p.z;
+                    distance = Mathf.Sqrt(dx * dx + dz * dz);
+                    hasDistance = true;
+                }
+            }
+
+            _jobBoard.RenderObjective(in snapshot, next, zoneName, distance, hasDistance);
         }
 
         private void PushRideEnvironment(float airDensity, float grip)
@@ -1673,13 +1765,18 @@ namespace MopedSim.App
 
         private void HandleSessionHotkeys(in FrameControlInputs controls)
         {
+            if (controls.ToggleJobBoardPressed)
+            {
+                ToggleJobBoard(controls.JobBoardPadOnly);
+            }
+
             bool menuOpen = IsMenuOpen;
             if (controls.ToggleGarageRidePressed && !menuOpen)
             {
                 ToggleGarageRide();
             }
 
-            if (controls.ToggleSettingsPressed && !(_menus != null && _menus.IsTitleOpen))
+            if (controls.ToggleSettingsPressed && !(_menus != null && _menus.IsTitleOpen) && !IsJobBoardOpen)
             {
                 ToggleSettingsMenu();
             }

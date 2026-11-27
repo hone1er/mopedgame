@@ -437,11 +437,11 @@ namespace MopedSim.Tests.EditMode
             Assert.IsTrue(view.IsCapturing);
             ReleaseAll();
             input.PollBindingCapture(view);
-            InputSystem.QueueStateEvent(_keyboard, new KeyboardState(Key.J));
+            InputSystem.QueueStateEvent(_keyboard, new KeyboardState(Key.K));
             InputSystem.Update();
             input.PollBindingCapture(view);
             Assert.IsFalse(view.IsCapturing);
-            Assert.AreEqual("J", view.CurrentSettings.ThrottleKey);
+            Assert.AreEqual("K", view.CurrentSettings.ThrottleKey);
 
             ReleaseAll();
             view.BeginCapture(KeyBindingActionIds.Throttle, BindingColumn.Keyboard);
@@ -450,7 +450,22 @@ namespace MopedSim.Tests.EditMode
             InputSystem.Update();
             input.PollBindingCapture(view);
             Assert.IsFalse(view.IsCapturing);
-            Assert.AreEqual("J", view.CurrentSettings.ThrottleKey);
+            Assert.AreEqual("K", view.CurrentSettings.ThrottleKey);
+        }
+
+        [Test]
+        public void JobBoardHotkeys_JAndDpadLeft_AreReservedAndNotRebindable()
+        {
+            Assert.IsTrue(SettingsPreferencesStore.IsReservedKey("j"));
+            Assert.IsTrue(SettingsPreferencesStore.IsReservedKey("J"));
+            Assert.IsNull(SettingsPreferencesStore.CanonicalGamepadButton("DpadLeft"), "D-pad Left is the fixed gig board button.");
+            Assert.IsNotNull(SettingsPreferencesStore.CanonicalGamepadButton("DpadRight"));
+
+            SettingsMenuView view = CreateBuiltView();
+            view.BeginCapture(KeyBindingActionIds.Throttle, BindingColumn.Keyboard);
+            Assert.IsFalse(view.TryCommitCapture("J"));
+            StringAssert.Contains("reserved", view.ControlsStatusText);
+            Assert.AreEqual("w", view.CurrentSettings.ThrottleKey);
         }
 
         [Test]

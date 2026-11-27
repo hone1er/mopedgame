@@ -18,10 +18,10 @@ namespace MopedSim.UI
     public sealed class ControlsBannerView : MonoBehaviour
     {
         public const string GarageText =
-            "[LMB] Select part / hold to torque | [RMB drag] Orbit | [Scroll] Zoom | [F3] Shop | [F4] Paint | [F1/Tab] Ride | [F2/Esc] Settings";
+            "[LMB] Select part / hold to torque | [RMB drag] Orbit | [Scroll] Zoom | [F3] Shop | [F4] Paint | [J] Gigs | [F1/Tab] Ride | [F2/Esc] Settings";
 
         public const string RideText =
-            "[W] Throttle | [A/D] Steer | [S] Rear brake | [Shift] Front brake | [Space] Pedal | [Ctrl] Tuck | [C] Choke | [Q] Decompressor | [V] Cam | [R] Pick up | [F1/Tab] Garage | [F2/Esc] Settings";
+            "[W] Throttle | [A/D] Steer | [S] Rear brake | [Shift] Front brake | [Space] Pedal | [Ctrl] Tuck | [C] Choke | [Q] Decompressor | [V] Cam | [R] Pick up | [J] Gigs | [F1/Tab] Garage | [F2/Esc] Settings";
 
         public const string RoadsideText =
             "[LMB] Select part / hold to torque | [E] Interact | [F1/Tab] Back to ride | [F2/Esc] Settings";

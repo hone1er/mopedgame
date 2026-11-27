@@ -594,6 +594,108 @@ namespace MopedSim.Tests.PlayMode
             LogAssert.NoUnexpectedReceived();
         }
 
+        /// <summary>
+        /// W3-2: the J hotkey opens the runtime-built gig dispatch board (freezing the sim), Esc closes it before the pause menu, an
+        /// eligible gig is accepted from the modal through Core, and delivery pays cash + reputation exactly once with a toast.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator JobBoard_JHotkeyOpens_AcceptStartsGig_EscCloses_AndDeliveryPaysOnce()
+        {
+            CatalogDatabase db = LoadCatalog();
+            SimulationWorld world = new SimulationWorld(new SeededSimRandom(9u), db.GetZone("Zone_WestOakland"));
+            world.RegisterBike(AppCompositionRoot.DefaultBikeInstanceId, new BikeSimulation(db.GetArchetype(ArchetypeIds.MaxerE50), db.Parts));
+            JobDefinition coffee = db.GetJob("gig_west_oakland_coffee");
+            GameObject riderGo = Spawn("JobBoardRider");
+
+            GameObject appGo = Spawn("AppJobBoardRig");
+            GameSessionStateMachine session = appGo.AddComponent<GameSessionStateMachine>();
+            InputAdapter input = appGo.AddComponent<InputAdapter>();
+            BayAreaWeatherController weather = appGo.AddComponent<BayAreaWeatherController>();
+            CourierGigController courier = appGo.AddComponent<CourierGigController>();
+            JobBoardHudView board = appGo.AddComponent<JobBoardHudView>();
+            AppCompositionRoot app = appGo.AddComponent<AppCompositionRoot>();
+            app.BootstrapOnStart = false;
+            courier.SetRider(riderGo.transform);
+            app.AssignCoreComponents(input, session, null, null);
+            app.AssignWorldComponents(null, weather, null, null);
+            app.AssignEconomyComponents(null, courier, null, null, board, null);
+            app.BootstrapWithWorld(world, db.PartList, db);
+            Assert.IsTrue(app.TryStartRide());
+            yield return null;
+
+            try
+            {
+                // J opens the board and freezes the sim; the catalog list shows eligibility.
+                input.SetTestOverride(new FrameControlInputs(0f, 0f, 0f, 0f, false, false, false, false, false, false, toggleJobBoardPressed: true));
+                yield return null;
+                input.SetTestOverride(default(FrameControlInputs));
+                yield return null;
+                Assert.IsTrue(app.IsJobBoardOpen, "J opens the gig board in Ride.");
+                Assert.AreEqual(0f, Time.timeScale, "The open board freezes the sim like the pause menu.");
+                JobDispatchModalView modal = app.JobDispatch.View;
+                Assert.IsTrue(modal.IsOpen);
+                Assert.AreEqual(db.JobList.Count, modal.DisplayedJobCount);
+                Assert.Greater(modal.EligibleJobCount, 0);
+                Assert.Less(modal.EligibleJobCount, modal.DisplayedJobCount, "Stock wire rack cannot carry the multi-slot gigs.");
+
+                // Esc closes the board first (before the pause menu), restoring time.
+                input.SetTestOverride(new FrameControlInputs(0f, 0f, 0f, 0f, false, false, false, false, false, false, pausePressed: true));
+                yield return null;
+                input.SetTestOverride(default(FrameControlInputs));
+                yield return null;
+                Assert.IsFalse(app.IsJobBoardOpen);
+                Assert.IsFalse(app.IsPaused, "Esc closes the board; it must not also open the pause menu.");
+                Assert.AreEqual(1f, Time.timeScale);
+
+                // J toggles; a D-pad-only press never closes an open board.
+                Assert.IsTrue(app.ToggleJobBoard());
+                Assert.IsTrue(app.ToggleJobBoard(true));
+                Assert.IsFalse(app.ToggleJobBoard());
+                Assert.AreEqual(1f, Time.timeScale);
+                Assert.IsTrue(app.ToggleJobBoard());
+
+                // Accept from the modal: Core starts the session, the board closes and an accept toast shows.
+                modal.TriggerAcceptJob(coffee.Id);
+                Assert.AreEqual(JobSessionStatus.Active, courier.Status);
+                Assert.AreEqual(coffee.Id, courier.ActiveJob.Id);
+                Assert.IsFalse(app.IsJobBoardOpen);
+                Assert.AreEqual(1f, Time.timeScale);
+                Assert.IsTrue(modal.IsToastVisible);
+                StringAssert.Contains("GIG ACCEPTED", modal.ToastText);
+                yield return null;
+                Assert.IsTrue(board.IsPanelVisible);
+
+                // Deliver: Core pays once; the toast reports payout and reputation.
+                decimal cashBefore = world.CashUsd;
+                int repBefore = world.Reputation;
+                for (int i = 0; i < coffee.Checkpoints.Count; i++)
+                {
+                    JobCheckpointSpec cp = coffee.Checkpoints[i];
+                    courier.ReportRiderPosition(new Vector3(cp.X, cp.Y, cp.Z));
+                }
+
+                Assert.AreEqual(JobSessionStatus.Completed, courier.Status);
+                CompletedGigRecord record = courier.Jobs.LastCompletedRecord;
+                Assert.IsNotNull(record);
+                Assert.AreEqual(cashBefore + record.TotalPayoutUsd, world.CashUsd, "Delivery credits the payout.");
+                Assert.AreEqual(repBefore + record.ReputationEarned, world.Reputation);
+                Assert.IsFalse(courier.Jobs.HasUncollectedReward);
+                Assert.IsFalse(app.CollectJobReward(), "Core pays exactly once.");
+                StringAssert.Contains("DELIVERED", modal.ToastText);
+                StringAssert.Contains("+$" + record.TotalPayoutUsd.ToString("0"), modal.ToastText);
+
+                // With the gig finished the board offers gigs again.
+                Assert.IsTrue(app.ToggleJobBoard());
+                Assert.Greater(modal.EligibleJobCount, 0);
+                app.JobDispatch.Close();
+                Assert.AreEqual(1f, Time.timeScale);
+            }
+            finally
+            {
+                Time.timeScale = 1f;
+            }
+        }
+
         private static float LeadProgress(RallyPackSimulator pack)
         {
             float lead = 0f;

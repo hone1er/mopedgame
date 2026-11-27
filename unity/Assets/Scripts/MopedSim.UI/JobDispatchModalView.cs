@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using MopedSim.Core;
 using MopedSim.Data;
@@ -9,13 +10,20 @@ using UnityEngine.UI;
 namespace MopedSim.UI
 {
     /// <summary>
-    /// Interactive Bay Area job dispatch modal displaying Courier gigs, Bay Swarm rallies,
-    /// Hill Climbs, and Speed Traps with cargo fit indicators and Accept/Abandon/Collect/Close actions.
-    /// Emits Action events only; App executes Core job acceptance and payout collection.
+    /// Runtime-built Bay Area job dispatch modal (Settings / Title style): every catalog gig with its pickup and drop zones, cargo need,
+    /// payout, time limit and an eligibility reason, plus Accept / Abandon / Collect / Close. It also owns the completion / fail toast.
+    /// Display-only: it emits events and App executes the Core accept / abandon / collect calls. Rendering is event-driven
+    /// (open, accept, status change), never per frame.
     /// </summary>
     public sealed class JobDispatchModalView : MonoBehaviour
     {
-        private const string BuiltinFontName = "LegacyRuntime.ttf";
+        public const string NeedsRackMessage = "Needs a cargo rack / milk crate";
+        public const string ActiveGigMessage = "Finish or abandon the active gig first";
+        public const string SeizedMessage = "Engine seized - fix the bike first";
+        public const string NoBikeMessage = "No bike available";
+        public const string EligibleMessage = "Ready to ride";
+
+        private const float ToastSeconds = 3.5f;
 
         private sealed class JobRowEntry
         {
@@ -26,45 +34,39 @@ namespace MopedSim.UI
             public string BoundJobId = string.Empty;
         }
 
-        [SerializeField] private Text _headerText;
-        [SerializeField] private Text _feedbackText;
-        [SerializeField] private RectTransform _jobListRoot;
-        [SerializeField] private Button _abandonButton;
-        [SerializeField] private Button _collectButton;
-        [SerializeField] private Button _closeButton;
-
         private readonly List<JobRowEntry> _rowPool = new List<JobRowEntry>(12);
-        private readonly List<string> _cachedJobIds = new List<string>(12);
-        private readonly StringBuilder _sb = new StringBuilder(220);
+        private readonly StringBuilder _sb = new StringBuilder(260);
 
-        private GameObject _modalRoot;
-        private Transform _builtParent;
+        private RectTransform _backdrop;
+        private RectTransform _card;
+        private RectTransform _jobListRoot;
+        private Text _headerText;
+        private Text _statusText;
+        private Button _abandonButton;
+        private Button _collectButton;
+        private Button _closeButton;
         private Font _font;
 
-        private bool _hasRendered;
+        private RectTransform _toastRoot;
+        private Text _toastText;
+        private float _toastRemaining;
+
         private int _displayedJobCount;
         private string _displayedFeedback = string.Empty;
-        private string _lastActiveJobId = string.Empty;
-        private JobSessionStatus _lastStatus = JobSessionStatus.Idle;
-        private bool _lastCanCollect;
-        private int _lastCargoSlots = int.MinValue;
-        private int _lastCargoKgTenths = int.MinValue;
-        private string _lastFeedback = string.Empty;
+        private int _eligibleCount;
 
         public event Action<string> AcceptJobRequested;
         public event Action AbandonJobRequested;
         public event Action CollectRewardRequested;
         public event Action CloseRequested;
 
-        public int DisplayedJobCount
-        {
-            get { return _displayedJobCount; }
-        }
-
-        public string DisplayedFeedback
-        {
-            get { return _displayedFeedback; }
-        }
+        public bool IsBuilt { get { return _backdrop != null; } }
+        public bool IsOpen { get { return _backdrop != null && _backdrop.gameObject.activeSelf; } }
+        public int DisplayedJobCount { get { return _displayedJobCount; } }
+        public int EligibleJobCount { get { return _eligibleCount; } }
+        public string DisplayedFeedback { get { return _displayedFeedback; } }
+        public bool IsToastVisible { get { return _toastRoot != null && _toastRoot.gameObject.activeSelf; } }
+        public string ToastText { get { return _toastText != null ? _toastText.text : string.Empty; } }
 
         public void TriggerAcceptJob(string jobId)
         {
@@ -82,86 +84,38 @@ namespace MopedSim.UI
 
         public void TriggerAbandonJob()
         {
-            Action handler = AbandonJobRequested;
-            if (handler != null)
-            {
-                handler();
-            }
+            Fire(AbandonJobRequested);
         }
 
         public void TriggerCollectReward()
         {
-            Action handler = CollectRewardRequested;
-            if (handler != null)
-            {
-                handler();
-            }
+            Fire(CollectRewardRequested);
         }
 
         public void TriggerClose()
         {
-            Action handler = CloseRequested;
-            if (handler != null)
-            {
-                handler();
-            }
+            Fire(CloseRequested);
         }
 
-        /// <summary>
-        /// Builds the centered dark job dispatch modal under <paramref name="root"/>.
-        /// Idempotent for the same parent RectTransform.
-        /// </summary>
-        public void BuildDefaultLayout(RectTransform root)
+        /// <summary>Builds the dimmed full-screen modal and the toast under <paramref name="parent"/>. Idempotent.</summary>
+        public void Build(Transform parent)
         {
-            RectTransform parent = root != null ? root : transform as RectTransform;
-            if (parent == null)
+            if (_backdrop != null || parent == null)
             {
                 return;
             }
 
-            if (_modalRoot != null && _builtParent == parent)
-            {
-                return;
-            }
-
-            if (_modalRoot != null)
-            {
-                DestroyObjectSafe(_modalRoot);
-                _modalRoot = null;
-                _rowPool.Clear();
-            }
-
-            _builtParent = parent;
-            _font = Resources.GetBuiltinResource<Font>(BuiltinFontName);
-
-            _modalRoot = new GameObject("JobDispatch_Modal", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-            _modalRoot.transform.SetParent(parent, false);
-            RectTransform modalRt = (RectTransform)_modalRoot.transform;
-            modalRt.anchorMin = new Vector2(0.5f, 0.5f);
-            modalRt.anchorMax = new Vector2(0.5f, 0.5f);
-            modalRt.pivot = new Vector2(0.5f, 0.5f);
-            modalRt.anchoredPosition = Vector2.zero;
-            modalRt.sizeDelta = new Vector2(820f, 540f);
-
-            Image bg = _modalRoot.GetComponent<Image>();
-            bg.color = new Color(0.08f, 0.09f, 0.12f, 0.95f);
-
-            VerticalLayoutGroup vLayout = _modalRoot.GetComponent<VerticalLayoutGroup>();
-            vLayout.padding = new RectOffset(16, 16, 14, 14);
-            vLayout.spacing = 8f;
-            vLayout.childControlWidth = true;
-            vLayout.childControlHeight = true;
-            vLayout.childForceExpandWidth = true;
-            vLayout.childForceExpandHeight = false;
-
-            _headerText = CreateLabel(_modalRoot.transform, "Header", "BAY AREA JOB DISPATCH", 22, TextAnchor.MiddleLeft, Color.white, 30f, _font);
-            _feedbackText = CreateLabel(_modalRoot.transform, "FeedbackBanner", _displayedFeedback, 15, TextAnchor.MiddleLeft, new Color(0.95f, 0.85f, 0.45f, 1f), 26f, _font);
+            _font = MenuWidgets.LoadFont();
+            _backdrop = MenuWidgets.CreateOverlayCanvas(parent, "JobDispatch_Canvas", 185, new Color(0f, 0f, 0f, 0.62f));
+            _card = MenuWidgets.CreateCard(_backdrop, "JobDispatchCard", new Vector2(1180f, 880f), new Color(0.08f, 0.09f, 0.12f, 0.97f), 20, 8f);
+            _headerText = MenuWidgets.CreateLabel(_card, "Header", "BAY AREA GIG DISPATCH", 34, TextAnchor.MiddleLeft, new Color(0.95f, 0.62f, 0.18f, 1f), 46f, _font);
+            _statusText = MenuWidgets.CreateLabel(_card, "Status", string.Empty, 20, TextAnchor.MiddleLeft, new Color(0.70f, 0.90f, 1f, 1f), 30f, _font);
 
             GameObject listGo = new GameObject("JobList", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
-            listGo.transform.SetParent(_modalRoot.transform, false);
+            listGo.transform.SetParent(_card, false);
             LayoutElement listLe = listGo.GetComponent<LayoutElement>();
             listLe.flexibleHeight = 1f;
-            listLe.minHeight = 320f;
+            listLe.minHeight = 560f;
             VerticalLayoutGroup listLayout = listGo.GetComponent<VerticalLayoutGroup>();
             listLayout.spacing = 6f;
             listLayout.childControlWidth = true;
@@ -171,27 +125,144 @@ namespace MopedSim.UI
             _jobListRoot = (RectTransform)listGo.transform;
 
             GameObject footerGo = new GameObject("Footer", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-            footerGo.transform.SetParent(_modalRoot.transform, false);
-            LayoutElement footerLe = footerGo.GetComponent<LayoutElement>();
-            footerLe.preferredHeight = 44f;
-            HorizontalLayoutGroup footerLayout = footerGo.GetComponent<HorizontalLayoutGroup>();
-            footerLayout.spacing = 10f;
-            footerLayout.childControlWidth = true;
-            footerLayout.childControlHeight = true;
-            footerLayout.childForceExpandWidth = true;
-            footerLayout.childForceExpandHeight = true;
+            footerGo.transform.SetParent(_card, false);
+            footerGo.GetComponent<LayoutElement>().preferredHeight = 54f;
+            HorizontalLayoutGroup footer = footerGo.GetComponent<HorizontalLayoutGroup>();
+            footer.spacing = 12f;
+            footer.childControlWidth = true;
+            footer.childControlHeight = true;
+            footer.childForceExpandWidth = true;
+            footer.childForceExpandHeight = true;
 
-            _abandonButton = CreateButton(footerGo.transform, "Btn_AbandonActive", "Abandon Active", new Color(0.58f, 0.22f, 0.20f, 1f), _font, TriggerAbandonJob);
-            _collectButton = CreateButton(footerGo.transform, "Btn_CollectReward", "Collect Reward", new Color(0.20f, 0.56f, 0.28f, 1f), _font, TriggerCollectReward);
-            _closeButton = CreateButton(footerGo.transform, "Btn_Close", "Close", new Color(0.25f, 0.27f, 0.32f, 1f), _font, TriggerClose);
+            _abandonButton = MenuWidgets.CreateButton(footerGo.transform, "Btn_AbandonActive", "Abandon Active Gig", new Color(0.58f, 0.22f, 0.20f, 1f), 22, 54f, _font, TriggerAbandonJob, out Text _);
+            _collectButton = MenuWidgets.CreateButton(footerGo.transform, "Btn_CollectReward", "Collect Reward", new Color(0.20f, 0.56f, 0.28f, 1f), 22, 54f, _font, TriggerCollectReward, out Text _);
+            _closeButton = MenuWidgets.CreateButton(footerGo.transform, "Btn_Close", "Close  (J / Esc)", new Color(0.25f, 0.27f, 0.32f, 1f), 22, 54f, _font, TriggerClose, out Text _);
+            _backdrop.gameObject.SetActive(false);
 
-            _hasRendered = false;
+            BuildToast(parent);
+        }
+
+        private void BuildToast(Transform parent)
+        {
+            GameObject canvasGo = new GameObject("JobToast_Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            canvasGo.transform.SetParent(parent, false);
+            Canvas canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 120;
+            CanvasScaler scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = HudStyle.ReferenceResolution;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            _toastRoot = HudStyle.CreatePanel(canvasGo.transform, "Toast", new Vector2(0.5f, 1f), new Vector2(0f, -(HudStyle.SafeTop + 84f)), new Vector2(820f, 96f), true);
+            _toastText = HudStyle.CreateLabel(_toastRoot, "ToastText", HudStyle.Padding, 8f, 820f - 2f * HudStyle.Padding, 80f, 26, HudStyle.TextPrimary, TextAnchor.MiddleCenter);
+            _toastText.supportRichText = true;
+            _toastRoot.gameObject.SetActive(false);
+        }
+
+        public void Show()
+        {
+            if (_backdrop == null)
+            {
+                return;
+            }
+
+            _backdrop.gameObject.SetActive(true);
+            _backdrop.SetAsLastSibling();
+            FocusDefault();
+        }
+
+        public void Hide()
+        {
+            if (_backdrop != null)
+            {
+                _backdrop.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>Shows the completion / fail toast for a few seconds (unscaled time).</summary>
+        public void ShowToast(string text, Color color)
+        {
+            if (_toastRoot == null)
+            {
+                return;
+            }
+
+            _toastText.text = text ?? string.Empty;
+            _toastText.color = color;
+            _toastRemaining = ToastSeconds;
+            _toastRoot.gameObject.SetActive(true);
+        }
+
+        public void HideToast()
+        {
+            _toastRemaining = 0f;
+            if (_toastRoot != null)
+            {
+                _toastRoot.gameObject.SetActive(false);
+            }
+        }
+
+        private void Update()
+        {
+            if (_toastRemaining <= 0f)
+            {
+                return;
+            }
+
+            _toastRemaining -= Time.unscaledDeltaTime;
+            if (_toastRemaining <= 0f)
+            {
+                HideToast();
+            }
         }
 
         /// <summary>
-        /// Renders the catalog job list, active job status, bike cargo fit, and footer button states.
-        /// Dirty-checked so steady-state repeated calls allocate zero GC memory.
+        /// Eligibility of <paramref name="job"/> for the bike's current cargo rack. Returns true when the gig can be accepted now;
+        /// <paramref name="reason"/> is the player-facing explanation (a short "Ready to ride" when eligible).
         /// </summary>
+        public static bool EvaluateEligibility(JobDefinition job, BikeSimulation bike, bool hasActiveGig, out string reason)
+        {
+            if (hasActiveGig)
+            {
+                reason = ActiveGigMessage;
+                return false;
+            }
+
+            if (bike == null)
+            {
+                reason = NoBikeMessage;
+                return false;
+            }
+
+            if (bike.Thermal.IsHardSeized)
+            {
+                reason = SeizedMessage;
+                return false;
+            }
+
+            CargoCapacity cargo = CargoCapacityCalculator.Compute(bike);
+            if (CargoCapacityCalculator.CanCarry(cargo, job))
+            {
+                reason = EligibleMessage;
+                return true;
+            }
+
+            reason = NeedsRackText(job, in cargo);
+            return false;
+        }
+
+        private static string NeedsRackText(JobDefinition job, in CargoCapacity cargo)
+        {
+            StringBuilder sb = new StringBuilder(96);
+            sb.Append(NeedsRackMessage).Append(": ").Append(job.RequiredCargoSlots.ToString(CultureInfo.InvariantCulture)).Append(" slot")
+                .Append(job.RequiredCargoSlots == 1 ? string.Empty : "s").Append(" / ").Append(job.RequiredCargoKg.ToString("0.#", CultureInfo.InvariantCulture))
+                .Append(" kg (yours: ").Append(cargo.Slots.ToString(CultureInfo.InvariantCulture)).Append(" / ")
+                .Append(cargo.MaxKg.ToString("0.#", CultureInfo.InvariantCulture)).Append(" kg)");
+            return sb.ToString();
+        }
+
+        /// <summary>Renders the catalog gig list, header status and footer button states.</summary>
         public void RenderCatalog(
             CatalogDatabase catalog,
             SimulationWorld world,
@@ -201,325 +272,221 @@ namespace MopedSim.UI
             bool canCollectReward,
             string feedback)
         {
-            IReadOnlyList<JobDefinition> jobs = catalog != null ? catalog.JobList : null;
-            CargoCapacity cargo = bike != null ? CargoCapacityCalculator.Compute(bike) : CargoCapacity.None;
-            string activeId = activeJob != null ? activeJob.Id : string.Empty;
-            string safeFeedback = feedback ?? string.Empty;
-            int cargoKgTenths = Mathf.RoundToInt(cargo.MaxKg * 10f);
-
-            if (_hasRendered
-                && status == _lastStatus
-                && canCollectReward == _lastCanCollect
-                && cargo.Slots == _lastCargoSlots
-                && cargoKgTenths == _lastCargoKgTenths
-                && string.Equals(activeId, _lastActiveJobId, StringComparison.Ordinal)
-                && string.Equals(safeFeedback, _lastFeedback, StringComparison.Ordinal)
-                && AreJobIdsUnchanged(jobs))
+            if (_jobListRoot == null)
             {
                 return;
             }
 
-            _hasRendered = true;
-            _lastStatus = status;
-            _lastCanCollect = canCollectReward;
-            _lastCargoSlots = cargo.Slots;
-            _lastCargoKgTenths = cargoKgTenths;
-            _lastActiveJobId = activeId;
-            _lastFeedback = safeFeedback;
-
-            _cachedJobIds.Clear();
+            IReadOnlyList<JobDefinition> jobs = catalog != null ? catalog.JobList : null;
             int jobCount = jobs != null ? jobs.Count : 0;
-            for (int i = 0; i < jobCount; i++)
-            {
-                _cachedJobIds.Add(jobs[i].Id);
-            }
-
+            bool hasActive = status == JobSessionStatus.Active;
+            string activeId = activeJob != null ? activeJob.Id : string.Empty;
+            string safeFeedback = feedback ?? string.Empty;
             _displayedJobCount = jobCount;
+            _eligibleCount = 0;
 
             _sb.Length = 0;
-            if (activeJob != null && status == JobSessionStatus.Active)
+            if (hasActive && activeJob != null)
             {
-                _sb.Append("ACTIVE: ").Append(activeJob.DisplayName);
+                _sb.Append("ACTIVE GIG: ").Append(activeJob.DisplayName);
             }
             else if (canCollectReward)
             {
-                _sb.Append("JOB COMPLETE — READY TO COLLECT REWARD");
+                _sb.Append("DELIVERED - collect your reward below");
             }
             else
             {
-                _sb.Append("Cargo Rack: ").Append(cargo.Slots).Append(" slots / ").Append(cargo.MaxKg.ToString("0.0")).Append(" kg");
+                CargoCapacity cargo = bike != null ? CargoCapacityCalculator.Compute(bike) : CargoCapacity.None;
+                _sb.Append("Cargo rack: ").Append(cargo.Slots).Append(cargo.Slots == 1 ? " slot / " : " slots / ").Append(cargo.MaxKg.ToString("0.#", CultureInfo.InvariantCulture)).Append(" kg");
             }
 
             if (world != null)
             {
-                _sb.Append("  |  $").Append(world.CashUsd.ToString("F2")).Append("  |  Rep ").Append(world.Reputation);
+                _sb.Append("   |   $").Append(world.CashUsd.ToString("N0", CultureInfo.InvariantCulture)).Append("   |   Reputation ").Append(world.Reputation);
             }
 
             if (safeFeedback.Length > 0)
             {
-                _sb.Append("  |  ").Append(safeFeedback);
+                _sb.Append("   |   ").Append(safeFeedback);
             }
 
             _displayedFeedback = _sb.ToString();
-            if (_feedbackText != null)
-            {
-                _feedbackText.text = _displayedFeedback;
-            }
+            _statusText.text = _displayedFeedback;
 
-            if (_jobListRoot != null)
+            for (int i = 0; i < jobCount; i++)
             {
-                bool hasActive = status == JobSessionStatus.Active;
-                for (int i = 0; i < jobCount; i++)
+                JobDefinition job = jobs[i];
+                JobRowEntry entry = GetOrCreateRow(i);
+                entry.BoundJobId = job.Id;
+                entry.Root.name = "JobRow_" + job.Id;
+                entry.Root.SetActive(true);
+
+                bool isThisActive = hasActive && string.Equals(activeId, job.Id, StringComparison.Ordinal);
+                string reason;
+                bool eligible = EvaluateEligibility(job, bike, hasActive, out reason);
+                if (eligible)
                 {
-                    JobDefinition job = jobs[i];
-                    JobRowEntry entry = GetOrCreateRow(i);
-                    entry.BoundJobId = job.Id;
-                    entry.Root.name = "JobRow_" + job.Id;
-                    entry.Root.SetActive(true);
-
-                    bool fitsCargo = bike == null
-                        ? (job.RequiredCargoSlots <= 0 && job.RequiredCargoKg <= 0f)
-                        : CargoCapacityCalculator.CanCarry(cargo, job);
-                    bool isThisActive = hasActive && string.Equals(activeId, job.Id, StringComparison.Ordinal);
-
-                    entry.InfoText.text = FormatJobRow(job, fitsCargo, isThisActive);
-                    entry.AcceptButton.interactable = !hasActive && fitsCargo;
-                    if (isThisActive)
-                    {
-                        entry.ButtonLabel.text = "Active";
-                    }
-                    else if (hasActive)
-                    {
-                        entry.ButtonLabel.text = "Locked";
-                    }
-                    else if (!fitsCargo)
-                    {
-                        entry.ButtonLabel.text = "Need Rack";
-                    }
-                    else
-                    {
-                        entry.ButtonLabel.text = "Accept";
-                    }
+                    _eligibleCount++;
                 }
 
-                for (int i = jobCount; i < _rowPool.Count; i++)
+                entry.InfoText.text = FormatJobRow(job, catalog, eligible, reason, isThisActive);
+                entry.AcceptButton.interactable = eligible;
+                entry.ButtonLabel.text = isThisActive ? "Active" : (eligible ? "Accept" : "Locked");
+            }
+
+            for (int i = jobCount; i < _rowPool.Count; i++)
+            {
+                if (_rowPool[i].Root != null && _rowPool[i].Root.activeSelf)
                 {
-                    if (_rowPool[i].Root != null && _rowPool[i].Root.activeSelf)
-                    {
-                        _rowPool[i].Root.SetActive(false);
-                    }
+                    _rowPool[i].Root.SetActive(false);
                 }
             }
 
-            if (_abandonButton != null)
+            _abandonButton.interactable = hasActive;
+            _collectButton.gameObject.SetActive(canCollectReward);
+            _closeButton.interactable = true;
+            if (IsOpen)
             {
-                _abandonButton.interactable = status == JobSessionStatus.Active;
-            }
-
-            if (_collectButton != null)
-            {
-                _collectButton.interactable = canCollectReward;
-            }
-
-            if (_closeButton != null)
-            {
-                _closeButton.interactable = true;
+                FocusDefault();
             }
         }
 
-        private bool AreJobIdsUnchanged(IReadOnlyList<JobDefinition> jobs)
+        private void FocusDefault()
         {
-            int count = jobs != null ? jobs.Count : 0;
-            if (count != _cachedJobIds.Count)
+            for (int i = 0; i < _rowPool.Count; i++)
             {
-                return false;
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                if (!string.Equals(jobs[i].Id, _cachedJobIds[i], StringComparison.Ordinal))
+                JobRowEntry e = _rowPool[i];
+                if (e.Root != null && e.Root.activeSelf && e.AcceptButton.IsInteractable())
                 {
-                    return false;
+                    MenuWidgets.Focus(e.AcceptButton);
+                    return;
                 }
             }
 
-            return true;
+            MenuWidgets.Focus(_closeButton);
         }
 
         private JobRowEntry GetOrCreateRow(int index)
         {
             while (_rowPool.Count <= index)
             {
-                if (_font == null)
-                {
-                    _font = Resources.GetBuiltinResource<Font>(BuiltinFontName);
-                }
-
                 JobRowEntry entry = new JobRowEntry();
                 GameObject rowGo = new GameObject("JobRow", typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
                 rowGo.transform.SetParent(_jobListRoot, false);
                 rowGo.GetComponent<Image>().color = new Color(0.15f, 0.17f, 0.21f, 0.95f);
-
                 LayoutElement le = rowGo.GetComponent<LayoutElement>();
-                le.preferredHeight = 48f;
-                le.minHeight = 42f;
-
-                HorizontalLayoutGroup hLayout = rowGo.GetComponent<HorizontalLayoutGroup>();
-                hLayout.padding = new RectOffset(10, 10, 4, 4);
-                hLayout.spacing = 10f;
-                hLayout.childControlWidth = true;
-                hLayout.childControlHeight = true;
-                hLayout.childForceExpandWidth = false;
-                hLayout.childForceExpandHeight = true;
+                le.preferredHeight = 66f;
+                le.minHeight = 66f;
+                HorizontalLayoutGroup h = rowGo.GetComponent<HorizontalLayoutGroup>();
+                h.padding = new RectOffset(12, 12, 4, 4);
+                h.spacing = 12f;
+                h.childControlWidth = true;
+                h.childControlHeight = true;
+                h.childForceExpandWidth = false;
+                h.childForceExpandHeight = true;
 
                 GameObject infoGo = new GameObject("Info", typeof(RectTransform), typeof(LayoutElement));
                 infoGo.transform.SetParent(rowGo.transform, false);
                 LayoutElement infoLe = infoGo.GetComponent<LayoutElement>();
                 infoLe.flexibleWidth = 1f;
+                infoLe.minWidth = 0f;
+                infoLe.preferredWidth = 800f;
                 Text infoText = infoGo.AddComponent<Text>();
                 infoText.font = _font;
-                infoText.fontSize = 14;
+                infoText.fontSize = 16;
                 infoText.alignment = TextAnchor.MiddleLeft;
                 infoText.color = Color.white;
                 infoText.raycastTarget = false;
-
-                Button acceptBtn = CreateButton(rowGo.transform, "Btn_Accept", "Accept", new Color(0.20f, 0.48f, 0.68f, 1f), _font, null);
-                LayoutElement btnLe = acceptBtn.GetComponent<LayoutElement>();
-                btnLe.preferredWidth = 112f;
-                btnLe.flexibleWidth = 0f;
+                infoText.supportRichText = true;
+                infoText.horizontalOverflow = HorizontalWrapMode.Wrap;
 
                 JobRowEntry captured = entry;
-                acceptBtn.onClick.AddListener(delegate { TriggerAcceptJob(captured.BoundJobId); });
+                Text label;
+                Button accept = MenuWidgets.CreateButton(rowGo.transform, "Btn_Accept", "Accept", new Color(0.20f, 0.48f, 0.68f, 1f), 22, 54f, _font,
+                    delegate { TriggerAcceptJob(captured.BoundJobId); }, out label);
+                LayoutElement btnLe = accept.GetComponent<LayoutElement>();
+                btnLe.minWidth = 150f;
+                btnLe.preferredWidth = 150f;
+                btnLe.flexibleWidth = 0f;
 
                 entry.Root = rowGo;
                 entry.InfoText = infoText;
-                entry.AcceptButton = acceptBtn;
-                entry.ButtonLabel = acceptBtn.GetComponentInChildren<Text>();
+                entry.AcceptButton = accept;
+                entry.ButtonLabel = label;
                 _rowPool.Add(entry);
             }
 
             return _rowPool[index];
         }
 
-        private string FormatJobRow(JobDefinition job, bool fitsCargo, bool isThisActive)
+        private string FormatJobRow(JobDefinition job, CatalogDatabase catalog, bool eligible, string reason, bool isThisActive)
         {
             _sb.Length = 0;
-            _sb.Append(GetJobTypeBadge(job.JobType)).Append(' ').Append(job.DisplayName);
-            _sb.Append("  |  ").Append(job.ZoneId);
-            if (!string.IsNullOrEmpty(job.TargetZoneId) && !string.Equals(job.ZoneId, job.TargetZoneId, StringComparison.Ordinal))
-            {
-                _sb.Append(" -> ").Append(job.TargetZoneId);
-            }
-
-            if (job.RequiredCargoSlots > 0 || job.RequiredCargoKg > 0f)
-            {
-                _sb.Append("  |  Cargo: ").Append(job.RequiredCargoSlots).Append("sl/").Append(job.RequiredCargoKg.ToString("0.#")).Append("kg");
-                _sb.Append(fitsCargo ? " [FIT]" : " [LOCKED]");
-            }
-
-            _sb.Append("  |  $").Append(job.RewardUsd.ToString("0"));
-            if (job.BonusRewardUsd > 0m)
-            {
-                _sb.Append(" (+$").Append(job.BonusRewardUsd.ToString("0")).Append(')');
-            }
-
-            _sb.Append(" +").Append(job.ReputationReward).Append(" rep");
+            _sb.Append("<b>").Append(job.DisplayName).Append("</b>   <color=#8FB4D8>").Append(GetJobTypeBadge(job.JobType)).Append("</color>");
             if (isThisActive)
             {
-                _sb.Append("  [ACTIVE]");
+                _sb.Append("   <color=#F2C230>[ACTIVE]</color>");
             }
 
+            bool sameZone = string.IsNullOrEmpty(job.TargetZoneId) || string.Equals(job.TargetZoneId, job.ZoneId, StringComparison.Ordinal);
+            _sb.Append("\n").Append(ZoneName(catalog, job.ZoneId));
+            if (sameZone)
+            {
+                _sb.Append(" (local run)");
+            }
+            else
+            {
+                _sb.Append(" -> ").Append(ZoneName(catalog, job.TargetZoneId));
+            }
+            if (job.RequiredCargoSlots > 0 || job.RequiredCargoKg > 0f)
+            {
+                _sb.Append("   |   Cargo ").Append(job.RequiredCargoSlots).Append(" slot").Append(job.RequiredCargoSlots == 1 ? string.Empty : "s")
+                    .Append(" / ").Append(job.RequiredCargoKg.ToString("0.#", CultureInfo.InvariantCulture)).Append(" kg");
+            }
+
+            _sb.Append("   |   <color=#4DDB6B>$").Append(job.RewardUsd.ToString("0", CultureInfo.InvariantCulture)).Append("</color>");
+            if (job.BonusRewardUsd > 0m)
+            {
+                _sb.Append(" (+$").Append(job.BonusRewardUsd.ToString("0", CultureInfo.InvariantCulture)).Append(" bonus)");
+            }
+
+            _sb.Append("   |   +").Append(job.ReputationReward).Append(" rep");
+            if (job.TimeLimitSeconds > 0f)
+            {
+                _sb.Append("   |   ").Append(JobBoardHudView.FormatClock(Mathf.CeilToInt(job.TimeLimitSeconds))).Append(" limit");
+            }
+
+            _sb.Append("\n").Append(eligible ? "<color=#4DDB6B>" : "<color=#F2C230>").Append(reason).Append("</color>");
             return _sb.ToString();
+        }
+
+        private static string ZoneName(CatalogDatabase catalog, string zoneId)
+        {
+            ZoneEnvironmentSpec zone;
+            if (catalog != null && !string.IsNullOrEmpty(zoneId) && catalog.Zones.TryGetValue(zoneId, out zone) && !string.IsNullOrEmpty(zone.DisplayName))
+            {
+                return zone.DisplayName;
+            }
+
+            return zoneId ?? string.Empty;
         }
 
         private static string GetJobTypeBadge(JobType type)
         {
             switch (type)
             {
-                case JobType.BaySwarmRally: return "[Rally]";
-                case JobType.HillClimb: return "[Climb]";
-                case JobType.SpeedTrap: return "[SpeedTrap]";
-                default: return "[Courier]";
+                case JobType.BaySwarmRally: return "RALLY";
+                case JobType.HillClimb: return "HILL CLIMB";
+                case JobType.SpeedTrap: return "SPEED TRAP";
+                default: return "COURIER";
             }
         }
 
-        private static Text CreateLabel(
-            Transform parent,
-            string name,
-            string text,
-            int fontSize,
-            TextAnchor alignment,
-            Color color,
-            float height,
-            Font font)
+        private static void Fire(Action handler)
         {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(LayoutElement));
-            go.transform.SetParent(parent, false);
-            LayoutElement le = go.GetComponent<LayoutElement>();
-            le.preferredHeight = height;
-            le.minHeight = height;
-
-            Text label = go.AddComponent<Text>();
-            label.font = font;
-            label.fontSize = fontSize;
-            label.alignment = alignment;
-            label.color = color;
-            label.raycastTarget = false;
-            label.text = text ?? string.Empty;
-            return label;
-        }
-
-        private static Button CreateButton(
-            Transform parent,
-            string name,
-            string label,
-            Color color,
-            Font font,
-            UnityEngine.Events.UnityAction onClick)
-        {
-            GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
-            go.transform.SetParent(parent, false);
-            Image bg = go.GetComponent<Image>();
-            bg.color = color;
-
-            Button btn = go.GetComponent<Button>();
-            btn.targetGraphic = bg;
-            if (onClick != null)
+            if (handler != null)
             {
-                btn.onClick.AddListener(onClick);
-            }
-
-            GameObject textGo = new GameObject("Label", typeof(RectTransform));
-            textGo.transform.SetParent(go.transform, false);
-            RectTransform textRt = (RectTransform)textGo.transform;
-            textRt.anchorMin = Vector2.zero;
-            textRt.anchorMax = Vector2.one;
-            textRt.sizeDelta = Vector2.zero;
-
-            Text text = textGo.AddComponent<Text>();
-            text.font = font;
-            text.fontSize = 14;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.text = label;
-            return btn;
-        }
-
-        private static void DestroyObjectSafe(UnityEngine.Object obj)
-        {
-            if (obj == null)
-            {
-                return;
-            }
-
-            if (Application.isPlaying)
-            {
-                UnityEngine.Object.Destroy(obj);
-            }
-            else
-            {
-                UnityEngine.Object.DestroyImmediate(obj);
+                handler();
             }
         }
     }

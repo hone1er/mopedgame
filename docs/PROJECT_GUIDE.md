@@ -514,6 +514,8 @@ All attachment empties MUST exist as named glTF scene nodes on parent parts and 
 | **Cylinder Head (`head_*`)** | `SOCKET_SPARK_PLUG`, `BOLT_HEAD_NUT_1..4` | Spark plug + torque wrench targets |
 | **Exhaust / Carb / Wheel** | `SOCKET_EXHAUST_FLANGE`, `SOCKET_EXHAUST_BRACKET`, `SOCKET_AIR_FILTER`, `SOCKET_WHEEL_HUB`, `SOCKET_SPROCKET_MOUNT`, `BOLT_AXLE_L`, `BOLT_AXLE_R` | Fastener & accessory alignment |
 
+**Paint materials**: a submesh is body paint (tinted by the paint booth) if and only if its glTF material name starts with `mat_enamel_`. Chrome, rubber, trim (`mat_trim_*`) and frame black (`mat_frame_black`) keep their own colour. The paint booth tints per material index, never renderer-wide, and only on body slots (Frame, FuelTank, FrontFender).
+
 **Socket orientation conventions** (Blender authoring space; `tools/blender/common_utils.py` holds the shared constants):
 - **Handedness**: `+X` is the rider's **left** (`-Y` forward, `+Z` up). `SOCKET_SHOCK_TOP_L` sits at `+X`, `SOCKET_SHOCK_TOP_R` at `-X`. Exhausts run low on the left (`+X`), like the Puch Maxi / Magnum II; the chain guard is on the right (`-X`).
 - **Barrel tilt**: every crankcase rotates `SOCKET_CYLINDER_BASE` forward by `CYLINDER_FORWARD_TILT` (`1.22 rad`, PA50 `+0.14 rad`) about `+X`, so cylinders lie near-horizontal and point at the front wheel.

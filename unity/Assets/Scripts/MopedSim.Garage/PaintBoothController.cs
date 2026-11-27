@@ -76,6 +76,8 @@ namespace MopedSim.Garage
         private readonly List<Renderer> _rendererScratch = new List<Renderer>(32);
         private readonly HashSet<Transform> _mountedContainersScratch = new HashSet<Transform>();
         private readonly Stack<Transform> _traversalScratch = new Stack<Transform>(32);
+        private readonly List<Material> _materialScratch = new List<Material>(8);
+        private readonly Dictionary<Material, bool> _paintableByMaterial = new Dictionary<Material, bool>();
         private MaterialPropertyBlock _propertyBlock;
         private Color _currentBaseColor = new Color(0xC4 / 255f, 0x28 / 255f, 0x28 / 255f, 1f);
         private bool _subscribedToAssembler;
@@ -442,7 +444,7 @@ namespace MopedSim.Garage
         }
 
         /// <summary>
-        /// Pushes the active paint finish into all Renderers under <paramref name="root"/> via one cached MaterialPropertyBlock.
+        /// Pushes the active paint finish into the paintable (mat_enamel_*) submeshes of all Renderers under <paramref name="root"/> via one cached MaterialPropertyBlock.
         /// </summary>
         public int ApplyToHierarchy(Transform root)
         {
@@ -472,8 +474,10 @@ namespace MopedSim.Garage
                     continue;
                 }
 
-                ApplyPropertyBlockToRenderer(rend, effectiveColor, effectiveSmoothness);
-                updated++;
+                if (ApplyPropertyBlockToRenderer(rend, effectiveColor, effectiveSmoothness))
+                {
+                    updated++;
+                }
             }
 
             _rendererScratch.Clear();
@@ -506,8 +510,10 @@ namespace MopedSim.Garage
                 Renderer rend = current.GetComponent<Renderer>();
                 if (rend != null)
                 {
-                    ApplyPropertyBlockToRenderer(rend, effectiveColor, effectiveSmoothness);
-                    updated++;
+                    if (ApplyPropertyBlockToRenderer(rend, effectiveColor, effectiveSmoothness))
+                    {
+                        updated++;
+                    }
                 }
 
                 int childCount = current.childCount;
@@ -560,17 +566,68 @@ namespace MopedSim.Garage
             }
         }
 
-        private void ApplyPropertyBlockToRenderer(Renderer rend, Color effectiveColor, float effectiveSmoothness)
+        /// <summary>
+        /// Name prefix marking a submesh material as body paint. Only submeshes whose material name starts with this prefix
+        /// are tinted; chrome, rubber, trim (mat_trim_*) and frame black (mat_frame_black) keep their own colour.
+        /// </summary>
+        public const string PaintableMaterialPrefix = "mat_enamel_";
+
+        private const string InstanceSuffix = " (Instance)";
+
+        /// <summary>
+        /// Tints only the paintable (mat_enamel_*) submeshes of <paramref name="rend"/> through per-material-index property blocks.
+        /// Never sets a renderer-wide block. Returns true when at least one submesh was painted.
+        /// </summary>
+        private bool ApplyPropertyBlockToRenderer(Renderer rend, Color effectiveColor, float effectiveSmoothness)
         {
-            rend.GetPropertyBlock(_propertyBlock);
-            _propertyBlock.SetColor(BaseColorPropertyId, effectiveColor);
-            _propertyBlock.SetColor(ColorPropertyId, effectiveColor);
-            _propertyBlock.SetFloat(MetallicPropertyId, _metallicFlake);
-            _propertyBlock.SetFloat(SmoothnessPropertyId, effectiveSmoothness);
-            _propertyBlock.SetColor(GltfBaseColorFactorPropertyId, effectiveColor);
-            _propertyBlock.SetFloat(GltfMetallicFactorPropertyId, _metallicFlake);
-            _propertyBlock.SetFloat(GltfRoughnessFactorPropertyId, 1f - effectiveSmoothness);
-            rend.SetPropertyBlock(_propertyBlock);
+            rend.GetSharedMaterials(_materialScratch);
+            bool any = false;
+            for (int i = 0; i < _materialScratch.Count; i++)
+            {
+                if (!IsPaintableMaterial(_materialScratch[i]))
+                {
+                    continue;
+                }
+
+                rend.GetPropertyBlock(_propertyBlock, i);
+                _propertyBlock.SetColor(BaseColorPropertyId, effectiveColor);
+                _propertyBlock.SetColor(ColorPropertyId, effectiveColor);
+                _propertyBlock.SetFloat(MetallicPropertyId, _metallicFlake);
+                _propertyBlock.SetFloat(SmoothnessPropertyId, effectiveSmoothness);
+                _propertyBlock.SetColor(GltfBaseColorFactorPropertyId, effectiveColor);
+                _propertyBlock.SetFloat(GltfMetallicFactorPropertyId, _metallicFlake);
+                _propertyBlock.SetFloat(GltfRoughnessFactorPropertyId, 1f - effectiveSmoothness);
+                rend.SetPropertyBlock(_propertyBlock, i);
+                any = true;
+            }
+
+            _materialScratch.Clear();
+            return any;
+        }
+
+        /// <summary>True when <paramref name="material"/> is body paint (name starts with mat_enamel_), cached per instance.</summary>
+        public bool IsPaintableMaterial(Material material)
+        {
+            if (material == null)
+            {
+                return false;
+            }
+
+            bool paintable;
+            if (_paintableByMaterial.TryGetValue(material, out paintable))
+            {
+                return paintable;
+            }
+
+            string name = material.name ?? string.Empty;
+            if (name.EndsWith(InstanceSuffix, StringComparison.Ordinal))
+            {
+                name = name.Substring(0, name.Length - InstanceSuffix.Length);
+            }
+
+            paintable = name.StartsWith(PaintableMaterialPrefix, StringComparison.Ordinal);
+            _paintableByMaterial[material] = paintable;
+            return paintable;
         }
 
         private Transform ResolveTargetRoot()

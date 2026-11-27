@@ -76,6 +76,12 @@ MATERIAL_PALETTE: Dict[str, Tuple[Tuple[float, float, float, float], float, floa
     "mat_enamel_slate_blue": ((0.024, 0.155, 0.262, 1.0), 0.14, 0.32),
     "mat_enamel_mag_blue": ((0.035, 0.085, 0.36, 1.0), 0.45, 0.34),
     "mat_enamel_stripe_green": ((0.02, 0.30, 0.16, 1.0), 0.10, 0.34),
+    # Non-paintable body trim (names deliberately NOT mat_enamel_*: the paint booth only tints mat_enamel_* submeshes)
+    "mat_frame_black": ((0.018, 0.018, 0.020, 1.0), 0.10, 0.30),
+    "mat_trim_black": ((0.018, 0.018, 0.020, 1.0), 0.10, 0.30),
+    "mat_trim_white": ((0.80, 0.80, 0.77, 1.0), 0.06, 0.32),
+    "mat_trim_stripe_green": ((0.02, 0.30, 0.16, 1.0), 0.10, 0.34),
+    "mat_trim_red": ((0.56, 0.024, 0.024, 1.0), 0.10, 0.36),
     "mat_lens_red": ((0.62, 0.03, 0.02, 1.0), 0.00, 0.18),
 }
 

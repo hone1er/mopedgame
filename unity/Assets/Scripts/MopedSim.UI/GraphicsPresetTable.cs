@@ -91,9 +91,24 @@ namespace MopedSim.UI
         /// Selects the preset's quality level (when present) and applies the frame cap. Returns the applied level index,
         /// or -1 when no level matched (frame rate is still applied).
         /// </summary>
+        /// <summary>
+        /// Editor-only opt-in for tests that assert quality-level switching and restore the original state afterwards.
+        /// Without it, Apply in the Editor only sets the frame cap so ProjectSettings are never rewritten.
+        /// </summary>
+        public static bool AllowEditorQualityChanges { get; set; }
+
         public static int Apply(GraphicsQualitySettings graphics)
         {
             int level = FindQualityLevel(Get(graphics.Preset).QualityLevelName);
+#if UNITY_EDITOR
+            // Quality level / vSync changes made in the Editor persist into ProjectSettings/QualitySettings.asset.
+            // Only the frame cap is applied there unless a test opts in (and restores state); players apply everything.
+            if (!AllowEditorQualityChanges)
+            {
+                Application.targetFrameRate = graphics.TargetFrameRate;
+                return level;
+            }
+#endif
             if (level >= 0 && QualitySettings.GetQualityLevel() != level)
             {
                 QualitySettings.SetQualityLevel(level, true);

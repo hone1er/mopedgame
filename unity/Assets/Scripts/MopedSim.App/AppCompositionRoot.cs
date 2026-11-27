@@ -1059,6 +1059,13 @@ namespace MopedSim.App
                 AudioMixBus.Register(_engineAudioSource, AudioMixCategory.Engine, 1f);
             }
 
+            // Procedural voices need someone to hear them: hosts without an AudioListener (headless test rigs that boot the
+            // app directly) would otherwise log "no audio listeners" every time a voice plays. One-time boot lookup.
+            if (FindAnyObjectByType<AudioListener>() == null)
+            {
+                return;
+            }
+
             if (_foley == null)
             {
                 GameObject go = new GameObject("FoleyBus");

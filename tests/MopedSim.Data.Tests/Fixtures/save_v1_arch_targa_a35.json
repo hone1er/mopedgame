@@ -1,0 +1,825 @@
+{
+  "schemaVersion": 1,
+  "seed": 1002,
+  "cashUsd": 414.5,
+  "reputation": 19,
+  "activeBikeInstanceId": "bike_001",
+  "activeZoneId": "Zone_WestOakland",
+  "toolRollCapacity": 6,
+  "bikes": [
+    {
+      "instanceId": "bike_001",
+      "archetypeId": "arch_targa_a35",
+      "nickname": "Targa A35",
+      "odometerKm": 323.5,
+      "paintHex": "#E0B030",
+      "patinaLevel": 0.75,
+      "fuelTank": {
+        "fuelLiters": 3.5,
+        "premixRatio": 50.0,
+        "petcockMode": "On",
+        "rustContamination": 0.08
+      },
+      "installedParts": [
+        {
+          "slotId": "SLOT_FRAME",
+          "partId": "frame_targa_a35",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FORK_ASSEMBLY",
+          "partId": "fork_stock_e50",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FRONT_WHEEL",
+          "partId": "wheel_16_mag",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FRONT_BRAKE",
+          "partId": "brake_drum_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FRONT_BRAKE_CABLE",
+          "partId": "cable_brake_front",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_HANDLEBARS",
+          "partId": "bars_stock_upright",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_THROTTLE_CABLE",
+          "partId": "cable_throttle",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_HEADLIGHT",
+          "partId": "light_boxy_led_12v",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FRONT_FENDER",
+          "partId": "fender_front_steel",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_REAR_SUSPENSION",
+          "partId": "shocks_stock_rear",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_REAR_WHEEL",
+          "partId": "wheel_16_mag",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_REAR_SPROCKET",
+          "partId": "sprocket_rear_45t",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_CHAIN",
+          "partId": "chain_415_standard",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_REAR_BRAKE",
+          "partId": "brake_drum_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_REAR_BRAKE_CABLE",
+          "partId": "cable_brake_rear",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_SEAT",
+          "partId": "seat_long_buddy",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_CARGO_RACK",
+          "partId": "rack_rear_wire",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FUEL_TANK",
+          "partId": "tank_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_PETCOCK",
+          "partId": "petcock_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FUEL_LINE",
+          "partId": "fuel_line_rubber",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_INLINE_FILTER",
+          "partId": "filter_inline_fuel",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_ENGINE_CRADLE",
+          "partId": "case_a35",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_IGNITION",
+          "partId": "stator_cdi_12v",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FLYWHEEL",
+          "partId": "flywheel_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.35,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_DRIVETRAIN_SIDE",
+          "partId": "gearbox_a35_2spd",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_FRONT_SPROCKET",
+          "partId": "sprocket_front_13t",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_BASE_GASKET",
+          "partId": "gasket_base_50",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_PISTON",
+          "partId": "piston_50",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_CYLINDER",
+          "partId": "cyl_stock_50",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_HEAD_GASKET",
+          "partId": "gasket_head_50",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_CYLINDER_HEAD",
+          "partId": "head_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_SPARK_PLUG",
+          "partId": "plug_b6hs",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.5,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_PLUG_BOOT",
+          "partId": "plug_boot_ngk",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.35,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_EXHAUST_GASKET",
+          "partId": "gasket_exhaust_copper",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_EXHAUST",
+          "partId": "pipe_stock_baffled",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_INTAKE_GASKET",
+          "partId": "gasket_intake_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_INTAKE_MANIFOLD",
+          "partId": "intake_stock",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_CARBURETOR",
+          "partId": "carb_sha_15",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_MAIN_JET",
+          "partId": "jet_main_66",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_PILOT_JET",
+          "partId": "pilot_jet_35",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        },
+        {
+          "slotId": "SLOT_AIR_FILTER",
+          "partId": "filter_stock_box",
+          "condition": 1.0,
+          "wear": 0.0,
+          "carbonClog": 0.0,
+          "foulingLevel": 0.0,
+          "insulatorColorIndex": 0.0,
+          "pointsGapMm": 0.0,
+          "installedArrowTowardExhaust": true
+        }
+      ],
+      "fasteners": [
+        {
+          "fastenerId": "BOLT_STEM_NUT",
+          "currentTorqueNm": 28.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_FRONT_AXLE_L",
+          "currentTorqueNm": 24.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_FRONT_AXLE_R",
+          "currentTorqueNm": 24.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_REAR_AXLE_L",
+          "currentTorqueNm": 26.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_REAR_AXLE_R",
+          "currentTorqueNm": 26.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_BAR_CLAMP_1",
+          "currentTorqueNm": 10.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_BAR_CLAMP_2",
+          "currentTorqueNm": 10.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_BAR_CLAMP_3",
+          "currentTorqueNm": 10.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_BAR_CLAMP_4",
+          "currentTorqueNm": 10.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_LIGHT_BRACKET",
+          "currentTorqueNm": 8.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_FENDER_1",
+          "currentTorqueNm": 7.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_FENDER_2",
+          "currentTorqueNm": 7.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SHOCK_TOP_L",
+          "currentTorqueNm": 20.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SHOCK_TOP_R",
+          "currentTorqueNm": 20.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SHOCK_BOT_L",
+          "currentTorqueNm": 20.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SHOCK_BOT_R",
+          "currentTorqueNm": 20.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SPROCKET_1",
+          "currentTorqueNm": 11.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SPROCKET_2",
+          "currentTorqueNm": 11.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SPROCKET_3",
+          "currentTorqueNm": 11.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SPROCKET_4",
+          "currentTorqueNm": 11.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SEAT_POST",
+          "currentTorqueNm": 18.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_RACK_1",
+          "currentTorqueNm": 9.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_RACK_2",
+          "currentTorqueNm": 9.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_TANK_MOUNT",
+          "currentTorqueNm": 8.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_ENGINE_MOUNT_1",
+          "currentTorqueNm": 22.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_ENGINE_MOUNT_2",
+          "currentTorqueNm": 22.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_ENGINE_MOUNT_3",
+          "currentTorqueNm": 22.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_FLYWHEEL_NUT",
+          "currentTorqueNm": 30.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_CLUTCH_COVER",
+          "currentTorqueNm": 8.5,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_SPROCKET_NUT",
+          "currentTorqueNm": 24.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_STUD_1",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_STUD_2",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_STUD_3",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_STUD_4",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_NUT_1",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_NUT_2",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_NUT_3",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_HEAD_NUT_4",
+          "currentTorqueNm": 12.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "THREAD_SPARK_PLUG",
+          "currentTorqueNm": 18.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_EXHAUST_FLANGE_1",
+          "currentTorqueNm": 9.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_EXHAUST_FLANGE_2",
+          "currentTorqueNm": 9.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_EXHAUST_FRAME_BRACKET",
+          "currentTorqueNm": 14.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_INTAKE_1",
+          "currentTorqueNm": 8.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_INTAKE_2",
+          "currentTorqueNm": 8.0,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_CARB_CLAMP",
+          "currentTorqueNm": 4.5,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        },
+        {
+          "fastenerId": "BOLT_FILTER_CLAMP",
+          "currentTorqueNm": 3.5,
+          "isStripped": false,
+          "isSeized": false,
+          "hasPenetratingOil": false
+        }
+      ],
+      "activeFaultIds": []
+    }
+  ],
+  "inventory": [
+    {
+      "instanceId": "inv_001",
+      "partId": "frame_targa_a35",
+      "quantity": 2,
+      "condition": 0.8,
+      "wear": 0.1
+    }
+  ],
+  "activeToolRoll": [],
+  "completedGigs": [
+    {
+      "jobId": "gig_mission_parts_rush",
+      "bestTimeSeconds": 95.5,
+      "completions": 2,
+      "lastCompletedUtc": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "unlockedZones": [
+    "Zone_WestOakland"
+  ],
+  "diagnosticHintsEnabled": true
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "seed": 12345,
+  "cashUsd": 250.0,
+  "reputation": 3,
+  "activeBikeInstanceId": "bike_001",
+  "activeZoneId": "Zone_WestOakland",
+  "toolRollCapacity": 6,
+  "bikes": [
+    {
+      "instanceId": "bike_001",
+      "archetypeId": "arch_maxer_e50",
+      "nickname": "Starter Moped",
+      "odometerKm": 12.5,
+      "paintHex": "#C8553D",
+      "fuelTank": { "fuelLiters": 2.5, "premixRatio": 50.0, "petcockMode": "On", "rustContamination": 0.0 },
+      "installedParts": [],
+      "fasteners": [],
+      "activeFaultIds": []
+    }
+  ],
+  "inventory": [],
+  "activeToolRoll": [],
+  "completedGigs": [],
+  "unlockedZones": [ "Zone_WestOakland" ],
+  "diagnosticHintsEnabled": true
+}

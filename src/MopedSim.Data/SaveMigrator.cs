@@ -208,17 +208,7 @@ namespace MopedSim.Data
                     "Save schemaVersion " + version + " is not supported (minimum " + MinimumSupportedSchemaVersion + ").");
             }
 
-            int current = (int)version;
-            while (current < CurrentSchemaVersion)
-            {
-                if (!MigrationSteps.TryGetValue(current, out var step))
-                {
-                    throw new SaveMigrationException("No migration path from save schemaVersion " + current + ".");
-                }
-                root = step(root);
-                current++;
-                root["schemaVersion"] = current;
-            }
+            root = ApplyMigrationSteps(root, (int)version, CurrentSchemaVersion, MigrationSteps);
 
             // Newtonsoft would silently coerce "5" -> uint, 1.5 -> int, "true" -> bool, 5 -> string; enforce schema JSON types first.
             var typeErrors = new List<string>();
@@ -253,6 +243,59 @@ namespace MopedSim.Data
 
             ThrowIfInvalid(state);
             return state;
+        }
+
+        /// <summary>
+        /// Applies <paramref name="steps"/> sequentially (step[v] turns a v document into v+1) from
+        /// <paramref name="fromVersion"/> up to <paramref name="targetVersion"/>, stamping schemaVersion after each step.
+        /// Public as a test seam: the production table is private and empty while v1 is current.
+        /// Throws <see cref="SaveMigrationException"/> for gaps, null results, or a throwing step.
+        /// </summary>
+        public static JObject ApplyMigrationSteps(
+            JObject root,
+            int fromVersion,
+            int targetVersion,
+            IReadOnlyDictionary<int, Func<JObject, JObject>> steps)
+        {
+            if (root == null) throw new ArgumentNullException(nameof(root));
+            if (steps == null) throw new ArgumentNullException(nameof(steps));
+            if (fromVersion > targetVersion)
+            {
+                throw new SaveMigrationException(
+                    "Save schemaVersion " + fromVersion + " is newer than target " + targetVersion + ".");
+            }
+
+            int current = fromVersion;
+            while (current < targetVersion)
+            {
+                if (!steps.TryGetValue(current, out var step) || step == null)
+                {
+                    throw new SaveMigrationException("No migration path from save schemaVersion " + current + ".");
+                }
+                JObject? next;
+                try
+                {
+                    next = step(root);
+                }
+                catch (SaveMigrationException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new SaveMigrationException(
+                        "Migration step v" + current + " -> v" + (current + 1) + " failed: " + ex.Message, ex);
+                }
+                if (next == null)
+                {
+                    throw new SaveMigrationException(
+                        "Migration step v" + current + " -> v" + (current + 1) + " returned null.");
+                }
+                root = next;
+                current++;
+                root["schemaVersion"] = current;
+            }
+            return root;
         }
 
         /// <summary>

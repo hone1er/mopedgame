@@ -36,6 +36,7 @@ namespace MopedSim.Ride
         [SerializeField] private float _lowSpeedSteerYawRateDegPerSec = 55f;
         [SerializeField] private float _yawResponse = 5f;
         [SerializeField] private float _countersteerSpeedMps = 4.5f;
+        [SerializeField, Range(0f, 1f)] private float _lateralGripResponse = 0.7f;
 
         [Header("Aero / Drag (applied as rigid-body force only)")]
         [SerializeField] private AeroTuckController _aero;
@@ -376,6 +377,7 @@ namespace MopedSim.Ride
             ApplyBrakes(forwardSpeed, flatForward, dt);
             ApplyAero(velocity, cda);
             ApplyHazards(flatForward, forwardSpeed, dt);
+            ApplyLateralGrip(velocity, flatForward, dt);
             ApplyLeanAndSteer(forwardSpeed, dt);
         }
 
@@ -550,6 +552,25 @@ namespace MopedSim.Ride
                     _rb.AddForce(right * (lateral * _rb.mass), ForceMode.Force);
                 }
             }
+        }
+
+        /// <summary>
+        /// Rear-tyre side force: cancels sideways velocity (relative to the heading) so the bike carves turns instead of
+        /// sliding. Limited by the surface/weather grip budget; suppressed while a rail crossing is slipping the tyre.
+        /// </summary>
+        private void ApplyLateralGrip(Vector3 velocity, Vector3 flatForward, float dt)
+        {
+            if (!_rear.Grounded || Mathf.Abs(_lastRailLateralAccel) > 0.0001f || flatForward.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            Vector3 flatRight = Vector3.Cross(Vector3.up, flatForward);
+            float lateralVel = Vector3.Dot(velocity, flatRight);
+            float grip = Mathf.Max(0.05f, _rear.Surface.GripMultiplier * _weatherGripMultiplier);
+            float maxForce = grip * _rb.mass * 9.81f;
+            float force = Mathf.Clamp(-lateralVel * _lateralGripResponse * _rb.mass / dt, -maxForce, maxForce);
+            _rb.AddForce(flatRight * force, ForceMode.Force);
         }
 
         private void ApplyLeanAndSteer(float forwardSpeed, float dt)

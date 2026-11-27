@@ -238,41 +238,57 @@ namespace MopedSim.Editor
 
         // ------------------------------------------------------------------ Garage
 
+        /// <summary>Frame underside height above the frame origin (ground contact plane); all three frame archetypes share it.</summary>
+        private const float FrameUndersideY = 0.12f;
+        /// <summary>Fallback cradle pad height when the workstand model's SOCKET_BIKE_MOUNT cannot be resolved.</summary>
+        private const float FallbackCradlePadY = 0.26f;
+        /// <summary>The frames' SOCKET_CENTER_STAND sits 0.06 m behind the frame origin (+Y Blender = -Z Unity).</summary>
+        private const float CenterStandZ = -0.06f;
+        public const string GarageMaterialsFolder = "Assets/Art/Materials/Garage";
+
         private static void PopulateGarage(Scene scene)
         {
-            GameObject light = new GameObject("GarageWorkLight");
-            Light l = light.AddComponent<Light>();
-            l.type = LightType.Point;
-            l.range = 12f;
-            l.intensity = 2.2f;
-            light.transform.position = GarageOrigin + new Vector3(0f, 3.2f, 0f);
-
             GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "GarageFloor";
             floor.transform.position = GarageOrigin;
-            floor.transform.localScale = new Vector3(1.2f, 1f, 1.2f);
+            floor.transform.localScale = new Vector3(1.0f, 1f, 0.9f);
+            floor.GetComponent<Renderer>().sharedMaterial = GarageMaterial("Garage_Concrete", new Color(0.36f, 0.35f, 0.33f), 0.15f, Color.black);
 
             GameObject garageRoot = new GameObject("GarageRoot");
             garageRoot.transform.position = GarageOrigin;
+            BuildGarageRoom(garageRoot.transform);
 
             GameObject stand = new GameObject("WorkStand");
             stand.transform.SetParent(garageRoot.transform, false);
             GameObject bikeRoot = new GameObject("WorkStandBikeRoot");
             bikeRoot.transform.SetParent(stand.transform, false);
-            bikeRoot.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+
+            // Station models first: the stand's SOCKET_BIKE_MOUNT (cradle pad top) decides how high the bike sits.
+            Transform models = CreateChild(garageRoot.transform, "StationModels", Vector3.zero);
+            GameObject standModel = PlaceModel(models, GarageModelsFolder, "garage_workstand", new Vector3(0f, 0f, CenterStandZ), 0f);
+            float padY = FallbackCradlePadY;
+            Transform mountSocket = FindDeepChild(standModel.transform, "SOCKET_BIKE_MOUNT");
+            if (mountSocket != null)
+            {
+                padY = mountSocket.position.y - garageRoot.transform.position.y;
+            }
+
+            // Frame underside rests on the cradle pad, centre-stand socket directly above it; wheels hang just off the floor.
+            bikeRoot.transform.localPosition = new Vector3(0f, padY - FrameUndersideY, 0f);
+            Transform focus = CreateChild(bikeRoot.transform, "WorkStandFocus", new Vector3(0f, 0.42f, 0f));
             BikeVisualAssembler assembler = stand.AddComponent<BikeVisualAssembler>();
             assembler.AssemblyRoot = bikeRoot.transform;
 
             GameObject camGo = new GameObject("InspectionCamera");
             camGo.transform.SetParent(garageRoot.transform, false);
-            camGo.transform.localPosition = new Vector3(2.4f, 1.6f, -2.8f);
-            camGo.transform.localRotation = Quaternion.LookRotation(new Vector3(-2.4f, -1.05f, 2.8f));
+            camGo.transform.localPosition = new Vector3(-1.6f, 1.2f, 2.5f);
+            camGo.transform.localRotation = Quaternion.LookRotation(new Vector3(1.6f, -0.75f, -2.5f));
             Camera cam = camGo.AddComponent<Camera>();
             cam.enabled = false;
             GarageWorkstandController workstand = stand.AddComponent<GarageWorkstandController>();
             workstand.Assembler = assembler;
             SetObjectReference(workstand, "_inspectionCamera", cam);
-            SetObjectReference(workstand, "_orbitPivot", bikeRoot.transform);
+            SetObjectReference(workstand, "_orbitPivot", focus);
 
             PaintBoothController paintBooth = stand.AddComponent<PaintBoothController>();
             SetObjectReference(paintBooth, "_assembler", assembler);
@@ -286,13 +302,193 @@ namespace MopedSim.Editor
             stations.AddComponent<PremixStationController>();
             stations.AddComponent<CenterStandDynoController>();
 
-            // Real Blender garage station models (collider-free visuals); empty placeholders when a model is missing.
-            Transform models = CreateChild(garageRoot.transform, "StationModels", Vector3.zero);
-            PlaceModel(models, GarageModelsFolder, "garage_workstand", Vector3.zero, 0f);
-            PlaceModel(models, GarageModelsFolder, "garage_workbench", new Vector3(-2.6f, 0f, 1.8f), 90f);
-            PlaceModel(models, GarageModelsFolder, "garage_premix_can", new Vector3(-2.6f, 0.88f, 1.3f), 20f);
-            PlaceModel(models, GarageModelsFolder, "garage_dyno_roller", new Vector3(2.4f, 0f, 0.6f), 0f);
+            // Remaining Blender station models, arranged against the walls with clear floor around the bike.
+            PlaceModel(models, GarageModelsFolder, "garage_workbench", new Vector3(4.55f, 0f, -1.0f), -90f);
+            PlaceModel(models, GarageModelsFolder, "garage_premix_can", new Vector3(4.55f, 0.88f, -0.5f), 20f);
+            PlaceModel(models, GarageModelsFolder, "garage_dyno_roller", new Vector3(-3.9f, 0f, 0.8f), 0f);
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        // ------------------------------------------------------------------ Garage room dressing
+
+        private const float RoomHalfX = 5f;
+        private const float RoomHalfZ = 4.5f;
+        private const float RoomHeight = 3.4f;
+
+        private static void BuildGarageRoom(Transform garageRoot)
+        {
+            Transform room = CreateChild(garageRoot, "GarageRoom", Vector3.zero);
+            Material brick = GarageMaterial("Garage_Brick", new Color(0.50f, 0.27f, 0.20f), 0.1f, Color.black);
+            Material plaster = GarageMaterial("Garage_Plaster", new Color(0.78f, 0.72f, 0.60f), 0.1f, Color.black);
+            Material ceiling = GarageMaterial("Garage_Ceiling", new Color(0.55f, 0.50f, 0.43f), 0.05f, Color.black);
+            Material wood = GarageMaterial("Garage_Wood", new Color(0.40f, 0.26f, 0.15f), 0.2f, Color.black);
+            Material door = GarageMaterial("Garage_RollerDoor", new Color(0.55f, 0.58f, 0.58f), 0.45f, Color.black);
+            Material doorDark = GarageMaterial("Garage_RollerDoorSlat", new Color(0.30f, 0.32f, 0.33f), 0.4f, Color.black);
+            Material peg = GarageMaterial("Garage_Pegboard", new Color(0.62f, 0.46f, 0.28f), 0.1f, Color.black);
+            Material mat = GarageMaterial("Garage_RubberMat", new Color(0.11f, 0.11f, 0.12f), 0.1f, Color.black);
+            Material tool = GarageMaterial("Garage_ToolSteel", new Color(0.65f, 0.67f, 0.70f), 0.7f, Color.black);
+            Material red = GarageMaterial("Garage_CanRed", new Color(0.75f, 0.12f, 0.08f), 0.4f, Color.black);
+            Material lampGlow = GarageMaterial("Garage_LampGlow", new Color(1f, 0.85f, 0.55f), 0.2f, new Color(2.2f, 1.6f, 0.8f));
+
+            float wallT = 0.2f;
+            // Four walls: brick wainscot (lower 1.1 m) under plaster. Walls sit just outside the floor edge.
+            GarageWallPair(room, "BackWall", new Vector3(0f, 0f, -RoomHalfZ - wallT * 0.5f), new Vector3(RoomHalfX * 2f + wallT * 2f, 0f, wallT), brick, plaster);
+            GarageWallPair(room, "FrontWall", new Vector3(0f, 0f, RoomHalfZ + wallT * 0.5f), new Vector3(RoomHalfX * 2f + wallT * 2f, 0f, wallT), brick, plaster);
+            GarageWallPair(room, "LeftWall", new Vector3(-RoomHalfX - wallT * 0.5f, 0f, 0f), new Vector3(wallT, 0f, RoomHalfZ * 2f), brick, plaster);
+            GarageWallPair(room, "RightWall", new Vector3(RoomHalfX + wallT * 0.5f, 0f, 0f), new Vector3(wallT, 0f, RoomHalfZ * 2f), brick, plaster);
+            GarageBox(room, "Ceiling", new Vector3(0f, RoomHeight + 0.05f, 0f), new Vector3(RoomHalfX * 2f + 0.4f, 0.1f, RoomHalfZ * 2f + 0.4f), ceiling);
+            for (int i = -1; i <= 1; i++)
+            {
+                GarageBox(room, "CeilingBeam" + (i + 1), new Vector3(i * 3.2f, RoomHeight - 0.12f, 0f), new Vector3(0.22f, 0.24f, RoomHalfZ * 2f), wood);
+            }
+
+            // Workshop mat under the bike so the stand and tyres read against the floor.
+            GarageBox(room, "WorkshopMat", new Vector3(0f, 0.006f, 0f), new Vector3(3.4f, 0.012f, 2.4f), mat);
+
+            // Roller door in the back wall with slats and a header box.
+            float doorZ = -RoomHalfZ + 0.04f;
+            GarageBox(room, "RollerDoor", new Vector3(-0.8f, 1.2f, doorZ), new Vector3(2.8f, 2.4f, 0.06f), door);
+            for (int i = 0; i < 11; i++)
+            {
+                GarageBox(room, "DoorSlat" + i, new Vector3(-0.8f, 0.2f + i * 0.2f, doorZ + 0.04f), new Vector3(2.8f, 0.035f, 0.03f), doorDark);
+            }
+
+            GarageBox(room, "DoorHeader", new Vector3(-0.8f, 2.5f, doorZ + 0.08f), new Vector3(3.0f, 0.2f, 0.18f), doorDark);
+
+            // Pegboards with hanging tools on the back wall (right of the door) and on the left wall.
+            BuildPegboard(room, "PegboardBack", new Vector3(2.4f, 1.55f, -RoomHalfZ + 0.04f), 0f, peg, tool, red);
+            BuildPegboard(room, "PegboardLeft", new Vector3(-RoomHalfX + 0.04f, 1.55f, -2.2f), 90f, peg, tool, red);
+
+            // Shelf with oil cans on the back wall, far left.
+            GarageBox(room, "OilShelf", new Vector3(-3.9f, 1.0f, -RoomHalfZ + 0.2f), new Vector3(1.4f, 0.05f, 0.4f), wood);
+            for (int i = 0; i < 5; i++)
+            {
+                GameObject can = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                can.name = "OilCan" + i;
+                can.transform.SetParent(room, false);
+                can.transform.localPosition = new Vector3(-4.4f + i * 0.28f, 1.17f, -RoomHalfZ + 0.2f);
+                can.transform.localScale = new Vector3(0.14f, 0.12f, 0.14f);
+                can.GetComponent<Renderer>().sharedMaterial = i % 2 == 0 ? red : door;
+                UnityEngine.Object.DestroyImmediate(can.GetComponent<Collider>());
+            }
+
+            // Warm workshop lighting: three ceiling pendants plus a spot over the stand.
+            Color warm = new Color(1f, 0.78f, 0.5f);
+            Vector3[] lampPositions = { new Vector3(0f, RoomHeight - 0.5f, 0.2f), new Vector3(-3.2f, RoomHeight - 0.5f, -0.5f), new Vector3(3.2f, RoomHeight - 0.5f, -0.5f) };
+            for (int i = 0; i < lampPositions.Length; i++)
+            {
+                GameObject shade = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                shade.name = "PendantLamp" + i;
+                shade.transform.SetParent(room, false);
+                shade.transform.localPosition = lampPositions[i] + new Vector3(0f, 0.3f, 0f);
+                shade.transform.localScale = new Vector3(0.45f, 0.04f, 0.45f);
+                shade.GetComponent<Renderer>().sharedMaterial = lampGlow;
+                UnityEngine.Object.DestroyImmediate(shade.GetComponent<Collider>());
+
+                GameObject lightGo = new GameObject("GarageLight" + i);
+                lightGo.transform.SetParent(room, false);
+                lightGo.transform.localPosition = lampPositions[i];
+                Light point = lightGo.AddComponent<Light>();
+                point.type = LightType.Point;
+                point.color = warm;
+                point.range = i == 0 ? 9f : 8f;
+                point.intensity = i == 0 ? 6f : 4.5f;
+                point.shadows = LightShadows.None;
+            }
+
+            GameObject spotGo = new GameObject("GarageStandSpot");
+            spotGo.transform.SetParent(room, false);
+            spotGo.transform.localPosition = new Vector3(0.8f, 3.1f, 1.6f);
+            spotGo.transform.localRotation = Quaternion.LookRotation(new Vector3(-0.8f, -2.7f, -1.6f));
+            Light spot = spotGo.AddComponent<Light>();
+            spot.type = LightType.Spot;
+            spot.color = new Color(1f, 0.92f, 0.78f);
+            spot.range = 8f;
+            spot.spotAngle = 70f;
+            spot.intensity = 14f;
+            spot.shadows = LightShadows.None;
+        }
+
+        private static void BuildPegboard(Transform parent, string name, Vector3 center, float yawDeg, Material board, Material steel, Material accent)
+        {
+            Transform root = CreateChild(parent, name, center);
+            root.localRotation = Quaternion.Euler(0f, yawDeg, 0f);
+            GarageBox(root, "Board", Vector3.zero, new Vector3(1.6f, 1.0f, 0.04f), board);
+            for (int i = 0; i < 6; i++)
+            {
+                float x = -0.65f + i * 0.26f;
+                GarageBox(root, "Tool" + i, new Vector3(x, 0.12f, 0.04f), new Vector3(0.04f, 0.5f - (i % 3) * 0.08f, 0.03f), i % 2 == 0 ? steel : accent);
+                GarageBox(root, "ToolHead" + i, new Vector3(x, 0.38f - (i % 3) * 0.04f, 0.04f), new Vector3(0.12f, 0.06f, 0.03f), steel);
+            }
+        }
+
+        private static void GarageWallPair(Transform parent, string name, Vector3 center, Vector3 size, Material lower, Material upper)
+        {
+            float lowerH = 1.1f;
+            GarageBox(parent, name + "_Brick", new Vector3(center.x, lowerH * 0.5f, center.z), new Vector3(size.x, lowerH, size.z), lower);
+            GarageBox(parent, name + "_Plaster", new Vector3(center.x, lowerH + (RoomHeight - lowerH) * 0.5f, center.z), new Vector3(size.x, RoomHeight - lowerH, size.z), upper);
+        }
+
+        private static GameObject GarageBox(Transform parent, string name, Vector3 localPosition, Vector3 size, Material material)
+        {
+            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.name = name;
+            box.transform.SetParent(parent, false);
+            box.transform.localPosition = localPosition;
+            box.transform.localScale = size;
+            box.GetComponent<Renderer>().sharedMaterial = material;
+            UnityEngine.Object.DestroyImmediate(box.GetComponent<Collider>());
+            return box;
+        }
+
+        private static Transform FindDeepChild(Transform root, string name)
+        {
+            if (root.name == name)
+            {
+                return root;
+            }
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform found = FindDeepChild(root.GetChild(i), name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Loads or creates a persistent URP Lit material asset so the regenerated scene keeps its colors.</summary>
+        private static Material GarageMaterial(string name, Color color, float smoothness, Color emission)
+        {
+            string path = GarageMaterialsFolder + "/" + name + ".mat";
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                Directory.CreateDirectory(GarageMaterialsFolder);
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null)
+                {
+                    shader = Shader.Find("Standard");
+                }
+
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            material.color = color;
+            if (material.HasProperty("_BaseColor")) { material.SetColor("_BaseColor", color); }
+            if (material.HasProperty("_Smoothness")) { material.SetFloat("_Smoothness", smoothness); }
+            if (emission.maxColorComponent > 0f)
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", emission);
+            }
+
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         // ------------------------------------------------------------------ UI overlay

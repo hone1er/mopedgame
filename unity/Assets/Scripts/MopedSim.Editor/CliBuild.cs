@@ -14,6 +14,7 @@ namespace MopedSim.Editor
     public static class CliBuild
     {
         private const string MacOSOutputPath = "Builds/MacOS/arm64/MopedGame.app";
+        private const string MacOSReleaseOutputPath = "Builds/MacOS/arm64-release/MopedGame.app";
 
         /// <summary>
         /// Folder under Assets/StreamingAssets that players load catalogs from (AppCompositionRoot.ResolveCatalogDirectory).
@@ -32,7 +33,22 @@ namespace MopedSim.Editor
         [MenuItem("MopedSim/Build/macOS arm64 (Dev)")]
         public static void BuildMacOSDev()
         {
-            Debug.Log("[CliBuild] Starting macOS arm64 Development build...");
+            BuildMacOSArm64("Development", MacOSOutputPath, BuildOptions.Development);
+        }
+
+        /// <summary>
+        /// Non-development (release) macOS arm64 player for profiling and release-candidate smoke runs.
+        /// Same scenes and StreamingAssets staging as BuildMacOSDev; no profiler/debug connection.
+        /// </summary>
+        [MenuItem("MopedSim/Build/macOS arm64 (Release)")]
+        public static void BuildMacOSRelease()
+        {
+            BuildMacOSArm64("Release", MacOSReleaseOutputPath, BuildOptions.None);
+        }
+
+        private static void BuildMacOSArm64(string label, string outputPath, BuildOptions buildOptions)
+        {
+            Debug.Log("[CliBuild] Starting macOS arm64 " + label + " build...");
 
             // Ensure modular additive scenes exist before collecting build scene list (without rewriting committed scenes).
             SceneScaffoldBuilder.EnsureScenesAndBuildSettings();
@@ -77,7 +93,7 @@ namespace MopedSim.Editor
                 return;
             }
 
-            string outputFullPath = Path.GetFullPath(MacOSOutputPath);
+            string outputFullPath = Path.GetFullPath(outputPath);
             string outputDirectory = Path.GetDirectoryName(outputFullPath);
             if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
             {
@@ -86,22 +102,22 @@ namespace MopedSim.Editor
 
             BuildPlayerOptions options = new BuildPlayerOptions();
             options.scenes = scenes;
-            options.locationPathName = MacOSOutputPath;
+            options.locationPathName = outputPath;
             options.target = BuildTarget.StandaloneOSX;
             options.targetGroup = BuildTargetGroup.Standalone;
-            options.options = BuildOptions.Development;
+            options.options = buildOptions;
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
             BuildSummary summary = report.summary;
 
             if (summary.result == BuildResult.Succeeded)
             {
-                Debug.Log("[CliBuild] macOS arm64 Development build succeeded (" + summary.totalSize + " bytes) at: " + MacOSOutputPath);
+                Debug.Log("[CliBuild] macOS arm64 " + label + " build succeeded (" + summary.totalSize + " bytes) at: " + outputPath);
                 ExitIfBatchMode(0);
                 return;
             }
 
-            Debug.LogError("[CliBuild] macOS arm64 build failed with result: " + summary.result + " (errors: " + summary.totalErrors + ")");
+            Debug.LogError("[CliBuild] macOS arm64 " + label + " build failed with result: " + summary.result + " (errors: " + summary.totalErrors + ")");
             ExitIfBatchMode(1);
         }
 

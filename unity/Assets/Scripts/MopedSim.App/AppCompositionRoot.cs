@@ -846,6 +846,11 @@ namespace MopedSim.App
 
             if (state == GameSessionState.Ride && _ride != null)
             {
+                if (controls.PickUpBikePressed)
+                {
+                    _ride.PickUpBike();
+                }
+
                 _ride.SetControls(
                     controls.Throttle,
                     controls.FrontBrake,

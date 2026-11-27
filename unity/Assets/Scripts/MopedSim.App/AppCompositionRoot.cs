@@ -101,6 +101,8 @@ namespace MopedSim.App
         private ProceduralFoleyPlayer _foley;
         private ProceduralAmbiencePlayer _ambience;
         private float _lastAmbienceFog = -1f;
+        private readonly RaycastHit[] _portalArrivalHits = new RaycastHit[8];
+        private const float PortalArrivalRideHeightMeters = 0.6f;
         private float _lastAppliedAirDensity = RideInputState.StandardAirDensity;
         private float _lastAppliedGrip = 1f;
         private Rigidbody _rideBody;
@@ -1085,6 +1087,7 @@ namespace MopedSim.App
 
             _garageContext.AssemblyChanged += OnAssemblyChanged;
             _garageContext.WrenchActionCompleted += OnFoleyWrenchCompleted;
+            ZoneTransitionPortal.RiderPortalTransitionCompleted += OnRiderPortalTransitionCompleted;
             _rideBody = _ride != null ? _ride.GetComponent<Rigidbody>() : null;
             CaptureBikeVisualHome();
             _bootstrapped = true;
@@ -1121,6 +1124,8 @@ namespace MopedSim.App
             {
                 _garageContext.WrenchActionCompleted -= OnFoleyWrenchCompleted;
             }
+
+            ZoneTransitionPortal.RiderPortalTransitionCompleted -= OnRiderPortalTransitionCompleted;
 
             if (_wrench != null)
             {
@@ -1457,6 +1462,49 @@ namespace MopedSim.App
                 GameObject go = new GameObject("AmbienceBus");
                 go.transform.SetParent(transform, false);
                 _ambience = go.AddComponent<ProceduralAmbiencePlayer>();
+            }
+        }
+
+        /// <summary>
+        /// Zones live at separate world offsets, so streaming the next zone in is not enough: carry the riding moped to the
+        /// portal's arrival pose (on the target zone's road, facing into it) and keep its road speed. Event-driven only.
+        /// </summary>
+        private void OnRiderPortalTransitionCompleted(ZoneTransitionPortal portal, string targetZone)
+        {
+            if (portal == null || !portal.HasArrivalPose || _ride == null)
+            {
+                return;
+            }
+
+            GameSessionState state = _session != null ? _session.CurrentState : GameSessionState.Garage;
+            if (state != GameSessionState.Ride || (_rideBody != null && _rideBody.isKinematic))
+            {
+                return;
+            }
+
+            float speed = Mathf.Max(0f, _ride.ForwardSpeedMps);
+            float yawDeg = portal.ArrivalYawDeg;
+            Vector3 arrival = portal.ArrivalWorldPosition;
+
+            // The pose is authored ~2 m above the road at the portal; snap onto the road surface just loaded with the zone.
+            int hits = Physics.RaycastNonAlloc(arrival + Vector3.up * 6f, Vector3.down, _portalArrivalHits, 40f, ~0, QueryTriggerInteraction.Ignore);
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < hits; i++)
+            {
+                RaycastHit hit = _portalArrivalHits[i];
+                if (hit.collider == null || (_rideBody != null && hit.collider.attachedRigidbody == _rideBody) || hit.distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = hit.distance;
+                arrival.y = hit.point.y + PortalArrivalRideHeightMeters;
+            }
+
+            _ride.ResetUprightAt(arrival, yawDeg);
+            if (_rideBody != null && speed > 0.1f)
+            {
+                _rideBody.linearVelocity = Quaternion.Euler(0f, yawDeg, 0f) * Vector3.forward * speed;
             }
         }
 

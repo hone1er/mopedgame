@@ -925,9 +925,7 @@ namespace MopedSim.Editor
             PlaceWorldModel(kit, "WestOakland/wo_bart_overpass_pillar", new Vector3(30f, 0f, 280f), 90f);
             PlaceWorldModel(kit, "WestOakland/wo_taco_truck", new Vector3(172f, 0f, 116f), -30f);
 
-            CreatePortals(root.transform, "Zone_WestOakland",
-                new PortalAnchor("Zone_OaklandHills", new Vector3(26f, 2f, 300f), new Vector3(6f, 6f, 20f)),
-                new PortalAnchor("Zone_BayCrossing", new Vector3(0f, 2f, 396f), new Vector3(24f, 6f, 4f)));
+            CreatePortals(root.transform, "Zone_WestOakland", ZonePortalAnchors["Zone_WestOakland"]);
             CreateCheckpointBeacons(scene, "Zone_WestOakland");
             EditorSceneManager.MarkSceneDirty(scene);
         }
@@ -935,7 +933,7 @@ namespace MopedSim.Editor
         private static void PopulateOaklandHills(Scene scene)
         {
             GameObject root = new GameObject("Zone_OaklandHills_Root");
-            root.transform.position = new Vector3(1000f, 0f, 0f);
+            root.transform.position = ZoneRootOrigins["Zone_OaklandHills"];
             CreateRoad(root.transform, "LakeMerritt_Flat", new Vector3(0f, 0f, 50f), new Vector3(10f, 0.2f, 100f), 0f, "DryAsphalt");
             CreateRoad(root.transform, "TunnelRd_Grade10", new Vector3(0f, 5f, 150f), new Vector3(10f, 0.2f, 101f), Mathf.Atan(0.10f) * Mathf.Rad2Deg, "DryAsphalt");
             CreateRoad(root.transform, "GrizzlyPeak_Grade18", new Vector3(0f, 18f, 250f), new Vector3(10f, 0.2f, 102f), Mathf.Atan(0.18f) * Mathf.Rad2Deg, "DryAsphalt");
@@ -957,9 +955,7 @@ namespace MopedSim.Editor
             PlaceWorldModel(kit, "OaklandHills/oh_eucalyptus_cluster", new Vector3(16f, 12f, 225f), 240f);
             PlaceWorldModel(kit, "OaklandHills/oh_overlook_sign", new Vector3(8f, 27f, 296f), -90f);
 
-            CreatePortals(root.transform, "Zone_OaklandHills",
-                new PortalAnchor("Zone_WestOakland", new Vector3(0f, 2f, 3f), new Vector3(14f, 6f, 4f)),
-                new PortalAnchor("Zone_BayCrossing", new Vector3(0f, 29f, 299f), new Vector3(14f, 6f, 4f)));
+            CreatePortals(root.transform, "Zone_OaklandHills", ZonePortalAnchors["Zone_OaklandHills"]);
             CreateCheckpointBeacons(scene, "Zone_OaklandHills");
             EditorSceneManager.MarkSceneDirty(scene);
         }
@@ -967,7 +963,7 @@ namespace MopedSim.Editor
         private static void PopulateBayCrossing(Scene scene)
         {
             GameObject root = new GameObject("Zone_BayCrossing_Root");
-            root.transform.position = new Vector3(0f, 0f, 1000f);
+            root.transform.position = ZoneRootOrigins["Zone_BayCrossing"];
             CreateRoad(root.transform, "BaySpan_Deck", new Vector3(0f, 20f, 600f), new Vector3(8f, 0.3f, 1200f), 0f, "DryAsphalt");
             CreateMarker(root.transform, "LM_FerryTerminal", new Vector3(0f, 20f, 1220f));
             // No ground under the span (open water): low curbs along both deck edges and end walls keep riders on the deck.
@@ -987,10 +983,7 @@ namespace MopedSim.Editor
             // The span is the only road: the Oakland approaches split into lanes (left lane West Oakland, right lane Oakland Hills)
             // AND are staggered along the deck (Oakland Hills exit first, MinOaklandPortalSpacingMeters before the West Oakland end),
             // so a rider straddling the centerline can never be inside both triggers at once.
-            CreatePortals(root.transform, "Zone_BayCrossing",
-                new PortalAnchor("Zone_WestOakland", new Vector3(-2f, 22f, 4f), new Vector3(3.8f, 6f, 4f)),
-                new PortalAnchor("Zone_OaklandHills", new Vector3(2f, 22f, 4f + 4f + MinOaklandPortalSpacingMeters), new Vector3(3.8f, 6f, 4f)),
-                new PortalAnchor("Zone_SF_Mission", new Vector3(0f, 22f, 1196f), new Vector3(8f, 6f, 4f)));
+            CreatePortals(root.transform, "Zone_BayCrossing", ZonePortalAnchors["Zone_BayCrossing"]);
             CreateCheckpointBeacons(scene, "Zone_BayCrossing");
             EditorSceneManager.MarkSceneDirty(scene);
         }
@@ -998,7 +991,7 @@ namespace MopedSim.Editor
         private static void PopulateSfMission(Scene scene)
         {
             GameObject root = new GameObject("Zone_SF_Mission_Root");
-            root.transform.position = new Vector3(0f, 0f, 2500f);
+            root.transform.position = ZoneRootOrigins["Zone_SF_Mission"];
             CreateRoad(root.transform, "Valencia_Corridor", new Vector3(0f, 0f, 150f), new Vector3(14f, 0.2f, 300f), 0f, "DryAsphalt");
             GameObject rail = CreateRoad(root.transform, "Muni_SteelRailTrack", new Vector3(0f, 0.02f, 150f), new Vector3(1.6f, 0.2f, 300f), 0f, "SteelRailTrack");
             rail.GetComponent<RoadHazardZone>().Configure("SteelRailTrack", 0.95f, 0.38f, 0.25f, 0.2f, Vector3.forward);
@@ -1036,8 +1029,7 @@ namespace MopedSim.Editor
             PlaceWorldModel(kit, "SFMission/sf_hill_road_20m", new Vector3(16f, 1.8f, 330f), 0f);
             PlaceWorldModel(kit, "SFMission/sf_hill_road_20m", new Vector3(16f, 5.4f, 350f), 0f);
 
-            CreatePortals(root.transform, "Zone_SF_Mission",
-                new PortalAnchor("Zone_BayCrossing", new Vector3(0f, 2f, 3f), new Vector3(14f, 6f, 4f)));
+            CreatePortals(root.transform, "Zone_SF_Mission", ZonePortalAnchors["Zone_SF_Mission"]);
             CreateCheckpointBeacons(scene, "Zone_SF_Mission");
             EditorSceneManager.MarkSceneDirty(scene);
         }
@@ -1052,13 +1044,109 @@ namespace MopedSim.Editor
             public readonly string TargetZone;
             public readonly Vector3 LocalPosition;
             public readonly Vector3 Size;
+            /// <summary>Flat direction pointing from this portal into its own zone (zero = derive from local Z).</summary>
+            public readonly Vector3 Inward;
 
             public PortalAnchor(string targetZone, Vector3 localPosition, Vector3 size)
+                : this(targetZone, localPosition, size, Vector3.zero)
+            {
+            }
+
+            public PortalAnchor(string targetZone, Vector3 localPosition, Vector3 size, Vector3 inward)
             {
                 TargetZone = targetZone;
                 LocalPosition = localPosition;
                 Size = size;
+                Inward = inward;
             }
+        }
+
+        /// <summary>World origin of each zone root (zones are additive scenes at separate offsets).</summary>
+        private static readonly Dictionary<string, Vector3> ZoneRootOrigins = new Dictionary<string, Vector3>(StringComparer.Ordinal)
+        {
+            { "Zone_WestOakland", Vector3.zero },
+            { "Zone_OaklandHills", new Vector3(1000f, 0f, 0f) },
+            { "Zone_BayCrossing", new Vector3(0f, 0f, 1000f) },
+            { "Zone_SF_Mission", new Vector3(0f, 0f, 2500f) },
+        };
+
+        /// <summary>
+        /// Portal boundary anchors per zone (zone-root local; the box centre sits ~2 m above the road). Kept in one table so each
+        /// portal can derive its arrival pose from the target zone's return portal.
+        /// </summary>
+        private static readonly Dictionary<string, PortalAnchor[]> ZonePortalAnchors = new Dictionary<string, PortalAnchor[]>(StringComparer.Ordinal)
+        {
+            {
+                "Zone_WestOakland", new[]
+                {
+                    // On the east-west Oakland Hills spur (x 6..30): its interior lies toward the main road (-X).
+                    new PortalAnchor("Zone_OaklandHills", new Vector3(26f, 2f, 300f), new Vector3(6f, 6f, 20f), Vector3.left),
+                    new PortalAnchor("Zone_BayCrossing", new Vector3(0f, 2f, 396f), new Vector3(24f, 6f, 4f)),
+                }
+            },
+            {
+                "Zone_OaklandHills", new[]
+                {
+                    new PortalAnchor("Zone_WestOakland", new Vector3(0f, 2f, 3f), new Vector3(14f, 6f, 4f)),
+                    new PortalAnchor("Zone_BayCrossing", new Vector3(0f, 29f, 299f), new Vector3(14f, 6f, 4f)),
+                }
+            },
+            {
+                "Zone_BayCrossing", new[]
+                {
+                    new PortalAnchor("Zone_WestOakland", new Vector3(-2f, 22f, 4f), new Vector3(3.8f, 6f, 4f)),
+                    new PortalAnchor("Zone_OaklandHills", new Vector3(2f, 22f, 4f + 4f + MinOaklandPortalSpacingMeters), new Vector3(3.8f, 6f, 4f)),
+                    new PortalAnchor("Zone_SF_Mission", new Vector3(0f, 22f, 1196f), new Vector3(8f, 6f, 4f)),
+                }
+            },
+            {
+                "Zone_SF_Mission", new[]
+                {
+                    new PortalAnchor("Zone_BayCrossing", new Vector3(0f, 2f, 3f), new Vector3(14f, 6f, 4f)),
+                }
+            },
+        };
+
+        /// <summary>Distance from the target zone's return portal to the arrival point (clear of that portal's trigger).</summary>
+        public const float PortalArrivalInsetMeters = 14f;
+
+        /// <summary>
+        /// Arrival pose for a rider leaving <paramref name="fromZone"/> into <paramref name="toZone"/>: just inside the target
+        /// zone's return portal, facing into that zone. Height is the portal centre (~2 m above the road); the App snaps it to
+        /// the road with a raycast at arrival.
+        /// </summary>
+        private static bool TryGetPortalArrival(string fromZone, string toZone, out Vector3 worldPosition, out float yawDeg)
+        {
+            worldPosition = Vector3.zero;
+            yawDeg = 0f;
+            PortalAnchor[] targetAnchors;
+            Vector3 origin;
+            if (!ZonePortalAnchors.TryGetValue(toZone, out targetAnchors) || !ZoneRootOrigins.TryGetValue(toZone, out origin))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < targetAnchors.Length; i++)
+            {
+                if (!string.Equals(targetAnchors[i].TargetZone, fromZone, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Vector3 inward = targetAnchors[i].Inward;
+                if (inward.sqrMagnitude < 1e-4f)
+                {
+                    inward = targetAnchors[i].LocalPosition.z < 100f ? Vector3.forward : Vector3.back;
+                }
+
+                inward.y = 0f;
+                inward.Normalize();
+                worldPosition = origin + targetAnchors[i].LocalPosition + inward * PortalArrivalInsetMeters;
+                yawDeg = Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg;
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1155,6 +1243,16 @@ namespace MopedSim.Editor
                 box.size = size;
                 ZoneTransitionPortal portal = go.AddComponent<ZoneTransitionPortal>();
                 portal.Configure(targetScene, false, 1.5f);
+                Vector3 arrivalPos;
+                float arrivalYaw;
+                if (TryGetPortalArrival(zoneId, target, out arrivalPos, out arrivalYaw))
+                {
+                    portal.ConfigureArrivalPose(arrivalPos, arrivalYaw);
+                }
+                else
+                {
+                    Debug.LogWarning("[SceneScaffoldBuilder] No return portal in " + target + " for " + zoneId + "; portal has no arrival pose.");
+                }
             }
         }
 

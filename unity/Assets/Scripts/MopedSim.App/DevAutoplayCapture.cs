@@ -21,6 +21,7 @@ namespace MopedSim.App
         public const string CommandLineFlag = "-autoplayCapture";
         /// <summary>Opt-in: accept a gig mid-ride and capture the objective guidance marker (10_gig_guidance.png).</summary>
         public const string GigFlag = "-autoplayGig";
+        public const string TravelFlag = "-autoplayTravel";
 
 
         /// <summary>Opt-in: keep the title screen, capture it + the archetype picker + the pause menu, then New Game with the default bike.</summary>
@@ -164,6 +165,11 @@ namespace MopedSim.App
             if (HasFlag(GigFlag))
             {
                 yield return Step("gig_guidance", GigGuidanceRoutine);
+            }
+
+            if (HasFlag(TravelFlag))
+            {
+                yield return Step("zone_travel", ZoneTravelRoutine);
             }
 
             yield return Step("breakdown_roadside_repair", BreakdownRoutine);
@@ -415,6 +421,34 @@ namespace MopedSim.App
             yield return Capture(r, "10_gig_guidance");
             r.passed = _app.Courier != null && _app.Courier.HasActiveJob;
             _app.AbandonJob();
+        }
+
+        /// <summary>
+        /// Rides through the West Oakland -> Bay Crossing portal and checks the rider is carried onto the Bay Crossing deck
+        /// (zones sit at separate world offsets; the portal's arrival pose must move the bike, not just stream the scene).
+        /// </summary>
+        private IEnumerator ZoneTravelRoutine(StepRecord r)
+        {
+            const string target = "Zone_BayCrossing";
+            const float bayOriginZ = 1000f;
+            _ride.ResetUprightAt(new Vector3(0f, 0.6f, 370f), 0f);
+            SetRide(1f, 0f);
+            float t0 = Time.time;
+            while (Time.time - t0 < 25f && !(_app.Zones.ActiveZoneName == target && _ride.transform.position.z > bayOriginZ))
+            {
+                yield return null;
+            }
+
+            yield return RideFor(2.5f);
+            yield return Capture(r, "12_bay_crossing");
+            Vector3 p = _ride.transform.position;
+            r.passed = _app.Zones.ActiveZoneName == target && p.z > bayOriginZ && _ride.IsGrounded && _ride.SpeedMps > 2f;
+            r.note = "active=" + _app.Zones.ActiveZoneName + " pos=" + p.ToString("F1") + " speed=" + _ride.SpeedMps.ToString("F1", CultureInfo.InvariantCulture)
+                + " grounded=" + _ride.IsGrounded;
+            if (_rideStartPos != Vector3.zero)
+            {
+                _ride.ResetUprightAt(_rideStartPos, _rideStartYaw);
+            }
         }
 
         private IEnumerator ChaseRoutine(StepRecord r)

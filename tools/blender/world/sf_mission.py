@@ -441,7 +441,7 @@ def build_sf_hill_road_20m(out_dir: str) -> Dict[str, object]:
 
 
 def build_sf_delivery_beacon(out_dir: str) -> Dict[str, object]:
-    """Stylized courier drop-off kiosk: glowing ground ring, parcel lockers, floating diamond marker."""
+    """Drive-through courier drop marker: glowing ground ring with chevrons and a floating diamond (no lane obstacles)."""
     clear_scene()
     mb = MeshPartBuilder("sf_delivery_beacon")
 
@@ -455,29 +455,14 @@ def build_sf_delivery_beacon(out_dir: str) -> Dict[str, object]:
         for sgn in (-1.0, 1.0):
             mb.add_box(size=(0.4, 0.07, 0.02), location=(cx, cy, 0.05), rotation=(0.0, 0.0, ang + sgn * 0.6), mat="mat_beacon_glow")
 
-    # Parcel locker kiosk at the back of the pad
-    ky = 1.1
-    mb.add_box(size=(1.6, 0.6, 1.9), location=(0.0, ky, 0.99), mat="mat_enamel_teal")
-    mb.add_box(size=(1.7, 0.66, 0.1), location=(0.0, ky, 1.99), mat="mat_steel_dark")
-    for col in range(3):
-        for row in range(4):
-            mb.add_box(size=(0.44, 0.04, 0.38), location=(-0.5 + col * 0.5, ky - 0.31, 0.35 + row * 0.43), mat="mat_enamel_cream" if (col + row) % 3 else "mat_paint_mission_marigold")
-            mb.add_box(size=(0.06, 0.03, 0.03), location=(-0.36 + col * 0.5, ky - 0.34, 0.35 + row * 0.43), mat="mat_chrome")
-    mb.add_box(size=(0.42, 0.05, 0.3), location=(0.5, ky - 0.33, 1.72), mat="mat_window_glass")
-    mb.add_box(size=(0.3, 0.12, 0.08), location=(0.5, ky - 0.36, 1.48), mat="mat_steel_dark")
-
-    # Beacon mast with light bands and a floating double-pyramid diamond marker
-    mb.add_cylinder(radius=0.06, depth=3.2, segments=10, location=(-0.95, ky, 1.6), mat="mat_steel_dark")
-    for z in (2.2, 2.6, 3.0):
-        mb.add_cylinder(radius=0.085, depth=0.08, segments=10, location=(-0.95, ky, z), mat="mat_beacon_glow")
+    # Drive-through marker: checkpoints sit on the carriageway, so nothing solid-looking stands in the lane
+    # (beacons are collider-free visuals). A floating double-pyramid diamond and halo mark the drop from a distance.
     mb.add_cone(radius1=0.5, radius2=0.0, depth=0.6, segments=4, location=(0.0, 0.0, 3.6), mat="mat_beacon_glow", smooth=False)
     mb.add_cone(radius1=0.0, radius2=0.5, depth=0.6, segments=4, location=(0.0, 0.0, 3.0), mat="mat_beacon_glow", smooth=False)
     mb.add_torus(major_radius=0.75, minor_radius=0.025, major_segments=20, minor_segments=4, location=(0.0, 0.0, 3.3), mat="mat_beacon_glow")
-    # Bollards around the pad
-    for k in range(6):
-        ang = math.pi * (0.15 + k * 0.14) + math.pi
-        mb.add_cylinder(radius=0.1, depth=0.8, segments=10, location=(math.cos(ang) * 2.3, math.sin(ang) * 2.3, 0.4), mat="mat_enamel_yellow")
-        mb.add_cylinder(radius=0.105, depth=0.06, segments=10, location=(math.cos(ang) * 2.3, math.sin(ang) * 2.3, 0.65), mat="mat_vinyl_black")
+    # Low glowing kerb stubs at the pad's left/right edges frame the drive-through lane without blocking it.
+    for sx in (-2.05, 2.05):
+        mb.add_box(size=(0.12, 0.9, 0.12), location=(sx, 0.0, 0.06), mat="mat_beacon_glow")
 
     mb.build_object()
     add_socket("SOCKET_DROP_POINT", location=(0.0, 0.0, 0.04))

@@ -107,15 +107,54 @@ namespace MopedSim.Tests.EditMode
                         Vector3 pos = portals[p].transform.position;
                         float hitY;
                         Assert.IsTrue(HitsRoad(pos, out hitY), zone + " portal to " + portals[p].TargetZoneScene + " at " + pos + " is not over a road.");
-                        if (portals[p].HasArrivalPose)
-                        {
-                            Vector3 arrival = portals[p].ArrivalWorldPosition;
-                            Assert.IsTrue(HitsRoad(arrival, out hitY), zone + " portal arrival pose " + arrival + " is not on a road.");
-                        }
+                        Assert.IsTrue(portals[p].HasArrivalPose, zone + " portal to " + portals[p].TargetZoneScene + " has no arrival pose.");
                     }
                 }
 
                 CloseOpened(scene);
+            }
+        }
+
+        [Test]
+        public void EveryPortalArrival_LandsOnTargetZoneRoad_OutsideAllPortalTriggers()
+        {
+            // Arrival poses point into the TARGET zone, so every zone must be open at once.
+            List<ZoneTransitionPortal> portals = new List<ZoneTransitionPortal>();
+            for (int z = 0; z < ZoneStreamManager.KnownZoneScenes.Length; z++)
+            {
+                Scene scene = Open(ZoneStreamManager.KnownZoneScenes[z]);
+                GameObject[] roots = scene.GetRootGameObjects();
+                for (int r = 0; r < roots.Length; r++)
+                {
+                    portals.AddRange(roots[r].GetComponentsInChildren<ZoneTransitionPortal>(true));
+                }
+            }
+
+            Physics.SyncTransforms();
+            Assert.Greater(portals.Count, 0);
+            for (int p = 0; p < portals.Count; p++)
+            {
+                ZoneTransitionPortal portal = portals[p];
+                Assert.IsTrue(portal.HasArrivalPose, portal.name + " has no arrival pose.");
+                Vector3 arrival = portal.ArrivalWorldPosition;
+                RaycastHit hit;
+                Assert.IsTrue(
+                    Physics.Raycast(arrival + Vector3.up * 6f, Vector3.down, out hit, 40f, ~0, QueryTriggerInteraction.Ignore),
+                    portal.name + " arrival " + arrival + " has no ground below it.");
+                Assert.Less(Mathf.Abs(hit.point.y - (arrival.y - 2f)), 6f, portal.name + " arrival " + arrival + " is far from the road surface (hit y " + hit.point.y + ").");
+
+                for (int q = 0; q < portals.Count; q++)
+                {
+                    BoxCollider trigger = portals[q].GetComponent<BoxCollider>();
+                    if (trigger == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 local = trigger.transform.InverseTransformPoint(new Vector3(arrival.x, hit.point.y + 0.6f, arrival.z)) - trigger.center;
+                    bool inside = Mathf.Abs(local.x) <= trigger.size.x * 0.5f && Mathf.Abs(local.y) <= trigger.size.y * 0.5f && Mathf.Abs(local.z) <= trigger.size.z * 0.5f;
+                    Assert.IsFalse(inside, portal.name + " arrival " + arrival + " sits inside " + portals[q].name + "'s trigger (would bounce straight back).");
+                }
             }
         }
 

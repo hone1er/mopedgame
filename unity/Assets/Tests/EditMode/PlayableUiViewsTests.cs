@@ -388,7 +388,14 @@ namespace MopedSim.Tests.EditMode
             shop.BuildDefaultLayout((RectTransform)host.transform);
             shop.RenderCatalog(db, world, bike, "Parts ready");
 
-            Assert.AreEqual(db.PartList.Count, shop.VisibleCount);
+            shop.SetFitsBikeOnly(false);
+            int forSale = 0;
+            for (int i = 0; i < db.PartList.Count; i++)
+            {
+                if (PartsCatalogShopView.TabOf(db.PartList[i]).HasValue) { forSale++; }
+            }
+
+            Assert.AreEqual(forSale, shop.VisibleCount);
             Assert.AreEqual("Parts ready", shop.DisplayedFeedback);
 
             string boughtPartId = string.Empty;

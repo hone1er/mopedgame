@@ -6,6 +6,7 @@ using System.IO;
 using MopedSim.Core;
 using MopedSim.Garage;
 using MopedSim.Ride;
+using MopedSim.UI;
 using UnityEngine;
 
 namespace MopedSim.App
@@ -339,11 +340,30 @@ namespace MopedSim.App
             bool shop = _app.IsShopOpen;
             yield return Settle(0.5f);
             yield return Capture(r, "03_shop");
+            PartsCatalogShopView shopView = FindAnyObjectByType<PartsCatalogShopView>(FindObjectsInactive.Include);
+            bool bought = false;
+            if (shopView != null)
+            {
+                shopView.SelectTab(ShopTab.FuelCarb);
+                decimal cashBefore = _app.World.CashUsd;
+                for (int i = 0; i < shopView.VisibleCount && !bought; i++)
+                {
+                    PartDefinition part = shopView.GetVisible(i);
+                    if (shopView.CanAfford(part) && part.PriceUsd > 0m)
+                    {
+                        shopView.TriggerBuyPart(part.Id);
+                        bought = _app.World.CashUsd < cashBefore;
+                    }
+                }
+            }
+
+            yield return Settle(0.5f);
+            yield return Capture(r, "03_shop_bought");
             yield return PressHotkey(false, false, true);
             r.passed = settings && shop && !_app.IsSettingsMenuOpen && !_app.IsShopOpen;
             if (!r.passed)
             {
-                r.note = "settings=" + settings + " shop=" + shop;
+                r.note = "settings=" + settings + " shop=" + shop + " bought=" + bought;
             }
         }
 

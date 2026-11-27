@@ -6,6 +6,20 @@ namespace MopedSim.Core.Tests
     public sealed class AssemblyGraphTests
     {
         [Fact]
+        public void FindCompatibleSlotId_MatchesCategoryAndInterface_AndRejectsForeignParts()
+        {
+            BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);
+            var catalog = TestFixtures.CreateCatalog();
+
+            Assert.Null(bike.Assembly.FindCompatibleSlotId(null!));
+            Assert.Equal(SlotIds.Frame, bike.Assembly.FindCompatibleSlotId(catalog["frame_maxer_e50"]));
+            var wrongInterface = new PartDefinition("pipe_foreign", "Foreign Pipe", PartCategory.Exhaust, new[] { "Nope_Flange" }, 1f, 10m);
+            Assert.Null(bike.Assembly.FindCompatibleSlotId(wrongInterface));
+            var wrongCategory = new PartDefinition("tool_x", "Tool", PartCategory.ToolRollItem, new[] { "ToolRoll" }, 0.1f, 5m);
+            Assert.Null(bike.Assembly.FindCompatibleSlotId(wrongCategory));
+        }
+
+        [Fact]
         public void CylinderRemoval_BlockedUntilHeadNutsHeadExhaustAndIntakeRemoved()
         {
             BikeSimulation bike = TestFixtures.CreateStockBike(ArchetypeIds.MaxerE50);

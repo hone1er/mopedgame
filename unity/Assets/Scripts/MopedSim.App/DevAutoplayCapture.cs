@@ -19,12 +19,13 @@ namespace MopedSim.App
     public sealed class DevAutoplayCapture : MonoBehaviour
     {
         public const string CommandLineFlag = "-autoplayCapture";
+        /// <summary>Opt-in: open the J gig board, accept a gig and ride it (11_*.png), then capture the objective guidance marker (10_gig_guidance.png).</summary>
+        public const string GigFlag = "-autoplayGig";
+
 
         /// <summary>Opt-in: keep the title screen, capture it + the archetype picker + the pause menu, then New Game with the default bike.</summary>
         public const string TitleCommandLineFlag = "-autoplayTitle";
 
-        /// <summary>Opt-in: open the gig dispatch board (J), accept an eligible West Oakland gig and ride with the active-gig HUD.</summary>
-        public const string GigCommandLineFlag = "-autoplayGig";
         private const string GigJobId = "gig_west_oakland_coffee";
         private const float BootTimeoutSeconds = 60f;
         private const float RideSeconds = 5f;
@@ -162,9 +163,10 @@ namespace MopedSim.App
             yield return Step("ride_throttle", RideStraightRoutine);
             yield return Step("steer_right_left", SteerRoutine);
             yield return Step("chase_camera", ChaseRoutine);
-            if (HasFlag(GigCommandLineFlag))
+            if (HasFlag(GigFlag))
             {
                 yield return Step("gig_board_and_active", GigRoutine);
+                yield return Step("gig_guidance", GigGuidanceRoutine);
             }
 
             yield return Step("breakdown_roadside_repair", BreakdownRoutine);
@@ -260,11 +262,6 @@ namespace MopedSim.App
         private static bool HasTitleFlag()
         {
             return HasFlag(TitleCommandLineFlag);
-        }
-
-        private static bool HasFlag(string flag)
-        {
-            return Array.IndexOf(Environment.GetCommandLineArgs(), flag) >= 0;
         }
 
         private IEnumerator TitleRoutine(StepRecord r)
@@ -383,6 +380,46 @@ namespace MopedSim.App
             }
         }
 
+        private static bool HasFlag(string flag)
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], flag, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerator GigGuidanceRoutine(StepRecord r)
+        {
+            bool accepted = false;
+            foreach (JobDefinition job in _app.Catalog.Jobs.Values)
+            {
+                if (_app.AcceptJob(job).Accepted)
+                {
+                    accepted = true;
+                    r.note = "Accepted " + job.Id;
+                    break;
+                }
+            }
+
+            if (!accepted)
+            {
+                r.note = "No catalog job could be accepted.";
+                yield break;
+            }
+
+            SetRide(0.4f, 0f);
+            yield return RideFor(1.5f);
+            yield return Capture(r, "10_gig_guidance");
+            r.passed = _app.Courier != null && _app.Courier.HasActiveJob;
+            _app.AbandonJob();
+        }
+
         private IEnumerator ChaseRoutine(StepRecord r)
         {
             // Steering earlier can leave the road; return to the ride-start pose so the camera step is shot on the road.
@@ -448,6 +485,14 @@ namespace MopedSim.App
             }
 
             SetRide(0.7f, 0f);
+            yield return RideFor(2f);
+            yield return Capture(r, "11_gig_pickup");
+            float t0 = Time.time;
+            while (_app.Courier.HasActiveJob && _app.Courier.Jobs.CheckpointsReached == 0 && Time.time - t0 < 20f)
+            {
+                yield return null;
+            }
+
             yield return RideFor(3f);
             yield return Capture(r, "11_gig_active");
             bool stillActive = _app.Courier.HasActiveJob;

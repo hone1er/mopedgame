@@ -35,6 +35,7 @@ namespace MopedSim.UI
         public const float DistanceBucketMeters = 10f;
         public const float ObjectiveHeight = 108f;
         public const int LowTimeSeconds = 30;
+        public const float FinishedLingerSeconds = 3f;
 
         static JobBoardHudView()
         {
@@ -94,6 +95,7 @@ namespace MopedSim.UI
         private int _remaining = -1;
         private int _remainingLow = -1;
         private int _objVisible = -1;
+        private float _terminalSeconds;
 
         private void Awake()
         {
@@ -323,7 +325,20 @@ namespace MopedSim.UI
         public void Render(in JobSessionSnapshot snapshot, string jobTitle)
         {
             _renderCount++;
-            bool hasJob = snapshot.Status != JobSessionStatus.Idle;
+            // Finished gigs (complete / failed / abandoned) linger briefly, then the panel hides; an uncollected reward stays up.
+            JobSessionStatus st = snapshot.Status;
+            bool terminal = st == JobSessionStatus.Completed || st == JobSessionStatus.Failed || st == JobSessionStatus.Abandoned;
+            bool pendingReward = st == JobSessionStatus.Completed && !snapshot.RewardCollected;
+            if (!terminal)
+            {
+                _terminalSeconds = 0f;
+            }
+            else if (!pendingReward)
+            {
+                _terminalSeconds += Time.unscaledDeltaTime;
+            }
+
+            bool hasJob = st == JobSessionStatus.Active || (terminal && (pendingReward || _terminalSeconds < FinishedLingerSeconds));
             SetVisible(hasJob ? 1 : 0);
 
             string title = jobTitle ?? string.Empty;

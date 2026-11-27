@@ -195,3 +195,24 @@ ADR-001 chose URP, and `com.unity.render-pipelines.universal` 17.6 was installed
 ### Revisit Triggers
 - If parts move to Addressables, or runtime glTF loading is replaced by imported prefabs (then drop the StreamingAssets staging).
 - If a second render pipeline (HDRP) or per-platform pipeline assets are introduced.
+
+---
+
+## ADR-008: Paint Booth Tints Only `mat_enamel_*` Submeshes; Exports Are Bike-Frame Aligned
+
+- **Status**: Accepted
+- **Date**: 2026-11-26
+
+### Context
+`PaintBoothController` set one renderer-level `MaterialPropertyBlock` on each body-slot part. glTFast imports a Blender part as a single renderer with one submesh per glTF material, so painting a frame also repainted its chrome fender, rubber pedals, black backbone, white cowl and tank pinstripes. The vintage asset pass (Puch Maxi / Hobbit / Magnum II homages) relies on multi-material two-tone detail. Separately, cylinder port sockets were rotated so that exhausts authored in the bike frame pointed straight up through the seat.
+
+### Decision
+- **Paint rule**: on body slots (`Frame`, `FuelTank`, `FrontFender`) the paint booth tints only submeshes whose material name starts with `mat_enamel_`. It uses per-material-index property blocks (`Renderer.SetPropertyBlock(block, index)`) and never a renderer-wide block. Name matches are cached per `Material` instance. Non-paint finishes use other prefixes: `mat_chrome`, `mat_rubber`, `mat_trim_*` for fixed accents and stripes, and `mat_frame_black` for powder-coated frames.
+- **Export orientation** (PROJECT_GUIDE §5.2): `+X` is the rider's left. Crankcases tilt `SOCKET_CYLINDER_BASE` forward by `CYLINDER_FORWARD_TILT`, and cylinder port sockets counter-rotate by it, so exhausts and intakes are authored in the bike frame. `shocks_*` bakes the right-hand shock because the catalog mounts suspension once, at `SOCKET_SHOCK_TOP_L`.
+
+### Consequences
+- **Positive**: two-tone bikes keep their trim under any paint swatch. The rule is a single naming convention that the Blender generators already control.
+- **Negative / Mitigations**: authors must choose material names deliberately. A body-slot part with no `mat_enamel_*` material ignores paint, and a stray `mat_enamel_*` accent gets repainted. Gate 2 should check that every body-slot part has at least one `mat_enamel_*` material.
+
+### Revisit Triggers
+- If parts move to imported prefabs with authored material slots, or to a shader-based paint mask (vertex colour or texture channel).

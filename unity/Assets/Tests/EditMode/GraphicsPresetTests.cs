@@ -11,6 +11,7 @@ namespace MopedSim.Tests.EditMode
     {
         private int _origLevel;
         private int _origFps;
+        private int[] _origVSyncPerLevel;
         private GameObject _root;
         private string _tempDir;
 
@@ -19,14 +20,32 @@ namespace MopedSim.Tests.EditMode
         {
             _origLevel = QualitySettings.GetQualityLevel();
             _origFps = Application.targetFrameRate;
+            // Presets write vSyncCount=0 into whichever level they activate; those per-level values persist into
+            // ProjectSettings/QualitySettings.asset in the Editor, so snapshot them all and restore in TearDown.
+            _origVSyncPerLevel = new int[QualitySettings.names.Length];
+            for (int i = 0; i < _origVSyncPerLevel.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, false);
+                _origVSyncPerLevel[i] = QualitySettings.vSyncCount;
+            }
+
+            QualitySettings.SetQualityLevel(_origLevel, false);
+            GraphicsPresetTable.AllowEditorQualityChanges = true;
             _tempDir = Path.Combine(Path.GetTempPath(), "gfx_" + System.Guid.NewGuid().ToString("N"));
         }
 
         [TearDown]
         public void TearDown()
         {
+            for (int i = 0; i < _origVSyncPerLevel.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, false);
+                QualitySettings.vSyncCount = _origVSyncPerLevel[i];
+            }
+
             QualitySettings.SetQualityLevel(_origLevel, true);
             Application.targetFrameRate = _origFps;
+            GraphicsPresetTable.AllowEditorQualityChanges = false;
             if (_root != null)
             {
                 Object.DestroyImmediate(_root);

@@ -21,7 +21,7 @@ namespace MopedSim.App
         public const string CommandLineFlag = "-autoplayCapture";
         private const float BootTimeoutSeconds = 60f;
         private const float RideSeconds = 5f;
-        private const float SteerSeconds = 2f;
+        private const float SteerSeconds = 3f;
 
         [Serializable]
         private sealed class StepRecord
@@ -201,7 +201,7 @@ namespace MopedSim.App
             {
                 if (_app == null)
                 {
-                    _app = FindFirstObjectByType<AppCompositionRoot>();
+                    _app = FindAnyObjectByType<AppCompositionRoot>();
                 }
 
                 if (_app != null && _app.IsBootstrapped && _app.Zones != null && _app.Zones.IsZoneLoaded("Zone_WestOakland"))
@@ -218,7 +218,7 @@ namespace MopedSim.App
                 yield break;
             }
 
-            _ride = FindFirstObjectByType<MopedBikeController>();
+            _ride = FindAnyObjectByType<MopedBikeController>();
             // Pack the repair kit so the roadside repair step can succeed (same as the release-candidate PlayMode test).
             _app.TryPackToolRollItem(ToolIds.SparkPlugWrench);
             _app.TryPackToolRollItem(ToolIds.SparePlug);
@@ -234,7 +234,7 @@ namespace MopedSim.App
 
         private IEnumerator GarageCloseupsRoutine(StepRecord r)
         {
-            GarageWorkstandController stand = FindFirstObjectByType<GarageWorkstandController>();
+            GarageWorkstandController stand = FindAnyObjectByType<GarageWorkstandController>();
             if (stand == null)
             {
                 r.note = "No GarageWorkstandController.";
